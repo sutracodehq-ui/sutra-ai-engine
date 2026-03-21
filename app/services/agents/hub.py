@@ -95,6 +95,20 @@ class AiAgentHub:
         from app.services.agents.call_summarizer import CallSummarizerAgent
         from app.services.agents.ivr_designer import IvrDesignerAgent
 
+        # ─── Phase 10: Video Intelligence ─────────────────
+        from app.services.agents.youtube_analyzer import YoutubeAnalyzerAgent
+        from app.services.agents.video_summarizer import VideoSummarizerAgent
+        from app.services.agents.caption_generator import CaptionGeneratorAgent
+        from app.services.agents.audio_dubber import AudioDubberAgent
+        from app.services.agents.social_clip_maker import SocialClipMakerAgent
+
+        # ─── Phase 11: EdTech Intelligence ────────────────
+        from app.services.agents.note_generator import NoteGeneratorAgent
+        from app.services.agents.key_points_extractor import KeyPointsExtractorAgent
+        from app.services.agents.quiz_generator import QuizGeneratorAgent
+        from app.services.agents.flashcard_creator import FlashcardCreatorAgent
+        from app.services.agents.lecture_planner import LecturePlannerAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -123,6 +137,12 @@ class AiAgentHub:
             # Phase 9: Voice & Calling
             ColdCallScripterAgent, CallSentimentAnalyzerAgent,
             WhatsappBotBuilderAgent, CallSummarizerAgent, IvrDesignerAgent,
+            # Phase 10: Video Intelligence
+            YoutubeAnalyzerAgent, VideoSummarizerAgent, CaptionGeneratorAgent,
+            AudioDubberAgent, SocialClipMakerAgent,
+            # Phase 11: EdTech Intelligence
+            NoteGeneratorAgent, KeyPointsExtractorAgent, QuizGeneratorAgent,
+            FlashcardCreatorAgent, LecturePlannerAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)

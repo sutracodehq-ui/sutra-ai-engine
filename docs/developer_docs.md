@@ -1,7 +1,7 @@
 # SutraAI Engine — Developer Documentation
 
 > **Version 0.2.0** · Standalone Multi-Tenant AI Microservice  
-> 43 AI Agents · Voice Pipeline · 30+ Indian Languages · Self-Learning
+> 53 AI Agents · Voice Pipeline · Video Intelligence · EdTech · 30+ Indian Languages
 
 ---
 
@@ -12,7 +12,7 @@
 3. [Database Schema](#3-database-schema)
 4. [Authentication & Multi-Tenancy](#4-authentication--multi-tenancy)
 5. [LLM Driver System](#5-llm-driver-system)
-6. [Agent Architecture](#6-agent-architecture) — *43 Agents across 10 Phases*
+6. [Agent Architecture](#6-agent-architecture) — *53 Agents across 12 Phases*
 7. [Chat Pipeline Lifecycle](#7-chat-pipeline-lifecycle)
 8. [Intelligence Layer](#8-intelligence-layer)
 9. [RAG & Knowledge Base](#9-rag--knowledge-base)
@@ -351,7 +351,7 @@ class LlmResponse:
 
 Agents are **specialized AI workers** defined by YAML configurations. Each agent has a domain, response schema, and capabilities.
 
-### Currently Registered Agents (43 Total)
+### Currently Registered Agents (53 Total)
 
 #### Core Marketing (Phase 0)
 
@@ -446,6 +446,26 @@ Agents are **specialized AI workers** defined by YAML configurations. Each agent
 | WhatsApp Bot Builder | `whatsapp_bot_builder` | WhatsApp Business bot flows |
 | Call Summarizer | `call_summarizer` | Call transcription summarization |
 | IVR Designer | `ivr_designer` | IVR menu flow design |
+
+#### Video Intelligence (Phase 10)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| YouTube Analyzer | `youtube_analyzer` | Video transcript extraction, metadata, SEO analysis |
+| Video Summarizer | `video_summarizer` | Chapter markers, key moments, TL;DR summaries |
+| Caption Generator | `caption_generator` | SRT/VTT subtitles in 30+ Indian languages |
+| Audio Dubber | `audio_dubber` | Transcript translation + TTS dubbing preparation |
+| Social Clip Maker | `social_clip_maker` | Viral moment detection for Reels/Shorts/TikTok |
+
+#### EdTech Intelligence (Phase 11)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Note Generator | `note_generator` | Structured study notes from lectures |
+| Key Points Extractor | `key_points_extractor` | Formulas, definitions, theorems extraction |
+| Quiz Generator | `quiz_generator` | MCQs, true/false, fill-in-blanks with explanations |
+| Flashcard Creator | `flashcard_creator` | Spaced-repetition flashcards (Anki-style) |
+| Lecture Planner | `lecture_planner` | Full lecture series planning from syllabus |
 
 ### Agent Hydration Lifecycle
 
