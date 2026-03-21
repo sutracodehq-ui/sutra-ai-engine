@@ -98,55 +98,31 @@ class BaseAgent:
 
     async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None) -> Tuple[str, Optional[int]]:
         """
-        Resolve the system prompt.
-        Pattern: 
-        1. 10% chance to try a 'Candidate' prompt (is_active=False) for A/B testing.
-        2. Fallback to 'Active' prompt (is_active=True).
-        3. Fallback to YAML config.
+        Resolve the system prompt via the Self-Optimizing Prompt Engine.
+        
+        Strategy:
+        1. PromptEngine selects champion or candidate (with explore rate)
+        2. Fallback to YAML config if no DB prompts exist
         
         Returns (prompt_text, optimization_id).
         """
-        from app.models.agent_optimization import AgentOptimization
-
         if not db:
             return self._build_from_config(context), None
 
         try:
-            # 1. Decide if we are in 'Test' mode (10% traffic)
-            is_test = random.random() < 0.1
-            
-            if is_test:
-                # Try to find a recent candidate (not yet active)
-                stmt = (
-                    select(AgentOptimization)
-                    .where(AgentOptimization.agent_type == self.identifier)
-                    .where(AgentOptimization.is_active == False)
-                    .order_by(AgentOptimization.version.desc())
-                    .limit(1)
-                )
-                result = await db.execute(stmt)
-                candidate = result.scalar_one_or_none()
-                if candidate:
-                    logger.info(f"🧪 A/B Testing: Using Candidate Prompt v{candidate.version} for {self.identifier}")
-                    return candidate.prompt_text, candidate.id
+            from app.services.intelligence.prompt_engine import PromptEngine
+            engine = PromptEngine(db)
 
-            # 2. Try to find the Active prompt
-            stmt = (
-                select(AgentOptimization)
-                .where(AgentOptimization.agent_type == self.identifier)
-                .where(AgentOptimization.is_active == True)
-                .order_by(AgentOptimization.version.desc())
-                .limit(1)
-            )
-            result = await db.execute(stmt)
-            active = result.scalar_one_or_none()
-            if active:
-                return active.prompt_text, active.id
+            prompt_text, opt_id = await engine.select_prompt(self.identifier)
+            if prompt_text:
+                return prompt_text, opt_id
+
         except Exception as e:
-            logger.error(f"Error resolving evolved prompt for {self.identifier}: {e}")
+            logger.error(f"PromptEngine fallback for {self.identifier}: {e}")
 
-        # 3. Final fallback: Static YAML
+        # Final fallback: Static YAML with CoT/JSON injections
         return self._build_from_config(context), None
+
 
     async def build_messages(
         self, 

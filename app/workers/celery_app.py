@@ -37,6 +37,11 @@ celery_app.conf.beat_schedule = {
         "task": "optimize_prompts",
         "schedule": crontab(hour=2, minute=0),
     },
+    # Daily 2:30 AM — Prompt Engine: Evaluate and promote winning candidates
+    "evaluate-prompt-promotions": {
+        "task": "evaluate_prompt_promotions",
+        "schedule": crontab(hour=2, minute=30),
+    },
     # Daily 3 AM — TextGrad: Reverse-engineers user edit patterns
     "edit-diff-analyze": {
         "task": "app.workers.edit_diff_job.edit_diff_analyze",
@@ -62,6 +67,11 @@ celery_app.conf.beat_schedule = {
     "token-usage-aggregate": {
         "task": "app.workers.token_aggregator_job.token_usage_aggregate",
         "schedule": crontab(minute="*/30"),
+    },
+    # Every hour — Scan web for AI trends, stocks, crypto
+    "scan-web-intelligence": {
+        "task": "scan_web_intelligence",
+        "schedule": crontab(minute=0),  # Top of every hour
     },
 }
 

@@ -109,6 +109,13 @@ class AiAgentHub:
         from app.services.agents.flashcard_creator import FlashcardCreatorAgent
         from app.services.agents.lecture_planner import LecturePlannerAgent
 
+        # ─── Phase 12: Market & Finance Intelligence ──────
+        from app.services.agents.stock_analyzer import StockAnalyzerAgent
+        from app.services.agents.stock_predictor import StockPredictorAgent
+        from app.services.agents.market_trend_analyzer import MarketTrendAnalyzerAgent
+        from app.services.agents.ai_trend_tracker import AiTrendTrackerAgent
+        from app.services.agents.crypto_analyzer import CryptoAnalyzerAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -143,6 +150,9 @@ class AiAgentHub:
             # Phase 11: EdTech Intelligence
             NoteGeneratorAgent, KeyPointsExtractorAgent, QuizGeneratorAgent,
             FlashcardCreatorAgent, LecturePlannerAgent,
+            # Phase 12: Market & Finance Intelligence
+            StockAnalyzerAgent, StockPredictorAgent, MarketTrendAnalyzerAgent,
+            AiTrendTrackerAgent, CryptoAnalyzerAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
