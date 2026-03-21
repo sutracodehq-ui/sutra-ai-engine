@@ -458,3 +458,29 @@ chatbot:
     en: "Let me check on that for you. I'll get back shortly!"
     hi: "मैं इसकी जांच कर रही हूँ। जल्दी ही जवाब दूँगी!"
     ta: "நான் அதைச் சரிபார்க்கிறேன். விரைவில் பதிலளிக்கிறேன்!"
+
+# ─── Health Intelligence ───────────────────────────────────
+health:
+  # Safety first — every health response must include disclaimer
+  disclaimer:
+    en: "This is informational only. Please consult a healthcare professional."
+    hi: "यह केवल जानकारी के लिए है। कृपया डॉक्टर से सलाह लें।"
+
+  # India emergency numbers
+  emergency:
+    ambulance: "108"
+    mental_health:
+      - name: "Vandrevala Foundation"
+        number: "1860-2662-345"
+        hours: "24/7"
+      - name: "iCall"
+        number: "9152987821"
+      - name: "AASRA"
+        number: "91-22-27546669"
+
+  # Triage levels
+  triage_levels:
+    self_care: { color: "green", response_time: "self-managed" }
+    clinic_visit: { color: "yellow", response_time: "24-48 hours" }
+    urgent: { color: "orange", response_time: "today" }
+    emergency: { color: "red", response_time: "immediate — call 108" }
