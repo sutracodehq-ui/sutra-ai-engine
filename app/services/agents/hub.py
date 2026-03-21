@@ -121,6 +121,15 @@ class AiAgentHub:
         from app.services.agents.dataset_optimizer import DatasetOptimizerAgent
         from app.services.agents.ml_pipeline import MlPipelineAgent
 
+        # ─── Phase 14: Health Intelligence ─────────────────
+        from app.services.agents.lab_report_interpreter import LabReportInterpreterAgent
+        from app.services.agents.symptom_triage import SymptomTriageAgent
+        from app.services.agents.diet_planner import DietPlannerAgent
+        from app.services.agents.mental_health_companion import MentalHealthCompanionAgent
+        from app.services.agents.medicine_info import MedicineInfoAgent
+        from app.services.agents.patient_followup import PatientFollowupAgent
+        from app.services.agents.ayurveda_advisor import AyurvedaAdvisorAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -160,6 +169,10 @@ class AiAgentHub:
             AiTrendTrackerAgent, CryptoAnalyzerAgent,
             # Phase 13: Data & ML Intelligence
             DataCuratorAgent, DatasetOptimizerAgent, MlPipelineAgent,
+            # Phase 14: Health Intelligence
+            LabReportInterpreterAgent, SymptomTriageAgent, DietPlannerAgent,
+            MentalHealthCompanionAgent, MedicineInfoAgent, PatientFollowupAgent,
+            AyurvedaAdvisorAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)

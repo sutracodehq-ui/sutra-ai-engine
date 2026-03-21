@@ -437,3 +437,24 @@ voip:
     ta: "இந்த அழைப்பு தரம் மற்றும் பயிற்சி நோக்கங்களுக்காக பதிவு செய்யப்படலாம்."
     te: "ఈ కాల్ నాణ్యత మరియు శిక్షణ ప్రయోజనాల కోసం రికార్డ్ చేయబడవచ్చు."
     bn: "এই কলটি গুণমান এবং প্রশিক্ষণের উদ্দেশ্যে রেকর্ড করা হতে পারে।"
+
+# ─── Embeddable Chatbot ────────────────────────────────────
+chatbot:
+  default_agent: "chatbot_trainer"
+  confidence_threshold: 0.6         # Below this → escalate to owner
+  max_history_messages: 20          # Context window per session
+  session_timeout_minutes: 30
+
+  # Auto-escalation to brand owner
+  escalation:
+    confidence_threshold: 0.6
+    whatsapp:
+      api_url: null                 # Set via env: WHATSAPP_API_URL
+      api_key: null                 # Set via env: WHATSAPP_API_KEY
+      default_owner_phone: null     # Per-brand in DB, fallback here
+
+  # Holding messages (shown while waiting for owner)
+  holding_messages:
+    en: "Let me check on that for you. I'll get back shortly!"
+    hi: "मैं इसकी जांच कर रही हूँ। जल्दी ही जवाब दूँगी!"
+    ta: "நான் அதைச் சரிபார்க்கிறேன். விரைவில் பதிலளிக்கிறேன்!"
