@@ -39,9 +39,10 @@ def create_app() -> FastAPI:
 
     # ─── Load OpenAPI config from YAML (config-driven, not hardcoded) ───
     import yaml
-    import os
+    from pathlib import Path
 
-    openapi_config_path = os.path.join(os.getcwd(), "config", "openapi.yaml")
+    project_root = Path(__file__).resolve().parent.parent  # app/main.py → project root
+    openapi_config_path = project_root / "config" / "openapi.yaml"
     with open(openapi_config_path, "r") as f:
         openapi_cfg = yaml.safe_load(f)
 
@@ -92,19 +93,18 @@ def create_app() -> FastAPI:
     from app.api.v1.router import router as v1_router
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
-    import os
 
     app.include_router(health_router)
     app.include_router(v1_router)
 
     # Serve Interactive Developer Docs
-    docs_path = os.path.join(os.getcwd(), "docs")
-    if os.path.exists(docs_path):
+    docs_path = str(project_root / "docs")
+    if (project_root / "docs").exists():
         app.mount("/docs/static", StaticFiles(directory=docs_path), name="docs_static")
 
         @app.get("/docs/dev", include_in_schema=False)
         async def dev_docs():
-            return FileResponse(os.path.join(docs_path, "index.html"))
+            return FileResponse(str(project_root / "docs" / "index.html"))
 
     return app
 
