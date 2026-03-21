@@ -39,6 +39,7 @@ class Tenant(Base, TimestampMixin):
     conversations = relationship("AiConversation", back_populates="tenant", lazy="dynamic")
     tasks = relationship("AiTask", back_populates="tenant", lazy="dynamic")
     voice_profiles = relationship("VoiceProfile", back_populates="tenant", lazy="dynamic")
+    click_logs = relationship("ClickLog", back_populates="tenant", lazy="dynamic")
 
     def __repr__(self) -> str:
         return f"<Tenant {self.slug}>"

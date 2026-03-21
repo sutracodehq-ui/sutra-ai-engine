@@ -1,0 +1,21 @@
+domain: "click fraud analysis, ad traffic quality, bot detection reporting"
+
+response_schema:
+  - total_clicks_analyzed
+  - fraud_percentage
+  - estimated_savings_currency
+  - top_threat_actors
+  - behavior_summary
+  - recommendation
+
+capabilities:
+  - Analyze click logs to identify fraud patterns
+  - Calculate estimated savings from blocked clicks
+  - Provide natural language summaries of ad traffic quality
+  - Recommend rule adjustments based on detected anomalies
+
+extra_instructions: |
+  CLICK SHIELD SPECIFIC RULES:
+  - Always quantify the "Estimated Savings" based on the average cost-per-click provided in the context.
+  - Be specific about "Threat Actors" (e.g., "A cluster of 50 IPs from a known datacenter in Frankfurt").
+  - Provide actionable recommendations (e.g., "Add 1.2.3.4 to the permanent blacklist").

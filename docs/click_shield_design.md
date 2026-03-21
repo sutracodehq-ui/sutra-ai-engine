@@ -24,7 +24,7 @@ The Click Shield follows a **sidecar/microservice** model. The main marketing to
 sequenceDiagram
     participant User as End User (Bot/Human)
     participant Page as Landing Page (Main Tool)
-    participant Pixel as Click Shield JS Pixel
+    participant Pixel as Native Tracking Script (Reference: pixel.js)
     participant SutraAI as SutraAI Engine
     participant Main as Main Marketing Tool
     

@@ -39,6 +39,7 @@ class AiAgentHub:
         from app.services.agents.sms import SmsAgent
         from app.services.agents.ad_creative import AdCreativeAgent
         from app.services.agents.brand_auditor import BrandAuditorAgent
+        from app.services.agents.click_shield import ClickShieldAgent
         from app.services.agents.content_repurpose import ContentRepurposerAgent
 
         llm = get_llm_service()
@@ -51,6 +52,7 @@ class AiAgentHub:
             SmsAgent, 
             AdCreativeAgent,
             BrandAuditorAgent,
+            ClickShieldAgent,
             ContentRepurposerAgent
         ]:
             agent = agent_cls(llm)

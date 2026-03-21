@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.v1.chat import router as chat_router
 from app.api.v1.agents import router as agents_router
+from app.api.v1.clicks import router as clicks_router
 from app.api.v1.conversations import router as conversations_router
 from app.api.v1.tasks import router as tasks_router
 from app.api.v1.tenants import router as tenants_router
@@ -20,6 +21,7 @@ router = APIRouter()
 router.include_router(chat_router)
 router.include_router(conversations_router)
 router.include_router(agents_router)
+router.include_router(clicks_router)
 # router.include_router(voice_router)
 router.include_router(intelligence_router)
 router.include_router(rag_router)
