@@ -67,10 +67,12 @@ class VoiceProfileSeeder(BaseSeeder):
                 profile = VoiceProfile(
                     tenant_id=tenant.id,
                     name=profile_data["name"],
-                    tone=profile_data["tone"],
-                    style=profile_data["style"],
-                    instructions=profile_data["instructions"],
                     is_default=profile_data["is_default"],
+                    tone_attributes={
+                        "tone": profile_data["tone"],
+                        "style": profile_data["style"],
+                    },
+                    system_modifier=profile_data["instructions"],
                 )
                 db.add(profile)
                 logger.info(f"  ✅ Created voice profile '{profile_data['name']}' for {tenant.slug}")
