@@ -1,7 +1,9 @@
 """
-Context Aggregator — fetches all required data for a chat request in parallel.
+Context Aggregator — fetches all necessary data for a chat turn.
 
-Uses asyncio.gather to minimize pre-LLM latency.
+Software Factory: Parallel context gathering. 
+Fetches Tenant, Voice Profile, Conversation History, Sentiment, 
+and Language in a single concurrent batch.
 """
 
 import asyncio
@@ -10,117 +12,88 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models.tenant import Tenant
-from app.models.voice_profile import VoiceProfile
 from app.models.ai_conversation import AiConversation
 from app.models.ai_task import AiTask
+from app.models.tenant import Tenant
+from app.models.voice_profile import VoiceProfile
 
 logger = logging.getLogger(__name__)
 
 
 class ContextAggregator:
-    """Logic for concurrent data retrieval."""
+    """Service to fetch chat context in parallel."""
 
-    @classmethod
     async def gather(
-        cls,
+        self,
         db: AsyncSession,
         tenant: Tenant,
+        prompt: str | None = None,
         conversation_id: int | None = None,
         voice_profile_id: int | None = None,
-        voice_profile_name: str | None = None,
+        voice_profile_name: str | None = None
     ) -> dict[str, Any]:
-        """
-        Main entry point for gathering context.
-        Returns a dict containing:
-        - voice_profile: VoiceProfile | None
-        - conversation: AiConversation | None
-        - history: list[AiTask]
-        """
-        tasks = []
+        """Fetch all context in parallel."""
+        from app.services.intelligence.sentiment import SentimentService
+        from app.services.intelligence.language import LanguageService
 
-        # 1. Fetch Voice Profile
-        tasks.append(cls._fetch_voice_profile(db, tenant.id, voice_profile_id, voice_profile_name))
-
-        # 2. Fetch Conversation + Recent History
-        if conversation_id:
-            tasks.append(cls._fetch_conversation_with_history(db, tenant.id, conversation_id))
+        tasks = [
+            self._fetch_voice_profile(db, tenant.id, voice_profile_id, voice_profile_name),
+            self._fetch_history(db, conversation_id) if conversation_id else self._empty_history(),
+        ]
+        
+        # Add intelligence tasks if prompt is provided
+        if prompt:
+            tasks.append(SentimentService.analyze(prompt))
+            tasks.append(LanguageService.detect(prompt))
         else:
-            tasks.append(asyncio.sleep(0, result=(None, [])))
+            tasks.append(self._empty_sentiment())
+            tasks.append(self._empty_language())
 
-        # Run all in parallel
-        voice_profile, (conversation, history) = await asyncio.gather(*tasks)
+        results = await asyncio.gather(*tasks)
 
         return {
-            "voice_profile": voice_profile,
-            "conversation": conversation,
-            "history": history,
+            "tenant": tenant,
+            "voice_profile": results[0],
+            "history": results[1],
+            "sentiment": results[2],
+            "language": results[3]
         }
 
-    @staticmethod
     async def _fetch_voice_profile(
-        db: AsyncSession,
-        tenant_id: int,
-        profile_id: int | None = None,
-        profile_name: str | None = None,
+        self, db: AsyncSession, tenant_id: int, vp_id: int | None, vp_name: str | None
     ) -> VoiceProfile | None:
-        """Fetch a specific voice profile or the tenant's default."""
-        if profile_id:
-            result = await db.execute(
-                select(VoiceProfile).where(
-                    VoiceProfile.id == profile_id,
-                    VoiceProfile.tenant_id == tenant_id
-                )
-            )
-            return result.scalar_one_or_none()
-        
-        if profile_name:
-            result = await db.execute(
-                select(VoiceProfile).where(
-                    VoiceProfile.name == profile_name,
-                    VoiceProfile.tenant_id == tenant_id
-                )
-            )
-            profile = result.scalar_one_or_none()
-            if profile:
-                return profile
+        """Fetch voice profile by ID or Name."""
+        if not vp_id and not vp_name:
+            return None
 
-        # Fallback to default if nothing specifically requested
-        result = await db.execute(
-            select(VoiceProfile).where(
-                VoiceProfile.tenant_id == tenant_id,
-                VoiceProfile.is_default.is_(True)
-            )
-        )
+        stmt = select(VoiceProfile).where(VoiceProfile.tenant_id == tenant_id)
+        if vp_id:
+            stmt = stmt.where(VoiceProfile.id == vp_id)
+        else:
+            stmt = stmt.where(VoiceProfile.name == vp_name)
+
+        result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
-    @staticmethod
-    async def _fetch_conversation_with_history(
-        db: AsyncSession,
-        tenant_id: int,
-        conversation_id: int
-    ) -> tuple[AiConversation | None, list[AiTask]]:
-        """Fetch a conversation and its recent task history (last 10 turns)."""
-        result = await db.execute(
-            select(AiConversation).where(
-                AiConversation.id == conversation_id,
-                AiConversation.tenant_id == tenant_id
-            )
+    async def _fetch_history(self, db: AsyncSession, conversation_id: int) -> list[AiTask]:
+        """Fetch recent history for a conversation."""
+        stmt = (
+            select(AiTask)
+            .where(AiTask.conversation_id == conversation_id)
+            .order_by(AiTask.created_at.desc())
+            .limit(10)
         )
-        conversation = result.scalar_one_or_none()
-        if not conversation:
-            return None, []
+        result = await db.execute(stmt)
+        tasks = list(result.scalars().all())
+        return tasks[::-1]  # Return in chronological order
 
-        # Fetch last 10 successful tasks for context
-        history_result = await db.execute(
-            select(AiTask).where(
-                AiTask.conversation_id == conversation_id,
-                AiTask.status == "completed"
-            ).order_by(AiTask.created_at.desc()).limit(10)
-        )
-        history = list(history_result.scalars().all())
-        # Reverse to get chronological order
-        history.reverse()
+    async def _empty_history(self) -> list:
+        return []
 
-        return conversation, history
+    async def _empty_sentiment(self) -> dict:
+        return {"score": 0.0, "label": "neutral", "vibe": "unknown"}
+
+    async def _empty_language(self) -> dict:
+        return {"code": "en", "name": "English", "confidence": 1.0}

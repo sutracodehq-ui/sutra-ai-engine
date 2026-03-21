@@ -129,20 +129,69 @@ class BaseAgent(ABC):
         messages.append({"role": "user", "content": prompt})
         return messages
 
-    async def execute(self, prompt: str, context: dict | None = None, **options) -> LlmResponse:
+    async def get_system_prompt(self, db: Any | None = None, context: dict | None = None) -> str:
+        """
+        Resolve the system prompt.
+        1. Checks database for an active AgentOptimization.
+        2. Falls back to static YAML + composition.
+        """
+        if db:
+            from sqlalchemy import select
+            from app.models.agent_optimization import AgentOptimization
+            
+            # Check for active optimization
+            stmt = select(AgentOptimization).where(
+                AgentOptimization.agent_type == self.identifier,
+                AgentOptimization.is_active.is_(True)
+            ).order_by(AgentOptimization.version.desc()).limit(1)
+            
+            result = await db.execute(stmt)
+            optimization = result.scalar_one_or_none()
+            
+            if optimization:
+                logger.info(f"Agent '{self.identifier}': Using evolved prompt v{optimization.version}")
+                return optimization.prompt_text
+
+        return self.build_system_prompt(context)
+
+    async def execute(self, prompt: str, db: Any | None = None, context: dict | None = None, **options) -> LlmResponse:
         """Execute a single-shot task."""
-        system_prompt = self.build_system_prompt(context)
+        system_prompt = await self.get_system_prompt(db, context)
         return await self._llm.complete(system_prompt, prompt, **options)
+
+    async def build_messages(
+        self, 
+        prompt: str, 
+        history: list[dict] | None = None, 
+        db: Any | None = None,
+        context: dict | None = None
+    ) -> list[dict]:
+        """Build the full message array for the LLM."""
+        system_prompt = await self.get_system_prompt(db, context)
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Add conversation history
+        if history:
+            for msg in history:
+                messages.append({
+                    "role": msg.get("role", "user"),
+                    "content": msg.get("content", ""),
+                })
+
+        # Add current user prompt
+        messages.append({"role": "user", "content": prompt})
+        return messages
 
     async def execute_in_conversation(
         self,
         prompt: str,
         history: list[dict],
+        db: Any | None = None,
         context: dict | None = None,
         **options,
     ) -> LlmResponse:
         """Execute within a conversation, sending full history."""
-        messages = self.build_messages(prompt, history, context)
+        messages = await self.build_messages(prompt, history, db, context)
         return await self._llm.chat(messages, **options)
 
     def info(self) -> dict:

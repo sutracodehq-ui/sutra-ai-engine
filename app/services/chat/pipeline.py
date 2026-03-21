@@ -48,6 +48,7 @@ class ChatPipeline:
         context = await self.aggregator.gather(
             self.db,
             self.tenant,
+            prompt=prompt,
             conversation_id=conversation_id,
             voice_profile_id=voice_profile_id,
             voice_profile_name=voice_profile_name
@@ -55,9 +56,11 @@ class ChatPipeline:
         
         voice_profile = context["voice_profile"]
         history = context["history"]
+        sentiment = context["sentiment"]
+        language = context["language"]
 
         # Step 2: Build System Prompt & Messages
-        system_prompt = self._build_system_prompt(voice_profile)
+        system_prompt = self._build_system_prompt(voice_profile, sentiment, language)
         messages = self.pruner.compress_for_prompt(history)
         
         # Step 3: Cache Lookup (only if skipping stream or during sync)

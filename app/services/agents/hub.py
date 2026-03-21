@@ -63,30 +63,45 @@ class AiAgentHub:
         """Get metadata for all registered agents."""
         return [agent.info() for agent in self._agents.values()]
 
-    async def run(self, agent_type: str, prompt: str, context: dict | None = None, **options) -> LlmResponse:
+    async def run(
+        self, 
+        agent_type: str, 
+        prompt: str, 
+        db: Any | None = None,
+        context: dict | None = None, 
+        **options
+    ) -> LlmResponse:
         """Dispatch a task to the appropriate agent."""
         agent = self.get(agent_type)
         logger.info(f"AiAgentHub: running agent '{agent_type}'")
-        return await agent.execute(prompt, context, **options)
+        return await agent.execute(prompt, db=db, context=context, **options)
 
     async def run_in_conversation(
         self,
         agent_type: str,
         prompt: str,
         history: list[dict],
+        db: Any | None = None,
         context: dict | None = None,
         **options,
     ) -> LlmResponse:
         """Run a task within a conversation with full history."""
         agent = self.get(agent_type)
-        return await agent.execute_in_conversation(prompt, history, context, **options)
+        return await agent.execute_in_conversation(prompt, history, db=db, context=context, **options)
 
-    async def batch(self, prompt: str, agent_types: list[str], context: dict | None = None, **options) -> dict[str, LlmResponse]:
+    async def batch(
+        self, 
+        prompt: str, 
+        agent_types: list[str], 
+        db: Any | None = None,
+        context: dict | None = None, 
+        **options
+    ) -> dict[str, LlmResponse]:
         """Run multiple agents in parallel on the same prompt."""
         import asyncio
 
         async def _run(agent_type: str):
-            return agent_type, await self.run(agent_type, prompt, context, **options)
+            return agent_type, await self.run(agent_type, prompt, db=db, context=context, **options)
 
         results = await asyncio.gather(*[_run(t) for t in agent_types], return_exceptions=True)
 

@@ -108,6 +108,8 @@ class Settings(BaseSettings):
     # ─── Auto Learning ─────────────────────────────
     ai_auto_learning_enabled: bool = True
     ai_meta_prompt_enabled: bool = True
+    ai_meta_prompt_model: str = "gemini-2.0-flash"  # Flash is fast and cheap for reasoning
+    ai_meta_prompt_threshold: int = 20              # Min feedback items before optimization
     ai_edit_analysis: bool = True
     ai_ab_testing: bool = True
     ai_explore_rate: float = 0.2
