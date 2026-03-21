@@ -114,7 +114,7 @@ services:
       - sutra-ai-network
     restart: unless-stopped
 
-  # ─── Ollama (Local LLM — optional) ────────────────────
+  # ─── Ollama (Local LLM) ──────────────────────────────
   sutra-ai-ollama:
     image: ollama/ollama:latest
     container_name: sutra-ai-ollama
@@ -125,8 +125,7 @@ services:
     networks:
       - sutra-ai-network
     restart: unless-stopped
-    profiles:
-      - gpu  # Only starts with: docker compose --profile gpu up
+    # Removed GPU profile to start by default
 
   # ─── Adminer (DB Management UI) ───────────────────────
   sutra-ai-adminer:

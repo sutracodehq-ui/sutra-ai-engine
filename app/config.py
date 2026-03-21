@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     app_name: str = "SutraAI"
     app_env: str = "local"
     debug: bool = True
+    api_v1_prefix: str = "/v1"
 
     # ─── Database ───────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/sutra_ai"

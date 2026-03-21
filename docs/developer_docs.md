@@ -44,6 +44,8 @@ The SutraAI Engine is a **high-performance, asynchronous micro-kernel** designed
 graph TD
     Client["Client Apps<br/>(Tryambaka, External)"] -->|REST / SSE| API["FastAPI Gateway<br/>Port 8090"]
     API -->|Auth| Identity["Sutra-Identity SSO<br/>+ API Key Auth"]
+    API -->|Utility| Utils["/provision, /url-analyzer<br/>(Root Level)"]
+    API -->|AI Services| AIServices["/v1/agents, /v1/chat<br/>(v1 Prefix)"]
     
     subgraph "Core Engine"
         API --> Pipeline["Chat Pipeline"]
@@ -60,7 +62,7 @@ graph TD
         Drivers --> Gemini["Google Gemini<br/>2.0 Flash / 2.5 Pro"]
         Drivers --> Anthropic["Anthropic<br/>Claude Sonnet / Haiku"]
         Drivers --> Groq["Groq<br/>Llama 3.3 70B"]
-        Drivers --> Ollama["Ollama<br/>Local Models"]
+        Drivers --> Ollama["Ollama<br/>Local (Llama 3.2 1B)"]
     end
     
     subgraph "Storage Layer"
@@ -98,7 +100,7 @@ The engine runs as a set of containerized services orchestrated via Docker Compo
 | **PostgreSQL** | `sutra-ai-postgres` | `5433` | `5432` | Primary database (v16 Alpine) |
 | **Redis** | `sutra-ai-redis` | `6380` | `6379` | Cache, queue broker, token budgets |
 | **ChromaDB** | `sutra-ai-chromadb` | `8100` | `8000` | Vector store for RAG + Semantic Cache |
-| **Ollama** | `sutra-ai-ollama` | `11435` | `11434` | Local LLM (GPU profile only) |
+| **Ollama** | `sutra-ai-ollama` | `11435` | `11434` | Local LLM (Llama 3.2 1B) |
 | **Adminer** | `sutra-ai-adminer` | `8091` | `8080` | Database management UI |
 
 ### Network
@@ -276,7 +278,7 @@ The **DriverManager** is a Software Factory registry that resolves LLM provider 
 | `gemini` | Google | Gemini 2.0 Flash, 2.5 Pro | Speed (Flash), deep reasoning (Pro) |
 | `anthropic` | Anthropic | Claude Sonnet, Claude Haiku | Strategic content, long-form |
 | `groq` | Groq | Llama 3.3 70B | Ultra-fast inference |
-| `ollama` | Self-hosted | Llama 3.2, Mistral | Local/private, zero-cost |
+| `ollama` | Self-hosted | Llama 3.2 1B | Local/private, ultra-lightweight |
 | `mock` | Built-in | — | Testing and development |
 
 ### Execution Flow
@@ -799,7 +801,7 @@ Celery workers handle all asynchronous processing. Redis serves as both broker (
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/v1/chat/completions` | API Key | Send a chat prompt (sync or streaming) |
+| `POST` | `/v1/chat/completions` | API Key / SSO | Main chat completion (streaming or blocking) |
 
 ### Agents (43 Endpoints — Auto-Generated from YAML)
 

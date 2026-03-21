@@ -18,16 +18,21 @@ from app.api.v1.provision import router as provision_router
 from app.api.v1.url_analyzer import router as url_analyzer_router
 from app.api.v1.content import router as content_router
 
+from app.config import get_settings
+
 router = APIRouter()
-# router.include_router(auth_router, prefix="/v1")
-router.include_router(chat_router, prefix="/v1")
-router.include_router(conversations_router, prefix="/v1")
-router.include_router(agents_router, prefix="/v1")
-router.include_router(clicks_router, prefix="/v1")
-router.include_router(voice_router, prefix="/v1")
-router.include_router(intelligence_router, prefix="/v1")
-router.include_router(rag_router, prefix="/v1")
-router.include_router(billing_router, prefix="/v1")
-router.include_router(provision_router)
-router.include_router(url_analyzer_router)
-router.include_router(content_router)
+settings = get_settings()
+v1_prefix = settings.api_v1_prefix
+
+# router.include_router(auth_router, prefix=v1_prefix)
+router.include_router(chat_router, prefix=v1_prefix)
+router.include_router(conversations_router, prefix=v1_prefix)
+router.include_router(agents_router, prefix=v1_prefix)
+router.include_router(clicks_router, prefix=v1_prefix)
+router.include_router(voice_router, prefix=v1_prefix)
+router.include_router(intelligence_router, prefix=v1_prefix)
+router.include_router(rag_router, prefix=v1_prefix)
+router.include_router(billing_router, prefix=v1_prefix)
+router.include_router(provision_router, prefix=v1_prefix)
+router.include_router(url_analyzer_router, prefix=v1_prefix)
+router.include_router(content_router, prefix=v1_prefix)
