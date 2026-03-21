@@ -196,6 +196,14 @@ class AiAgentHub:
         from app.services.agents.churn_reversal import ChurnReversalAgent
         from app.services.agents.upsell_advisor import UpsellAdvisorAgent
 
+        # ─── Phase 25: Daily Productivity ──────────────────
+        from app.services.agents.email_summarizer import EmailSummarizerAgent
+        from app.services.agents.meeting_notes import MeetingNotesAgent
+        from app.services.agents.invoice_generator import InvoiceGeneratorAgent
+        from app.services.agents.expense_tracker import ExpenseTrackerAgent
+        from app.services.agents.daily_briefing import DailyBriefingAgent
+        from app.services.agents.reminder_agent import ReminderAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -269,6 +277,9 @@ class AiAgentHub:
             # Phase 24: Customer Success
             NpsAnalyzerAgent, RetentionStrategistAgent, FeedbackSynthesizerAgent,
             ChurnReversalAgent, UpsellAdvisorAgent,
+            # Phase 25: Daily Productivity
+            EmailSummarizerAgent, MeetingNotesAgent, InvoiceGeneratorAgent,
+            ExpenseTrackerAgent, DailyBriefingAgent, ReminderAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
@@ -342,6 +353,154 @@ class AiAgentHub:
             else:
                 agent_type, response = result
                 output[agent_type] = response
+
+        return output
+
+    # ─── Safe Inter-Agent Delegation ──────────────────────────
+
+    MAX_DELEGATION_DEPTH = 3     # Max hops: A → B → C → D (stops)
+    DELEGATION_TIMEOUT = 30      # Seconds before a delegation times out
+
+    async def delegate(
+        self,
+        from_agent: str,
+        to_agent: str,
+        prompt: str,
+        context: dict | None = None,
+        db: Any | None = None,
+        _chain: list[str] | None = None,
+        _depth: int = 0,
+    ) -> dict:
+        """
+        Safe inter-agent delegation with:
+        1. Max depth (3 hops) — prevents infinite delegation chains
+        2. Cycle detection — agent A→B→A stops immediately
+        3. Timeout (30s) — agent never waits forever
+        4. Fallback — if delegation fails, returns best-effort response
+
+        Usage (from within any agent):
+            hub = get_agent_hub()
+            result = await hub.delegate(
+                from_agent="trip_planner",
+                to_agent="visa_guide",
+                prompt="What's the visa process for Thailand?",
+            )
+        """
+        import asyncio
+
+        chain = _chain or [from_agent]
+
+        # ── Guard: max depth ──
+        if _depth >= self.MAX_DELEGATION_DEPTH:
+            logger.warning(
+                f"Delegation depth limit ({self.MAX_DELEGATION_DEPTH}) reached: "
+                f"{'→'.join(chain)}→{to_agent}. Returning fallback."
+            )
+            return {
+                "status": "fallback",
+                "reason": "max_depth_reached",
+                "chain": chain,
+                "response": f"I consulted with {to_agent} but couldn't get a detailed answer in time. "
+                            f"Here's what I know based on my own expertise.",
+            }
+
+        # ── Guard: cycle detection ──
+        if to_agent in chain:
+            logger.warning(
+                f"Delegation cycle detected: {'→'.join(chain)}→{to_agent}. Breaking cycle."
+            )
+            return {
+                "status": "fallback",
+                "reason": "cycle_detected",
+                "chain": chain,
+                "response": f"I've already consulted with {to_agent} in this chain. "
+                            f"Proceeding with available information.",
+            }
+
+        # ── Guard: agent exists ──
+        if to_agent not in self._agents:
+            return {
+                "status": "fallback",
+                "reason": "agent_not_found",
+                "chain": chain,
+                "response": f"The specialist '{to_agent}' is not available right now.",
+            }
+
+        # ── Execute with timeout ──
+        chain_ext = chain + [to_agent]
+        logger.info(f"Delegation: {'→'.join(chain_ext)} (depth={_depth + 1})")
+
+        try:
+            result = await asyncio.wait_for(
+                self.run(to_agent, prompt, db=db, context={
+                    **(context or {}),
+                    "_delegation_chain": chain_ext,
+                    "_delegation_depth": _depth + 1,
+                }),
+                timeout=self.DELEGATION_TIMEOUT,
+            )
+            return {
+                "status": "success",
+                "chain": chain_ext,
+                "response": result.content if hasattr(result, "content") else str(result),
+                "agent": to_agent,
+            }
+        except asyncio.TimeoutError:
+            logger.warning(f"Delegation to '{to_agent}' timed out after {self.DELEGATION_TIMEOUT}s")
+            return {
+                "status": "fallback",
+                "reason": "timeout",
+                "chain": chain_ext,
+                "response": f"The {to_agent} specialist is taking too long. "
+                            f"I'll provide my best answer based on what I know.",
+            }
+        except Exception as e:
+            logger.error(f"Delegation to '{to_agent}' failed: {e}")
+            return {
+                "status": "fallback",
+                "reason": "error",
+                "chain": chain_ext,
+                "response": f"Couldn't reach the {to_agent} specialist. "
+                            f"Providing my best answer instead.",
+            }
+
+    async def multi_delegate(
+        self,
+        from_agent: str,
+        to_agents: list[str],
+        prompt: str,
+        context: dict | None = None,
+        db: Any | None = None,
+    ) -> dict[str, dict]:
+        """
+        Delegate to multiple agents in parallel.
+        All run concurrently — if one is slow/fails, others still return.
+
+        Example: trip_planner delegates to [visa_guide, cultural_advisor, travel_budget_optimizer]
+        """
+        import asyncio
+
+        async def _delegate_one(target: str):
+            return target, await self.delegate(
+                from_agent=from_agent,
+                to_agent=target,
+                prompt=prompt,
+                context=context,
+                db=db,
+            )
+
+        results = await asyncio.gather(
+            *[_delegate_one(t) for t in to_agents],
+            return_exceptions=True,
+        )
+
+        output = {}
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Multi-delegation failed: {result}")
+            else:
+                agent_id, response = result
+                output[agent_id] = response
 
         return output
 
