@@ -4,7 +4,7 @@ API Key Manager — Generate, validate, and revoke API keys per tenant.
 Software Factory Principle: Every API call is metered.
 
 Features:
-- Cryptographically secure key generation (sk_live_xxx, sk_test_xxx)
+- Cryptographically secure key generation (sc_live_xxx, sc_test_xxx)
 - Key → tenant mapping with tier info
 - Key rotation without downtime
 - Test mode keys (free, no billing)
@@ -43,8 +43,8 @@ class ApiKeyManager:
     Currently uses in-memory store for development.
     """
 
-    PREFIX_LIVE = "sk_live_"
-    PREFIX_TEST = "sk_test_"
+    PREFIX_LIVE = "sc_live_"
+    PREFIX_TEST = "sc_test_"
 
     def __init__(self):
         self._keys: dict[str, ApiKey] = {}      # key_hash → ApiKey

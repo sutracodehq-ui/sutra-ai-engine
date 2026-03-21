@@ -1,1314 +1,1448 @@
-# SutraAI Engine — Developer Documentation
+# SutraCode AI Engine — Developer Documentation
 
-> **Version 0.2.0** · Standalone Multi-Tenant AI Microservice  
-> 53 AI Agents · Voice Pipeline · Video Intelligence · EdTech · 30+ Indian Languages
+> **149 agents · 23 products · 31 phases · India-first multi-sector AI platform**
 
 ---
 
 ## Table of Contents
 
-1. [System Architecture](#1-system-architecture)
-2. [Infrastructure & Services](#2-infrastructure--services)
-3. [Database Schema](#3-database-schema)
-4. [Authentication & Multi-Tenancy](#4-authentication--multi-tenancy)
-5. [LLM Driver System](#5-llm-driver-system)
-6. [Agent Architecture](#6-agent-architecture) — *53 Agents across 12 Phases*
-7. [Chat Pipeline Lifecycle](#7-chat-pipeline-lifecycle)
-8. [Intelligence Layer](#8-intelligence-layer)
-9. [RAG & Knowledge Base](#9-rag--knowledge-base)
-10. [Self-Learning Engine](#10-self-learning-engine)
-11. [Background Workers](#11-background-workers)
-12. [API Reference](#12-api-reference) — *60+ Endpoints*
-13. [Voice Pipeline](#13-voice-pipeline) — *🆕 STT, TTS, R2*
-14. [Multilingual Support](#14-multilingual-support) — *🆕 30+ Indian Languages*
-15. [Error Handling & Response Middleware](#15-error-handling--response-middleware)
-16. [Configuration Reference](#16-configuration-reference)
-17. [Developer Quickstart](#17-developer-quickstart)
+1. [Architecture Overview](#architecture-overview)
+2. [Directory Structure](#directory-structure)
+3. [Core Concepts](#core-concepts)
+4. [Agent System](#agent-system)
+5. [Security Layer](#security-layer)
+6. [Billing & Metering](#billing--metering)
+7. [Product Catalog](#product-catalog)
+8. [Intelligence Layer](#intelligence-layer)
+9. [Multi-Modal Output](#multi-modal-output)
+10. [API Reference](#api-reference)
+11. [Configuration Files](#configuration-files)
+12. [Adding a New Agent](#adding-a-new-agent)
+13. [Inter-Agent Communication](#inter-agent-communication)
+14. [Deployment](#deployment)
 
 ---
 
-## 1. System Architecture
+## Architecture Overview
 
-The SutraAI Engine is a **high-performance, asynchronous micro-kernel** designed for multi-tenant AI operations. It follows the **Software Factory** pattern: every component is config-driven, interchangeable, and self-registering.
-
-### Core Principles
-
-- **Software Factory**: Components self-register from YAML configs. Adding a new agent = YAML + one-line class.
-- **Driver Polymorphism**: Swap OpenAI → Gemini → Ollama with zero consumer changes.
-- **Intelligence-First**: Every request passes through safety, caching, routing, and quality checks.
-- **Self-Learning**: The engine continuously optimizes its own prompts based on user feedback via OPRO.
-
-### High-Level Component Map
-
-```mermaid
-graph TD
-    Client["Client Apps<br/>(Tryambaka, External)"] -->|REST / SSE| API["FastAPI Gateway<br/>Port 8090"]
-    API -->|Auth| Identity["Sutra-Identity SSO<br/>+ API Key Auth"]
-    API -->|Utility| Utils["/provision, /url-analyzer<br/>(Root Level)"]
-    API -->|AI Services| AIServices["/v1/agents, /v1/chat<br/>(v1 Prefix)"]
-    
-    subgraph "Core Engine"
-        API --> Pipeline["Chat Pipeline"]
-        Pipeline --> Safety["Shield-AI<br/>(PII + Moderation)"]
-        Safety --> Cache["Cache Layer<br/>(Prompt + Semantic)"]
-        Cache --> Router["Smart Router<br/>(Complexity Analysis)"]
-        Router --> Drivers["Driver Manager<br/>(Fallback Chain)"]
-        Pipeline --> RAG["RAG Service<br/>(ChromaDB)"]
-        Pipeline --> Aggregator["Context Aggregator<br/>(Voice + History + Sentiment)"]
-    end
-    
-    subgraph "LLM Drivers"
-        Drivers --> OpenAI["OpenAI<br/>GPT-4o / GPT-4o-mini"]
-        Drivers --> Gemini["Google Gemini<br/>2.0 Flash / 2.5 Pro"]
-        Drivers --> Anthropic["Anthropic<br/>Claude Sonnet / Haiku"]
-        Drivers --> Groq["Groq<br/>Llama 3.3 70B"]
-        Drivers --> Ollama["Ollama<br/>Local (Llama 3.2 1B)"]
-    end
-    
-    subgraph "Storage Layer"
-        Postgres["PostgreSQL<br/>Metadata + Tasks"]
-        Redis["Redis<br/>Cache + Queue"]
-        Chroma["ChromaDB<br/>Vector Search"]
-        R2["Cloudflare R2<br/>Assets"]
-    end
-    
-    subgraph "Background Processing"
-        Workers["Celery Workers<br/>(4 concurrency)"]
-        Beat["Celery Beat<br/>(Cron Scheduler)"]
-        Workers --> Learning["Self-Learning<br/>(OPRO + TextGrad)"]
-        Workers --> EditDiff["Edit Analysis<br/>(Diff Learning)"]
-    end
-    
-    Drivers --- Postgres
-    API --- Redis
-    RAG --- Chroma
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CLIENT REQUEST                          │
+│                  (API Key in X-API-Key header)                 │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────┐
+│                    SECURE GATEWAY (8 Layers)                    │
+│                                                                 │
+│  1. API Key Auth     →  Validates sc_live_xxx / sc_test_xxx     │
+│  2. IP Whitelist     →  Per-tenant allowed IPs                  │
+│  3. Anti-Replay      →  Nonce + timestamp (5-min window)        │
+│  4. HMAC Verify      →  SHA-256 request signing                 │
+│  5. Injection Guard  →  Jailbreak / prompt leak detection       │
+│  6. PII Redaction    →  Masks Aadhaar, PAN, phone before LLM   │
+│  7. Rate Limiter     →  Tier-based daily limits                 │
+│  8. Response Cache   →  LRU cache with domain-specific TTLs    │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────┐
+│                       AGENT HUB                                 │
+│                                                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+│  │ Learning │  │ Memory   │  │ Prompt   │  │ Multi-   │       │
+│  │ System   │  │ (RAG)    │  │ Engine   │  │ Lingual  │       │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
+│       └──────────────┴─────────────┴──────────────┘             │
+│                          │                                      │
+│                   ┌──────▼──────┐                               │
+│                   │ BASE AGENT  │                               │
+│                   │  (execute)  │                               │
+│                   └──────┬──────┘                               │
+│                          │                                      │
+│  ┌───────────────────────┼───────────────────────────┐         │
+│  │  149 Specialized Agents across 31 Phases          │         │
+│  │  Marketing │ Health │ Legal │ Finance │ ...       │         │
+│  └───────────────────────────────────────────────────┘         │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────┐
+│                   MULTI-MODAL OUTPUT                            │
+│                                                                 │
+│  Text │ Voice (Edge-TTS) │ Image │ Video Script │ Steps │ Chart│
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────┐
+│              USAGE TRACKING + AUDIT LOG                         │
+│         (Per-tenant, per-agent, per-day counters)              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Infrastructure & Services
+## Directory Structure
 
-The engine runs as a set of containerized services orchestrated via Docker Compose / Podman Compose.
-
-### Service Map
-
-| Service | Container | Port (Host) | Port (Internal) | Purpose |
-|---------|-----------|-------------|-----------------|---------|
-| **API Server** | `sutra-ai-api` | `8090` | `8000` | FastAPI + Uvicorn (2 workers) |
-| **Celery Worker** | `sutra-ai-worker` | — | — | Background task processing (4 concurrency) |
-| **Celery Beat** | `sutra-ai-beat` | — | — | Scheduled cron jobs |
-| **PostgreSQL** | `sutra-ai-postgres` | `5433` | `5432` | Primary database (v16 Alpine) |
-| **Redis** | `sutra-ai-redis` | `6380` | `6379` | Cache, queue broker, token budgets |
-| **ChromaDB** | `sutra-ai-chromadb` | `8100` | `8000` | Vector store for RAG + Semantic Cache |
-| **Ollama** | `sutra-ai-ollama` | `11435` | `11434` | Local LLM (Llama 3.2 1B) |
-| **Adminer** | `sutra-ai-adminer` | `8091` | `8080` | Database management UI |
-
-### Network
-
-All services communicate over a shared **bridge network** named `sutra-ai-network`. The API server volume-mounts `./app`, `./agent_config`, `./alembic`, and `./docs` for hot-reload during development.
+```
+sutracode-ai-engine/
+│
+├── agent_config/                    # 147 YAML agent configurations
+│   ├── copywriter.yaml
+│   ├── seo.yaml
+│   ├── tax_planner.yaml
+│   └── ... (one per agent)
+│
+├── app/
+│   ├── api/
+│   │   ├── routes/
+│   │   │   ├── billing.py          # API key CRUD, usage stats, metered execute
+│   │   │   ├── secure.py           # Secure gateway endpoints + smart routing
+│   │   │   ├── chatbot.py          # Chatbot integration endpoints
+│   │   │   ├── chatbot_ws.py       # WebSocket chatbot
+│   │   │   ├── feedback.py         # Feedback collection
+│   │   │   └── voip.py             # Voice/WebRTC endpoints
+│   │   └── v1/
+│   │       ├── agents.py           # Agent management
+│   │       ├── billing.py          # V1 billing
+│   │       ├── chat.py             # Chat endpoints
+│   │       ├── content.py          # Content generation
+│   │       ├── conversations.py    # Conversation management
+│   │       ├── intelligence.py     # Intelligence endpoints
+│   │       ├── rag.py              # RAG endpoints
+│   │       ├── url_analyzer.py     # URL analysis
+│   │       └── voice.py            # Voice endpoints
+│   │
+│   ├── services/
+│   │   ├── agents/
+│   │   │   ├── base.py             # BaseAgent (all agents extend this)
+│   │   │   ├── hub.py              # AiAgentHub — registry + dispatch + delegation
+│   │   │   ├── copywriter.py       # 149 agent Python files
+│   │   │   ├── seo.py
+│   │   │   └── ...
+│   │   │
+│   │   ├── billing/
+│   │   │   ├── api_keys.py         # API key generation, validation, rotation
+│   │   │   ├── usage_tracker.py    # Per-tenant usage counters
+│   │   │   ├── rate_limiter.py     # Tier-based rate limiting
+│   │   │   ├── gateway.py          # Billing gateway (metered execution)
+│   │   │   └── product_registry.py # Product catalog manager
+│   │   │
+│   │   ├── security/
+│   │   │   ├── injection_guard.py  # Prompt injection detection
+│   │   │   ├── pii_redactor.py     # PII masking (Aadhaar, PAN, etc.)
+│   │   │   ├── request_auth.py     # HMAC + IP whitelist + anti-replay
+│   │   │   ├── audit_logger.py     # Immutable audit log
+│   │   │   └── secure_gateway.py   # 8-layer security orchestrator
+│   │   │
+│   │   ├── intelligence/
+│   │   │   ├── agent_learning.py   # Feedback → learning → quality scoring
+│   │   │   ├── multimodal_engine.py# Voice, image, video, steps output
+│   │   │   ├── agent_memory.py     # RAG-based agent memory
+│   │   │   ├── prompt_engine.py    # A/B testing prompt optimization
+│   │   │   └── multilingual.py     # Multi-language support
+│   │   │
+│   │   ├── optimization/
+│   │   │   ├── response_cache.py   # LRU cache with domain TTLs
+│   │   │   └── smart_router.py     # Auto-detect best agent from prompt
+│   │   │
+│   │   ├── chat/                   # Chat session management
+│   │   ├── connectivity/           # External integrations
+│   │   ├── drivers/                # LLM provider drivers
+│   │   ├── rag/                    # Retrieval-Augmented Generation
+│   │   └── voice/                  # Voice/TTS services
+│   │
+│   ├── models/                     # SQLAlchemy database models
+│   ├── schemas/                    # Pydantic request/response schemas
+│   ├── middleware/                  # FastAPI middleware
+│   ├── workers/tasks/              # Background task workers
+│   └── config.py                   # Application settings
+│
+├── config/
+│   ├── languages.yaml              # Supported languages
+│   ├── openapi.yaml                # OpenAPI spec
+│   └── voice.yaml                  # Voice configuration
+│
+├── intelligence_config.yaml        # Master AI configuration
+├── product_catalog.yaml            # 23 products, 3 bundles
+├── scanner_feeds.yaml              # External data feeds
+├── docker-compose.yml              # Docker orchestration
+└── pyproject.toml                  # Python dependencies
+```
 
 ---
 
-## 3. Database Schema
+## Core Concepts
 
-The schema is designed for **multi-tenant isolation** and **full AI auditability**. Every AI call is logged as an `AiTask` with token usage, driver, model, and quality attribution.
+### Software Factory Principle
 
-```mermaid
-erDiagram
-    TENANT ||--o{ AI_CONVERSATION : owns
-    TENANT ||--o{ AI_TASK : executes
-    TENANT ||--o{ VOICE_PROFILE : configures
-    
-    TENANT {
-        bigint id PK
-        string name
-        string slug UK
-        string live_key_hash
-        string live_key_prefix
-        string test_key_hash
-        string test_key_prefix
-        boolean is_active
-        json config
-        json rate_limits
-        string contact_email
-        string webhook_url
-        string identity_org_id UK
-    }
-    
-    AI_CONVERSATION ||--o{ AI_TASK : contains
-    AI_CONVERSATION {
-        bigint id PK
-        bigint tenant_id FK
-        string title
-        json metadata
-    }
-    
-    AI_TASK ||--o| AGENT_FEEDBACK : receives
-    AI_TASK {
-        bigint id PK
-        bigint tenant_id FK
-        bigint conversation_id FK
-        string agent_type
-        string status
-        text prompt
-        json result
-        int tokens_used
-        string driver_used
-        string model_used
-        string external_user_id
-        json options
-        bigint agent_optimization_id FK
-    }
-    
-    VOICE_PROFILE {
-        bigint id PK
-        bigint tenant_id FK
-        string name
-        boolean is_default
-        json tone_attributes
-        text system_modifier
-    }
-    
-    AGENT_OPTIMIZATION ||--o{ AI_TASK : attributed_to
-    AGENT_OPTIMIZATION {
-        bigint id PK
-        string agent_type
-        text prompt_text
-        float performance_score
-        boolean is_active
-        int version
-    }
-    
-    AGENT_FEEDBACK {
-        bigint id PK
-        bigint task_id FK
-        int quality_score
-        string signal
-        text comment
-    }
-    
-    AGENT_TRAINING_DATA {
-        bigint id PK
-        string agent_type
-        text prompt
-        text response
-        string source
-        json metadata
-    }
-    
-    TOKEN_USAGE_LOG {
-        bigint id PK
-        bigint tenant_id FK
-        int prompt_tokens
-        int completion_tokens
-        string model
-        string driver
-    }
-```
+Every component follows the **Software Factory** approach:
+
+- **Config-driven**: Agent behavior is defined in YAML, not hardcoded
+- **Polymorphic**: One `BaseAgent` class handles all 149 agents
+- **Self-learning**: Agents improve from user feedback automatically
+- **Metered**: Every API call is tracked, rate-limited, and auditable
 
 ### Key Design Decisions
 
-- **Dual API Keys**: Each tenant has `sk_live_*` (production) and `sk_test_*` (sandbox) keys. Only the **hash** is stored.
-- **Voice Profiles**: Each tenant can have multiple "voices" (e.g., "Professional Brand", "Casual Social"). The `system_modifier` is injected directly into the LLM system prompt.
-- **Agent Optimization**: Versioned system prompts per agent. The `is_active` flag enables A/B testing (10% of traffic is routed to candidate prompts).
-- **Full Audit Trail**: Every `AiTask` records which driver, model, and optimization version was used.
+| Decision | Rationale |
+|----------|-----------|
+| YAML configs over hardcoded prompts | A/B test prompts without code deploys |
+| Singleton services | One instance per process, lazy initialization |
+| Async everywhere | Non-blocking I/O for concurrent agent calls |
+| India-first | All agents have Indian context (₹, GST, Aadhaar, etc.) |
+| Sector-wise products | Sell what each customer needs, not the whole engine |
 
 ---
 
-## 4. Authentication & Multi-Tenancy
+## Agent System
 
-### Authentication Modes
+### BaseAgent (`app/services/agents/base.py`)
 
-The engine supports two authentication mechanisms:
+Every agent extends `BaseAgent`. It provides:
 
-**1. API Keys (Service-to-Service)**
+```python
+class BaseAgent:
+    identifier = "copywriter"  # Unique agent ID — matches YAML filename
+
+    async def get_system_prompt(db, context)
+    # 1. Try PromptEngine (A/B testing from DB)
+    # 2. Fallback to YAML config
+    # Auto-injects: Chain-of-Thought, JSON mode, Rules, Capabilities
+
+    async def build_messages(prompt, history, db, context)
+    # 1. Resolve system prompt
+    # 2. Inject multilingual instructions
+    # 3. Inject RAG memory (past good responses)
+    # 4. Add conversation history
+    # 5. Add user prompt
+
+    async def execute(prompt, db, context)
+    # Build messages → Call LLM → Store in memory → Return response
+
+    async def execute_in_conversation(prompt, history, db, context)
+    # Same as execute but with full conversation history
 ```
-Authorization: Bearer sk_live_abc123...
+
+### Agent YAML Config (`agent_config/*.yaml`)
+
+```yaml
+name: "Tax Planner"
+identifier: tax_planner              # Must match Python class identifier
+domain: "finance"                     # Used for product grouping
+description: "Indian income tax planning..."
+
+system_prompt: |                      # The heart of the agent
+  You are an Indian Income Tax Planning Expert.
+  ...
+
+capabilities: [tax_planning, regime_comparison, 80c_deductions]
+rules: [india_tax_law, current_rates, disclaimer]
+
+# Optional:
+response_schema:
+  format: json                        # Forces JSON output
+  fields: [recommendation, savings, comparison]
 ```
-- Keys follow the `sk_live_*` (production) or `sk_test_*` (sandbox) format.
-- The engine hashes and matches the key against stored tenant records.
-- Use `POST /provision/org` to generate keys for new tenants.
 
-**2. SSO / JWT (Identity Federation)**
-- Trusts JWT tokens from the `Sutra-Identity` issuer.
-- Token payload must contain `org_id`.
-- AI Engine maps this to the `identity_org_id` field in the tenants table.
+### AiAgentHub (`app/services/agents/hub.py`)
 
-### Tenant Provisioning Flow
+Central registry and dispatcher:
 
-```mermaid
-sequenceDiagram
-    participant Identity as Sutra-Identity
-    participant Engine as SutraAI Engine
-    participant DB as PostgreSQL
-    participant KB as ChromaDB
-    
-    Identity->>Engine: POST /provision/org
-    Note over Identity,Engine: Authorization: Bearer MASTER_KEY
-    Engine->>DB: Create Tenant record
-    Engine->>DB: Generate dual API keys (live + test)
-    Engine->>DB: Create default "Brand Standard" Voice Profile
-    Engine-->>Identity: { tenant_id, live_api_key, test_api_key }
+```python
+from app.services.agents.hub import get_agent_hub
+
+hub = get_agent_hub()
+
+# Run a single agent
+response = await hub.run("tax_planner", "How to save tax under new regime?")
+
+# Run multiple agents in parallel
+results = await hub.batch("Analyze this brand", ["seo", "brand_auditor", "competitor_analyst"])
+
+# Safe inter-agent delegation
+result = await hub.delegate(
+    from_agent="trip_planner",
+    to_agent="visa_guide",
+    prompt="What's the visa process for Japan?",
+)
+
+# Multi-delegation (parallel)
+results = await hub.multi_delegate(
+    from_agent="daily_briefing",
+    to_agents=["market_trend_analyzer", "threat_briefing", "weather_planting"],
+    prompt="What's happening today?",
+)
 ```
+
+### Inter-Agent Delegation Safety
+
+Agents communicate but **never deadlock**:
+
+| Guard | Protection |
+|-------|-----------|
+| **Max depth = 3** | A→B→C→D stops — no infinite chains |
+| **Cycle detection** | A→B→A breaks immediately |
+| **Timeout = 30s** | No agent waits forever |
+| **Fallback** | Always returns a response, even on failure |
+
+---
+
+## Security Layer
+
+### Secure Gateway (`app/services/security/secure_gateway.py`)
+
+8-layer security pipeline — single entry point for all external API calls:
+
+```python
+from app.services.security.secure_gateway import get_secure_gateway
+
+gateway = get_secure_gateway()
+result = await gateway.execute(
+    api_key="sc_live_xxx",
+    agent_id="copywriter",
+    prompt="Write a tagline for my chai brand",
+    request_ip="203.0.113.42",
+    nonce="abc123",                     # Anti-replay
+    timestamp="1711065600",              # Unix timestamp
+    signature="v1=hmac_sha256_hex",      # HMAC signature
+)
+```
+
+### Layer Details
+
+#### 1. Prompt Injection Guard (`injection_guard.py`)
+
+Three severity levels with base64 bypass detection:
+
+```python
+from app.services.security.injection_guard import get_injection_guard
+
+guard = get_injection_guard()
+result = guard.check("Ignore all previous instructions and...")
+# → InjectionResult(is_safe=False, risk_score=0.9, triggers=["HIGH: ignore..."])
+```
+
+**Detects:**
+- System prompt override ("ignore all previous instructions")
+- Role manipulation ("you are now DAN")
+- Prompt leaking ("show me your system prompt")
+- Base64/rot13 encoded attacks
+- Unicode homoglyph/zero-width character obfuscation
+
+#### 2. PII Redactor (`pii_redactor.py`)
+
+Masks Indian PII before the LLM ever sees it:
+
+```python
+from app.services.security.pii_redactor import get_pii_redactor
+
+redactor = get_pii_redactor()
+result = redactor.redact("My Aadhaar is 1234 5678 9012 and PAN is ABCDE1234F")
+# → "My [Aadhaar Number: XXXXXXXX9012] and [PAN Card: XXXXX1234F]"
+```
+
+**Supported PII:**
+
+| Type | Pattern | Context-aware |
+|------|---------|--------------|
+| Aadhaar | 12-digit | No |
+| PAN | ABCDE1234F | No |
+| Phone | +91 / 10-digit starting 6-9 | No |
+| Email | user@domain.com | No |
+| Bank Account | 9-18 digits | Yes — only when "account"/"bank" present |
+| IFSC | XXXX0XXXXXX | No |
+| Credit Card | 16 digits | No |
+| UPI | user@upi | Yes — only when "upi"/"pay" present |
+| Passport | X1234567 | Yes — only when "passport" present |
+
+#### 3. Request Authenticator (`request_auth.py`)
+
+```python
+from app.services.security.request_auth import get_request_authenticator
+
+auth = get_request_authenticator()
+
+# Set up tenant security
+auth.set_ip_whitelist("acme", ["203.0.113.42", "198.51.100.0"])
+auth.set_signing_secret("acme", "whsec_super_secret_key")
+
+# Full check (IP + HMAC + anti-replay)
+result = auth.full_check(
+    tenant_id="acme",
+    request_ip="203.0.113.42",
+    payload='{"agent_id":"copywriter","prompt":"..."}',
+    timestamp="1711065600",
+    signature="v1=abc123...",
+    nonce="unique_request_id",
+)
+# → {"passed": True} or {"passed": False, "check": "ip_whitelist", ...}
+```
+
+#### 4. Audit Logger (`audit_logger.py`)
+
+Immutable JSONL log of every API call:
+
+```python
+from app.services.security.audit_logger import get_audit_logger
+
+audit = get_audit_logger()
+
+# Logged automatically by SecureGateway, but can be used directly:
+event_id = audit.log_request(
+    tenant_id="acme", agent_id="copywriter", prompt="...",
+    ip_address="203.0.113.42", tier="pro", latency_ms=450,
+)
+
+# Query logs
+logs = audit.get_tenant_log("acme", limit=50)
+stats = audit.get_stats("acme")
+security_events = audit.get_security_events()
+```
+
+**Stored per entry:**
+- Request/response SHA-256 hashes (not raw content — privacy-safe)
+- Latency, tokens used, agent ID, tier
+- Security flags, PII count, injection risk score
+- Rate limit status, remaining calls
+
+**Storage:** `/tmp/sutracode_audit/audit_YYYY-MM-DD.jsonl` (append-only)
+
+---
+
+## Billing & Metering
+
+### API Keys (`app/services/billing/api_keys.py`)
+
+```python
+from app.services.billing.api_keys import get_api_key_manager
+
+manager = get_api_key_manager()
+
+# Generate key (raw key shown ONCE, stored as SHA-256 hash)
+raw_key = manager.generate(tenant_id="acme", tier="pro", name="Production")
+# → "sc_live_AbCdEf12xxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Test mode key (no billing)
+test_key = manager.generate(tenant_id="acme", tier="pro", is_test=True)
+# → "sc_test_XyZ789xxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Validate
+key_info = manager.validate(raw_key)  # → ApiKey dataclass or None
+
+# Rotate (generate new + revoke old)
+new_key = manager.rotate("acme", "sc_live_AbCdEf12")
+
+# Upgrade tier
+manager.update_tier("acme", "enterprise")
+```
+
+### Rate Limiter (`app/services/billing/rate_limiter.py`)
+
+Four subscription tiers:
+
+| Tier | ₹/mo | Daily Limit | Agents | Voice | WebSocket | Priority |
+|------|------|------------|--------|-------|-----------|----------|
+| **Free** | ₹0 | 50 | 5 basic | ❌ | ❌ | ❌ |
+| **Starter** | ₹999 | 500 | 25 (marketing + productivity) | ❌ | ✅ | ❌ |
+| **Pro** | ₹2,999 | 2,000 | All 149 | ✅ | ✅ | ❌ |
+| **Enterprise** | ₹9,999 | Unlimited | All + custom | ✅ | ✅ | ✅ |
+
+```python
+from app.services.billing.rate_limiter import get_rate_limiter
+
+limiter = get_rate_limiter()
+result = limiter.check(tenant_id="acme", tier="starter",
+                       agent_id="tax_planner", current_daily_usage=499)
+# → {"allowed": True, "remaining": 0}
+
+result = limiter.check(tenant_id="acme", tier="starter",
+                       agent_id="tax_planner", current_daily_usage=500)
+# → {"allowed": False, "reason": "daily_limit_exceeded",
+#     "message": "Upgrade to Pro for more.", "upgrade_to": "Pro"}
+```
+
+### Usage Tracker (`app/services/billing/usage_tracker.py`)
+
+```python
+from app.services.billing.usage_tracker import get_usage_tracker
+
+tracker = get_usage_tracker()
+
+# Track a call
+tracker.track(tenant_id="acme", agent_id="copywriter", latency_ms=340)
+
+# Get today's usage
+today = tracker.get_daily_usage("acme")
+# → {"total_calls": 42, "by_agent": {"copywriter": 15, "seo": 27}}
+
+# Get 30-day summary
+summary = tracker.get_usage_summary("acme", days=30)
+# → {"total_calls": 1250, "top_agents": {"copywriter": 300, ...}, "daily": [...]}
+```
+
+---
+
+## Product Catalog
+
+### Overview (`product_catalog.yaml`)
+
+149 agents divided into **23 deployable products** + **3 bundles**:
+
+| Product | Code | Agents | ₹/mo | Target |
+|---------|------|--------|------|--------|
+| Tryambaka Marketing | `tryambaka_marketing` | 39 | 2,999 | Agencies, D2C |
+| VoiceFlow | `voiceflow` | 5 | 1,999 | Call centers |
+| VideoMind | `videomind` | 5 | 1,499 | YouTubers |
+| EdBrain | `edbrain` | 5 | 999 | Students |
+| FinWise | `finwise` | 10 | 2,499 | Investors, CAs |
+| HealthMate | `healthmate` | 9 | 1,499 | Clinics |
+| LegalEase | `legalease` | 4 | 1,999 | Lawyers |
+| HireGenius | `hiregenius` | 5 | 1,999 | HR teams |
+| ShopBrain | `shopbrain` | 5 | 1,999 | E-com sellers |
+| KisanAI | `kisan_ai` | 5 | 499 | Farmers |
+| PropertyGuru | `propertyguru` | 4 | 1,499 | Home buyers |
+| TravelBuddy | `travelbuddy` | 5 | 999 | Travelers |
+| LogiSmart | `logismart` | 4 | 2,999 | Logistics |
+| JanSeva | `janseva` | 4 | 299 | Citizens |
+| SuccessIQ | `successiq` | 5 | 2,499 | SaaS companies |
+| WorkPilot | `workpilot` | 6 | 999 | Freelancers |
+| CreatorStudio | `creatorstudio` | 5 | 1,499 | Creators |
+| CyberShield | `cybershield` | 5 | 2,999 | IT teams |
+| LaunchPad | `launchpad` | 5 | 1,999 | Founders |
+| GreenIQ | `greeniq` | 4 | 1,999 | ESG compliance |
+| SportsIQ | `sportsiq` | 4 | 999 | Sports fans |
+| EcoMotion | `ecomotion` | 5 | 999 | EV buyers |
+| DataForge | `dataforge` | 3 | 2,499 | Data scientists |
+
+### Product Registry (`app/services/billing/product_registry.py`)
+
+```python
+from app.services.billing.product_registry import get_product_registry
+
+registry = get_product_registry()
+
+# List all products (pricing page)
+products = registry.list_products()
+
+# Get agents in a product
+agents = registry.get_agents_for_product("finwise")
+# → ["stock_analyzer", "tax_planner", "sip_calculator", ...]
+
+# Check agent access
+registry.is_agent_in_product("copywriter", "tryambaka_marketing")  # True
+registry.is_agent_in_product("copywriter", "kisan_ai")             # False
+
+# Get bundle agents
+agents = registry.get_bundle_agents("business_suite")
+# → All agents from Marketing + HR + Legal + Finance + Productivity
+```
+
+---
+
+## Intelligence Layer
+
+### Agent Learning (`app/services/intelligence/agent_learning.py`)
+
+Continuous improvement through user feedback:
+
+```python
+from app.services.intelligence.agent_learning import get_agent_learning
+
+learning = get_agent_learning()
+
+# Submit feedback (user rates a response)
+learning.submit_feedback(
+    agent_id="tax_planner",
+    tenant_id="acme",
+    prompt="How to save tax?",
+    response="Under Section 80C...",
+    rating=5,                          # 1-5 scale
+    correction="",                      # Correction if bad response
+)
+
+# Get learnings to inject into prompt (called automatically by BaseAgent)
+context = learning.get_learnings_for_prompt("tax_planner", "How to save tax?")
+# → Past good examples + corrections injected into system prompt
+
+# Monitor quality
+quality = learning.get_quality("tax_planner")
+# → {"avg_rating": 4.2, "trend": "improving", "positive_rate": "85%"}
+
+# Admin: get degrading agents
+alerts = learning.get_degrading_agents()
+# → Agents with avg_rating < 3.0 or trend == "degrading"
+```
+
+**Learning flow:**
+
+```
+Rating ≥ 4 → Stored as good example (ChromaDB)
+Rating ≤ 2 + correction → Stored as training data
+Next call → Relevant past learnings injected into system prompt
+Agent improves over time 📈
+```
+
+### Smart Router (`app/services/optimization/smart_router.py`)
+
+Auto-detects the best agent from a natural language prompt:
+
+```python
+from app.services.optimization.smart_router import get_smart_router
+
+router = get_smart_router()
+
+result = router.route("What's my income tax liability under old regime?")
+# → RouteResult(agent_id="tax_planner", confidence=0.9,
+#               alternatives=["gst_compliance", "loan_comparator"])
+
+result = router.route("My tomato crop has yellow leaves")
+# → RouteResult(agent_id="crop_advisor", confidence=0.8)
+
+result = router.route("Write a viral reel script about fitness")
+# → RouteResult(agent_id="reel_script_writer", confidence=0.85)
+```
+
+### Response Cache (`app/services/optimization/response_cache.py`)
+
+Same prompt + same agent = cached response (saves LLM calls):
+
+```python
+from app.services.optimization.response_cache import get_response_cache
+
+cache = get_response_cache()
+
+# Domain-specific TTLs:
+# marketing: 1 hour, finance: 15 min, health: NEVER cached, logistics: 5 min
+
+# Agents that NEVER cache (safety-critical or real-time):
+# symptom_triage, mental_health_companion, medicine_info,
+# dynamic_pricing, shipment_tracker, daily_briefing, reminder_agent
+
+stats = cache.stats()
+# → {"size": 1234, "hits": 500, "misses": 200, "hit_rate": "71.4%"}
+```
+
+---
+
+## Multi-Modal Output
+
+### MultiModalEngine (`app/services/intelligence/multimodal_engine.py`)
+
+Transforms text responses into human-like outputs:
+
+```python
+from app.services.intelligence.multimodal_engine import get_multimodal_engine, OutputMode
+
+engine = get_multimodal_engine()
+
+response = await engine.generate(
+    text="Here's your diet plan: 1. Oats with almonds...",
+    agent_id="diet_planner",
+    modes=[OutputMode.TEXT, OutputMode.VOICE, OutputMode.STEPS],
+    voice="hi-female",  # Hindi female voice
+)
+
+response.text           # Original text
+response.voice_audio    # Base64 MP3 (Edge-TTS)
+response.steps          # [{"step": 1, "title": "Oats with almonds", "icon": "📌"}, ...]
+response.video_script   # Scene-by-scene narration
+response.image_prompts  # AI image generation prompts
+response.chart_data     # JSON for frontend charts
+```
+
+### Available Voices (Edge-TTS)
+
+| Key | Voice | Language |
+|-----|-------|----------|
+| `hi-male` | MadhurNeural | Hindi |
+| `hi-female` | SwaraNeural | Hindi |
+| `en-male` | PrabhatNeural | English (Indian) |
+| `en-female` | NeerjaNeural | English (Indian) |
+| `ta-male` | ValluvarNeural | Tamil |
+| `ta-female` | PallaviNeural | Tamil |
+| `te-male` | MohanNeural | Telugu |
+| `te-female` | ShrutiNeural | Telugu |
+| `bn-male` | BashkarNeural | Bengali |
+| `bn-female` | TanishaaNeural | Bengali |
+| `mr-male` | ManoharNeural | Marathi |
+| `mr-female` | AarohiNeural | Marathi |
+
+### Output Modes
+
+| Mode | Technology | When to use |
+|------|-----------|-------------|
+| `TEXT` | Markdown | Always (default) |
+| `VOICE` | Edge-TTS | Chatbots, accessibility, hands-free |
+| `IMAGE` | AI prompts | Visual content (diet plans, designs) |
+| `VIDEO_SCRIPT` | Scene structuring | Video creators |
+| `STEPS` | Auto-extraction | Tutorials, processes, guides |
+| `CHART` | JSON extraction | Financial data, analytics |
+| `FULL` | All of the above | Premium tier |
+
+---
+
+## API Reference
+
+### Billing Endpoints (`/v1/billing`)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/v1/billing/keys` | Admin | Generate new API key |
+| `GET` | `/v1/billing/keys?tenant_id=x` | Admin | List tenant's keys |
+| `POST` | `/v1/billing/keys/revoke` | Admin | Revoke a key |
+| `POST` | `/v1/billing/keys/rotate` | Admin | Rotate a key |
+| `GET` | `/v1/billing/usage?tenant_id=x` | Admin | Usage summary |
+| `GET` | `/v1/billing/usage/today?tenant_id=x` | Admin | Today's usage |
+| `GET` | `/v1/billing/tiers` | Public | All tier info |
+| `POST` | `/v1/billing/execute` | X-API-Key | Metered agent call |
+
+### Secure Endpoints (`/v1/secure`)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/v1/secure/execute` | X-API-Key | Full 8-layer secure execution |
+| `POST` | `/v1/secure/auto` | X-API-Key | Smart-routed (auto-detect agent) |
+| `POST` | `/v1/secure/multimodal` | X-API-Key | Multi-modal output |
+| `POST` | `/v1/secure/feedback` | X-API-Key | Submit learning feedback |
+| `GET` | `/v1/secure/quality` | Admin | Agent quality dashboard |
+| `GET` | `/v1/secure/quality/alerts` | Admin | Degrading agents |
+| `GET` | `/v1/secure/audit?tenant_id=x` | Admin | Audit log |
+| `GET` | `/v1/secure/audit/security` | Admin | Security events |
+| `GET` | `/v1/secure/cache/stats` | Admin | Cache performance |
+
+### Example: Secure Execute
 
 ```bash
-# Provisioning call from Sutra-Identity
-curl -X POST http://localhost:8090/provision/org \
-  -H "Authorization: Bearer <MASTER_API_KEY>" \
+curl -X POST https://api.sutracode.ai/v1/secure/execute \
+  -H "X-API-Key: sc_live_AbCdEf12..." \
   -H "Content-Type: application/json" \
   -d '{
-    "identity_org_id": "global-org-123",
-    "name": "Acme University",
-    "slug": "acme-u",
-    "contact_email": "admin@acme.edu"
+    "agent_id": "tax_planner",
+    "prompt": "Compare old vs new tax regime for ₹15L salary",
+    "context": {"language": "hi"}
+  }'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "response": "## Old vs New Regime Comparison\n\n...",
+  "agent": "tax_planner",
+  "cached": false,
+  "usage": {
+    "remaining": 1999,
+    "tier": "pro",
+    "latency_ms": 1240
+  },
+  "security": {
+    "pii_redacted": 0,
+    "injection_risk": 0.0
+  }
+}
+```
+
+### Example: Auto-Route
+
+```bash
+curl -X POST https://api.sutracode.ai/v1/secure/auto \
+  -H "X-API-Key: sc_live_AbCdEf12..." \
+  -d '{"prompt": "My rice crop has brown spots on leaves"}'
+```
+
+Response:
+```json
+{
+  "success": true,
+  "response": "Brown spots on rice leaves indicate...",
+  "routing": {
+    "agent_selected": "crop_advisor",
+    "confidence": 0.85,
+    "alternatives": ["soil_report_interpreter", "weather_planting"]
+  }
+}
+```
+
+### Example: Multi-Modal
+
+```bash
+curl -X POST https://api.sutracode.ai/v1/secure/multimodal \
+  -H "X-API-Key: sc_live_AbCdEf12..." \
+  -d '{
+    "agent_id": "diet_planner",
+    "prompt": "Give me a diabetic-friendly Indian diet plan",
+    "modes": ["text", "voice", "steps"],
+    "voice": "hi-female"
   }'
 ```
 
 ---
 
-## 5. LLM Driver System
+## Configuration Files
 
-The **DriverManager** is a Software Factory registry that resolves LLM provider implementations by name. It implements **automatic fallback chains**, **circuit breaking**, and **retry strategies**.
+### `intelligence_config.yaml`
 
-### Supported Drivers
+Master configuration for AI behavior, including:
 
-| Driver | Provider | Models | Use Case |
-|--------|----------|--------|----------|
-| `openai` | OpenAI | GPT-4o, GPT-4o-mini | General purpose, vision, image generation |
-| `gemini` | Google | Gemini 2.0 Flash, 2.5 Pro | Speed (Flash), deep reasoning (Pro) |
-| `anthropic` | Anthropic | Claude Sonnet, Claude Haiku | Strategic content, long-form |
-| `groq` | Groq | Llama 3.3 70B | Ultra-fast inference |
-| `ollama` | Self-hosted | Llama 3.2 1B | Local/private, ultra-lightweight |
-| `mock` | Built-in | — | Testing and development |
+- LLM model settings
+- Agent-specific parameters
+- Health severity mappings
+- **Billing tiers and pricing**
 
-### Execution Flow
+### `product_catalog.yaml`
 
-```mermaid
-sequenceDiagram
-    participant Service as LlmService
-    participant DM as DriverManager
-    participant CB as CircuitBreaker
-    participant RS as RetryStrategy
-    participant D1 as Primary Driver
-    participant D2 as Fallback Driver
-    
-    Service->>DM: complete(prompt)
-    DM->>CB: is_available(primary)?
-    
-    alt Primary Available
-        CB-->>DM: ✅ Available
-        DM->>RS: execute(primary.complete)
-        RS->>D1: complete(prompt)
-        
-        alt Success
-            D1-->>RS: LlmResponse
-            RS-->>DM: LlmResponse
-            DM->>CB: record_success(primary)
-        else Failure (retries exhausted)
-            D1-->>RS: Exception
-            RS-->>DM: Exception
-            DM->>CB: record_failure(primary)
-            DM->>CB: is_available(fallback)?
-            CB-->>DM: ✅ Available
-            DM->>D2: complete(prompt)
-            D2-->>DM: LlmResponse
-        end
-    else Primary Circuit OPEN
-        CB-->>DM: ❌ Circuit Open
-        DM->>D2: complete(prompt)
-        D2-->>DM: LlmResponse
-    end
-```
+23 products + 3 bundles with agent-to-product mapping.
 
-### Circuit Breaker States
+### `agent_config/*.yaml`
 
-The CircuitBreaker tracks per-driver health with three states:
+One YAML per agent. Required fields:
 
-| State | Behavior | Transition |
-|-------|----------|------------|
-| **CLOSED** | All calls pass through (normal) | → OPEN after `N` consecutive failures (default: 3) |
-| **OPEN** | All calls fail fast (driver is dead) | → HALF_OPEN after cooldown (default: 60s) |
-| **HALF_OPEN** | One test call allowed | → CLOSED on success, → OPEN on failure |
-
-### Standardized Response
-
-All drivers return a unified `LlmResponse`:
-
-```python
-@dataclass
-class LlmResponse:
-    content: str           # The generated text
-    raw_response: str      # Full provider response
-    prompt_tokens: int     # Input token count
-    completion_tokens: int # Output token count
-    total_tokens: int      # Total tokens consumed
-    model: str             # Model that was used
-    driver: str            # Driver that was used
-    metadata: dict         # Additional provider-specific data
+```yaml
+name: "Human-readable name"
+identifier: "snake_case_id"        # Must match Python class
+domain: "sector_name"
+description: "What this agent does"
+system_prompt: |
+  Multi-line system prompt...
+capabilities: [list, of, capabilities]
+rules: [list, of, rules]
 ```
 
 ---
 
-## 6. Agent Architecture
+## Adding a New Agent
 
-Agents are **specialized AI workers** defined by YAML configurations. Each agent has a domain, response schema, and capabilities.
+### Step 1: Create YAML config
 
-### Currently Registered Agents (53 Total)
-
-#### Core Marketing (Phase 0)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Copywriter | `copywriter` | Headlines, body copy, CTAs, persuasive writing |
-| SEO | `seo` | Meta tags, keywords, content optimization |
-| Social Media | `social` | Platform-optimized posts, hashtags, schedules |
-| Email Campaign | `email_campaign` | Newsletters, drip sequences, subject lines |
-| WhatsApp | `whatsapp` | Template messages, quick replies |
-| SMS | `sms` | Short promotional and transactional messages |
-| Ad Creative | `ad_creative` | Ad copy for Facebook, Google, LinkedIn |
-| Brand Auditor | `brand_auditor` | Voice consistency, style guide adherence |
-| Content Repurposer | `content_repurpose` | Multi-channel content adaptation |
-| Click Shield | `click_shield` | Click fraud detection and scoring |
-
-#### Marketing Intelligence (Phase 1)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Persona Builder | `persona_builder` | Audience persona construction |
-| Campaign Strategist | `campaign_strategist` | Campaign planning and strategy |
-| A/B Test Advisor | `ab_test_advisor` | Test recommendations and analysis |
-| Competitor Analyst | `competitor_analyst` | Competitive intelligence |
-| URL Analyzer | `url_analyzer` | Website crawling and analysis |
-
-#### Analytics & Insights (Phase 2)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Performance Reporter | `performance_reporter` | Marketing performance reports |
-| Budget Optimizer | `budget_optimizer` | Budget allocation optimization |
-| Anomaly Alerter | `anomaly_alerter` | Performance anomaly detection |
-
-#### Creative & Media (Phase 3)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Visual Designer | `visual_designer` | Image and visual content generation |
-| Video Scriptwriter | `video_scriptwriter` | Video scripts and storyboards |
-| Landing Page Builder | `landing_page_builder` | Landing page copy and structure |
-
-#### Autonomous Operations (Phase 4)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Auto Publisher | `auto_publisher` | Automated content publishing |
-| Lead Scorer | `lead_scorer` | Lead scoring and qualification |
-| Chatbot Trainer | `chatbot_trainer` | Bot training data generation |
-
-#### Reputation & Growth (Phase 5)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Review Reputation Manager | `review_reputation` | Online review analysis and response |
-| Trend Spotter | `trend_spotter` | Emerging trend identification |
-| Funnel Analyzer | `funnel_analyzer` | Conversion funnel optimization |
-| Influencer Matcher | `influencer_matcher` | Influencer discovery and outreach |
-| Customer Journey Mapper | `journey_mapper` | Touchpoint mapping and journey optimization |
-
-#### Smart Automation (Phase 6)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Auto-Scheduler | `auto_scheduler` | Optimal posting time analysis |
-| Audience Segmenter | `audience_segmenter` | Customer micro-segmentation |
-| Churn Predictor | `churn_predictor` | Churn risk prediction and retention |
-
-#### Advanced Analytics (Phase 7)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| ROI Calculator | `roi_calculator` | Marketing ROI, ROAS, CAC, LTV |
-| Content Grader | `content_grader` | Content quality scoring |
-| Attribution Analyst | `attribution_analyst` | Multi-channel attribution modeling |
-| Pricing Strategist | `pricing_strategist` | Competitive pricing analysis |
-
-#### Platform-Specific (Phase 8)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Google Ads Optimizer | `google_ads_optimizer` | Google Ads campaign optimization |
-| Meta Ads Optimizer | `meta_ads_optimizer` | Facebook/Instagram ads optimization |
-| LinkedIn Growth | `linkedin_growth` | LinkedIn content and B2B outreach |
-
-#### Voice & Calling (Phase 9)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Cold Call Scripter | `cold_call_scripter` | Cold call scripts with objection handling |
-| Call Sentiment Analyzer | `call_sentiment_analyzer` | Call recording sentiment analysis |
-| WhatsApp Bot Builder | `whatsapp_bot_builder` | WhatsApp Business bot flows |
-| Call Summarizer | `call_summarizer` | Call transcription summarization |
-| IVR Designer | `ivr_designer` | IVR menu flow design |
-
-#### Video Intelligence (Phase 10)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| YouTube Analyzer | `youtube_analyzer` | Video transcript extraction, metadata, SEO analysis |
-| Video Summarizer | `video_summarizer` | Chapter markers, key moments, TL;DR summaries |
-| Caption Generator | `caption_generator` | SRT/VTT subtitles in 30+ Indian languages |
-| Audio Dubber | `audio_dubber` | Transcript translation + TTS dubbing preparation |
-| Social Clip Maker | `social_clip_maker` | Viral moment detection for Reels/Shorts/TikTok |
-
-#### EdTech Intelligence (Phase 11)
-
-| Agent | Identifier | Domain |
-|-------|-----------|--------|
-| Note Generator | `note_generator` | Structured study notes from lectures |
-| Key Points Extractor | `key_points_extractor` | Formulas, definitions, theorems extraction |
-| Quiz Generator | `quiz_generator` | MCQs, true/false, fill-in-blanks with explanations |
-| Flashcard Creator | `flashcard_creator` | Spaced-repetition flashcards (Anki-style) |
-| Lecture Planner | `lecture_planner` | Full lecture series planning from syllabus |
-
-### Agent Hydration Lifecycle
-
-1. **Config Loading**: Reads `agent_config/{identifier}.yaml` for domain, capabilities, and response schema.
-2. **System Prompt Resolution** (3-tier fallback):
-   - **A/B Test** (10% traffic): Tries an inactive `AgentOptimization` candidate prompt.
-   - **Active Prompt**: Uses the latest `is_active=True` prompt from `agent_optimizations` table.
-   - **YAML Fallback**: Falls back to the static system prompt from config.
-3. **Multilingual Injection**: Detects user language and injects language-specific instructions.
-4. **Context Aggregation**: Pulls Conversation History + Voice Profile + RAG results.
-5. **Smart Routing**: Analyzes complexity and selects optimal driver/model tier.
-6. **Execution**: Calls the LLM via the `LlmService`.
-
-### YAML Configuration Format
+```bash
+# agent_config/my_new_agent.yaml
+```
 
 ```yaml
-# agent_config/social_media.yaml
-name: "Social Media"
-identifier: social
-domain: "social media content strategy"
-description: "Platform-optimized social media content generation"
+name: "My New Agent"
+identifier: my_new_agent
+domain: "my_sector"
+description: "What it does."
 
 system_prompt: |
-  You are an expert social media content strategist...
+  You are a specialist in...
 
-response_schema:
-  format: json
-  fields:
-    - post_text
-    - hashtags
-    - best_time_to_post
-    - image_prompt
-
-capabilities:
-  - "Generate platform-optimized social media posts"
-  - "Create hashtag sets for maximum reach"
-
-rules:
-  - "Always include an image_prompt field"
-  - "Keep posts within platform character limits"
+capabilities: [capability_1, capability_2]
+rules: [rule_1, rule_2]
 ```
 
-### Adding a New Agent (3 Steps)
+### Step 2: Create Python class
 
 ```bash
-# 1. Create YAML config
-touch agent_config/my_agent.yaml
+# app/services/agents/my_new_agent.py
+```
 
-# 2. Create agent class (one-liner)
-cat > app/services/agents/my_agent.py << 'EOF'
-"""My Agent — description."""
+```python
+"""My New Agent — my_sector domain agent."""
 from app.services.agents.base import BaseAgent
 
-class MyAgent(BaseAgent):
-    @property
-    def identifier(self) -> str:
-        return "my_agent"
-EOF
 
-# 3. Register in hub.py (add to _auto_register imports + list)
-# → Auto-generates /v1/agents/my_agent/run endpoint in Swagger
+class MyNewAgentAgent(BaseAgent):
+    identifier = "my_new_agent"
 ```
 
----
+### Step 3: Register in hub
 
-## 7. Chat Pipeline Lifecycle
-
-The Chat Pipeline is the **high-performance execution core** for all AI interactions. Every user prompt passes through a multi-stage pipeline.
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant API as FastAPI
-    participant Shield as Shield-AI
-    participant Agg as Context Aggregator
-    participant KB as Knowledge Base
-    participant Cache as Prompt Cache
-    participant SR as Smart Router
-    participant LLM as LLM Service
-    participant QG as Quality Gate
-    participant Guard as Brand Guard
-    
-    U->>API: POST /v1/chat/completions
-    API->>Shield: 1. Moderation Check
-    Shield->>Shield: 2. PII Redaction
-    
-    par Parallel Context Fetch
-        API->>Agg: Fetch Voice Profile
-        API->>Agg: Fetch Conversation History
-        API->>Agg: Analyze Sentiment
-        API->>Agg: Detect Language
-        API->>KB: RAG Semantic Search
-    end
-    
-    API->>Cache: 3. Cache Lookup (SHA-256 key)
-    
-    alt Cache Hit
-        Cache-->>API: Cached Response (0ms)
-    else Cache Miss
-        API->>SR: 4. Assess Complexity
-        SR-->>API: { driver, model, complexity }
-        API->>LLM: 5. LLM Execution
-        LLM-->>API: Raw Response
-        API->>Shield: 6. Output Moderation
-        API->>Guard: 7. Competitor Lock
-        API->>Cache: 8. Cache Store
-    end
-    
-    API-->>U: Final Response
-```
-
-### Pipeline Stages Explained
-
-| Stage | Component | Description |
-|-------|-----------|-------------|
-| **0.1** | `ModerationService` | Checks input against OpenAI's moderation API for safety violations |
-| **0.2** | `PIIRedactor` | Regex-based masking of emails, phone numbers, credit cards before LLM |
-| **1** | `ContextAggregator` | Parallel fetch: Voice Profile + History + Sentiment + Language |
-| **1.5** | `KnowledgeBaseService` | RAG: semantic search against tenant's ChromaDB collection |
-| **2** | `ContextPruner` | Compresses history to last 10 turns, converts to `{role, content}` format |
-| **3** | `PromptCache` | Exact-match SHA-256 Redis cache (TTL: 2 hours). Hits ~15-25% of traffic |
-| **4** | `SmartRouter` | Complexity scoring → model tier selection (saves 40-60% on tokens) |
-| **5** | `LlmService` | Executes via `DriverManager` with fallback chain |
-| **6** | `ModerationService` | Re-checks LLM output for safety violations |
-| **7** | `CompetitorLock` | Removes competitor brand mentions from AI output |
-| **8** | `PromptCache` | Stores result for future cache hits |
-
-### Streaming Mode
-
-When `stream=true`, the pipeline skips cache lookup and returns an `AsyncGenerator[str, None]` that yields text chunks via SSE (Server-Sent Events).
-
----
-
-## 8. Intelligence Layer
-
-The Intelligence Layer is the "brain" that surrounds every LLM call. It consists of 12+ subsystems.
-
-### 8.1 Smart Router
-
-Routes tasks to the optimal model tier based on **complexity scoring**. Saves 40-60% on token costs.
-
-**Scoring Factors:**
-
-| Factor | Simple (-1) | Complex (+2) |
-|--------|------------|-------------|
-| Word count | < 30 words | > 150 words |
-| Keywords | "tweet", "quick", "caption" | "analyze", "strategy", "audit" |
-| Agent default | SMS, WhatsApp, Ad Creative | SEO, EdTech |
-| Structure | — | Numbered lists, multiple questions |
-
-**Model Tier Mapping:**
-
-| Driver | Simple | Moderate | Complex |
-|--------|--------|----------|---------|
-| OpenAI | GPT-4o-mini | GPT-4o-mini | GPT-4o |
-| Gemini | 2.0 Flash | 2.0 Flash | 2.5 Pro Preview |
-| Anthropic | Claude Haiku | Claude Sonnet | Claude Sonnet |
-| Groq | Llama 3.3 70B | Llama 3.3 70B | Llama 3.3 70B |
-
-### 8.2 Quality Gate
-
-Multi-dimensional output scorer with **auto-regeneration**. Prevents low-quality responses from reaching the consumer.
-
-**Scoring Dimensions:**
-
-| Dimension | Weight | What it checks |
-|-----------|--------|----------------|
-| **Format** | 35% | Valid JSON structure when expected |
-| **Completeness** | 30% | Coverage of expected response fields |
-| **Coherence** | 20% | Absence of error-like phrases, repetition |
-| **Length** | 15% | Sufficient response substance |
-
-If `total_score < threshold` (default: 6/10), the Quality Gate augments the prompt with specific improvement instructions and retriggers the LLM.
-
-### 8.3 Caching (Two-Tier)
-
-**Tier 1 — Prompt Cache (Redis, Exact Match)**
-- Key: `SHA-256(tenant_id + system_prompt + user_prompt + history)`
-- Hit rate: ~15-25% of traffic
-- TTL: 2 hours (configurable)
-- Response time: **0ms**
-
-**Tier 2 — Semantic Cache (ChromaDB, Vector Similarity)**
-- Uses cosine similarity against embedded past prompts
-- Catches paraphrased/reformulated prompts that exact-match misses
-- Hit rate: ~5-15% of remaining traffic
-- Similarity threshold: 0.92 (configurable)
-
-### 8.4 Token Budget Manager
-
-Per-tenant cost control via Redis counters.
-
-```
-Redis Key: sutra:budget:{tenant_id}:monthly:{YYYY-MM}:tokens
-Redis Key: sutra:budget:{tenant_id}:monthly:{YYYY-MM}:cost
-```
-
-| Level | Threshold | Action |
-|-------|-----------|--------|
-| **ALLOW** | < 80% | Normal operation |
-| **WARN** | 80-100% | Log warning, allow but flag |
-| **BLOCK** | > 100% | Reject the request |
-
-Includes per-model cost tables (e.g., GPT-4o input: $0.0025/1K tokens, Gemini Flash input: $0.0001/1K tokens).
-
-### 8.5 Rate Limiter
-
-Per-tenant request throttling. Default: 30 requests per minute.
-
-### 8.6 Shield-AI (Safety Suite)
-
-| Component | Purpose |
-|-----------|---------|
-| **PIIRedactor** | Regex-based: emails, phones, credit cards → `[REDACTED]` |
-| **ModerationService** | OpenAI's free moderation API for content safety |
-| **CompetitorLock** | Removes competitor brand mentions from AI output |
-| **SentimentService** | Detects frustrated/angry users, triggers webhook alerts |
-| **LanguageService** | Auto-detects user language, instructs LLM to respond natively |
-
-### 8.7 Retry Strategy
-
-Exponential backoff with configurable max retries (default: 2) and base delay (default: 1s).
-
----
-
-## 9. RAG & Knowledge Base
-
-The RAG (Retrieval-Augmented Generation) system gives each tenant a private knowledge base.
-
-### Components
-
-| File | Purpose |
-|------|---------|
-| `knowledge_base.py` | ChromaDB interface — `add_documents`, `query` per tenant |
-| `document_processor.py` | Splits documents into embeddable chunks |
-| `web_crawler.py` | Fetches and extracts text from web pages |
-| `brand_extractor.py` | Extracts brand guidelines from crawled content |
-
-### How RAG Works in the Pipeline
-
-1. User sends a prompt.
-2. `KnowledgeBaseService.query()` embeds the prompt and searches the tenant's ChromaDB collection.
-3. Top 3 relevant chunks are injected into the system prompt under `[KNOWLEDGE BASE]`.
-4. The LLM uses these facts when generating its response.
+Edit `app/services/agents/hub.py`:
 
 ```python
-# Tenant-specific collections in ChromaDB
-collection_name = f"tenant_{tenant_id}_kb"
-# Embedding model: OpenAI text-embedding-3-small
+# Add import
+from app.services.agents.my_new_agent import MyNewAgentAgent
+
+# Add to the agent list
+for agent_cls in [
+    # ... existing agents ...
+    MyNewAgentAgent,  # ← Add here
+]:
 ```
 
----
+### Step 4: Add to product catalog
 
-## 10. Self-Learning Engine
-
-The engine **continuously improves its own prompts** based on user feedback, powered by OPRO (Optimization by PRompting).
-
-### Learning Pipeline
-
-```mermaid
-graph TD
-    A["User Feedback<br/>(👍/👎, quality_score, comments)"] --> B["AgentFeedback Table"]
-    B --> C["Celery Beat Scheduler<br/>(Periodic Trigger)"]
-    C --> D["MetaPromptService<br/>(OPRO Logic)"]
-    D --> E["Fetch Feedback Samples<br/>(Last 50 per agent)"]
-    E --> F["Build Meta-Prompt<br/>(Show failures + successes)"]
-    F --> G["Meta-LLM Call<br/>(Gemini Flash, temp=0.2)"]
-    G --> H["New Candidate Prompt"]
-    H --> I["AgentOptimization Table<br/>(is_active=false, new version)"]
-    I --> J["A/B Testing<br/>(10% traffic → candidate)"]
-    J --> K{"Performance<br/>Improved?"}
-    K -->|Yes| L["Promote to Active<br/>(is_active=true)"]
-    K -->|No| M["Discard Candidate"]
-```
-
-### Key Components
-
-| Component | File | Purpose |
-|-----------|------|---------|
-| **MetaPromptService** | `learning/meta_prompt.py` | Builds OPRO meta-prompts from feedback, calls meta-LLM |
-| **PromptEvolution** | `learning/prompt_evolution.py` | Manages prompt versioning and promotion |
-| **EditAnalyzer** | `learning/edit_analyzer.py` | Learns from user edits (diffs between AI output and user's final version) |
-| **Evolution Job** | `workers/evolution_job.py` | Celery task that triggers periodic optimization |
-| **Meta-Prompt Job** | `workers/meta_prompt_job.py` | Celery task that runs the OPRO cycle |
-| **Edit Diff Job** | `workers/edit_diff_job.py` | Celery task that analyzes user edit patterns |
-
-### A/B Testing Mechanics
-
-- 10% of traffic is routed to a **candidate** prompt (`is_active=false`).
-- The remaining 90% uses the **active** prompt (`is_active=true`).
-- After sufficient feedback, the candidate is either promoted or discarded.
-- The `agent_optimization_id` field on `AiTask` tracks which prompt version generated each response.
-
----
-
-## 11. Background Workers
-
-Celery workers handle all asynchronous processing. Redis serves as both broker (`redis://redis:6379/1`) and result backend (`redis://redis:6379/2`).
-
-### Worker Configuration
-
-| Config | Value |
-|--------|-------|
-| **Broker** | `redis://sutra-ai-redis:6379/1` |
-| **Result Backend** | `redis://sutra-ai-redis:6379/2` |
-| **Concurrency** | 4 workers |
-| **Serialization** | JSON |
-
-### Registered Tasks
-
-| Task | Schedule | Description |
-|------|----------|-------------|
-| `evolution_job` | Daily | Triggers prompt optimization based on accumulated feedback |
-| `meta_prompt_job` | On-demand | Runs the full OPRO cycle for a specific agent |
-| `edit_diff_job` | On edit events | Analyzes user edits to learn preferences |
-| `webhook_job` | On trigger | Sends frustration alerts to tenant webhook URL |
-| `tasks.log_token_usage` | Per-call | Async logging of token consumption |
-
----
-
-## 12. API Reference
-
-### Health
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/health` | None | Liveness probe (always 200) |
-| `GET` | `/ready` | None | Readiness probe (checks DB + Redis) |
-
-### Chat
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/v1/chat/completions` | API Key / SSO | Main chat completion (streaming or blocking) |
-
-### Agents (43 Endpoints — Auto-Generated from YAML)
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/v1/agents` | API Key | List all 43 agents with capabilities |
-| `POST` | `/v1/agents/{type}/run` | API Key | Execute any agent (e.g., `/v1/agents/social/run`) |
-| `POST` | `/v1/agents/batch` | API Key | Run multiple agents in parallel |
-
-Every registered agent automatically gets a `POST /v1/agents/{identifier}/run` endpoint in Swagger.
-
-### Content Generation
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/v1/content/social-post` | API Key | Generate platform-specific social posts |
-| `POST` | `/v1/content/email-template` | API Key | Generate full email templates |
-| `POST` | `/v1/content/ad-copy` | API Key | Generate ad copy with A/B variants |
-| `POST` | `/v1/content/repurpose` | API Key | Transform content into multiple formats |
-| `POST` | `/v1/content/calendar-suggest` | API Key | Suggest content calendar topics |
-| `POST` | `/v1/content/landing-page` | API Key | Generate landing page copy |
-
-### Intelligence
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/v1/intelligence/sentiment` | API Key | Analyze text sentiment |
-| `POST` | `/v1/intelligence/language` | API Key | Detect text language |
-| `POST` | `/v1/intelligence/brand-analyze` | API Key | Extract brand identity from URL |
-| `POST` | `/v1/intelligence/url-analyze` | API Key | Full URL digital footprint analysis |
-| `POST` | `/v1/intelligence/seo-audit` | API Key | Comprehensive SEO audit |
-| `POST` | `/v1/intelligence/hashtag-suggest` | API Key | Hashtag recommendations by niche |
-| `POST` | `/v1/intelligence/competitor-analyze` | API Key | Competitor website analysis |
-| `GET` | `/v1/intelligence/languages` | API Key | List 30+ supported languages |
-| `GET` | `/v1/intelligence/status` | API Key | Circuit breaker and cache status |
-
-### Voice Pipeline
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/v1/voice/process` | API Key | Full pipeline: Audio → R2 → STT → Agent → TTS |
-| `POST` | `/v1/voice/transcribe` | API Key | Transcribe audio only (STT) |
-| `POST` | `/v1/voice/speak` | API Key | Text-to-speech only (TTS) |
-
-### Conversations
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/v1/conversations` | API Key | List conversations for the tenant |
-| `POST` | `/v1/conversations` | API Key | Create a new conversation thread |
-| `GET` | `/v1/conversations/{id}` | API Key | Get conversation with history |
-| `POST` | `/v1/conversations/{id}/messages` | API Key | Send a message within a conversation |
-
-### URL Analyzer
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/v1/url-analyzer/analyze` | API Key | Extract metadata, SEO signals from URL |
-
-### Tenants
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/v1/tenants/me` | API Key | Get current tenant info |
-| `PATCH` | `/v1/tenants/me` | API Key | Update tenant config |
-| `POST` | `/v1/tenants/me/rotate-key` | API Key | Rotate API keys (live or test) |
-
-### RAG
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/v1/rag/documents` | API Key | Upload text documents to knowledge base |
-| `POST` | `/v1/rag/query` | API Key | Query the knowledge base directly |
-
-### Provisioning
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/provision/org` | Master Key | Provision a new tenant |
-
-### Billing
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/v1/billing/usage` | API Key | Get current period token usage and cost |
-
----
-
-## 13. Voice Pipeline
-
-The Voice Pipeline enables **audio-first interactions** with full auto-language detection. No toggle needed — the engine detects the user's language and responds in it automatically.
-
-### Pipeline Architecture
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant API as FastAPI
-    participant R2 as Cloudflare R2
-    participant W as OpenAI Whisper
-    participant Agent as AI Agent
-    participant TTS as OpenAI TTS
-
-    U->>API: POST /v1/voice/process (audio file)
-    API->>R2: 1. Upload to R2 (voice/{tenant}/{date}/)
-    API->>W: 2. Transcribe (auto-detect language)
-    W-->>API: { text, language: "bho", duration: 4.2 }
-    API->>Agent: 3. Execute with language context
-    Agent-->>API: Response in detected language
-    API->>TTS: 4. Text-to-Speech (optional)
-    TTS-->>API: Audio bytes (MP3)
-    API->>R2: 5. Upload TTS reply to R2
-    API-->>U: { transcription, agent_response, r2_keys }
-```
-
-### Configuration (`config/voice.yaml`)
+Edit `product_catalog.yaml`:
 
 ```yaml
-stt:
-  provider: "openai"       # OpenAI Whisper
-  model: "whisper-1"
-  max_file_size_mb: 25
-
-tts:
-  provider: "openai"
-  model: "tts-1"           # tts-1 (fast) | tts-1-hd (quality)
-  default_voice: "alloy"   # alloy, echo, fable, onyx, nova, shimmer
-
-storage:
-  bucket_prefix: "voice"   # R2 path: voice/{tenant}/{date}/{id}.webm
-  retention_days: 90
+my_product:
+  agents:
+    - my_new_agent    # ← Add here
 ```
 
-### Voice Process Request
+### Step 5: Add to smart router (optional)
 
-```bash
-curl -X POST http://localhost:8090/v1/voice/process \
-  -H "Authorization: Bearer sk_live_..." \
-  -F file=@voice_message.webm \
-  -F agent_type=copywriter \
-  -F generate_voice_reply=true \
-  -F voice=nova
-```
-
-### Response
-
-```json
-{
-  "success": true,
-  "data": {
-    "transcription": {
-      "text": "हमनी के लिए एगो सोशल पोस्ट लिखs",
-      "language": "bho",
-      "duration": 4.2
-    },
-    "detected_language": "bho",
-    "agent_type": "copywriter",
-    "agent_response": "...(response in Bhojpuri)...",
-    "r2_key": "voice/acme/2026/03/21/abc123.webm",
-    "voice_response_r2_key": "voice/acme/2026/03/21/abc123_reply.mp3"
-  }
-}
-```
-
-### Supported Audio Formats
-
-`webm`, `mp3`, `wav`, `ogg`, `flac`, `m4a`, `mp4` (up to 25MB)
-
----
-
-## 14. Multilingual Support (30+ Indian Languages)
-
-The engine supports **all 22 Indian Scheduled Languages** plus regional languages, auto-detecting the input language and responding in it.
-
-### How It Works
-
-1. **Auto-detect mode (default)**: Language instructions are injected into every agent's system prompt
-2. **Explicit mode**: Pass `"language": "mai"` in the request context to force a language
-3. **Voice mode**: Whisper STT auto-detects the spoken language
-
-### Supported Languages
-
-| Code | Language | Script | Region |
-|------|----------|--------|--------|
-| `hi` | Hindi | Devanagari | Pan-India |
-| `bn` | Bengali | Bengali | West Bengal, Tripura |
-| `te` | Telugu | Telugu | Andhra Pradesh, Telangana |
-| `mr` | Marathi | Devanagari | Maharashtra |
-| `ta` | Tamil | Tamil | Tamil Nadu |
-| `gu` | Gujarati | Gujarati | Gujarat |
-| `kn` | Kannada | Kannada | Karnataka |
-| `ml` | Malayalam | Malayalam | Kerala |
-| `pa` | Punjabi | Gurmukhi | Punjab |
-| `or` | Odia | Odia | Odisha |
-| `ur` | Urdu | Nastaliq | J&K, Telangana |
-| `as` | Assamese | Bengali | Assam |
-| `mai` | Maithili | Devanagari | Bihar, Jharkhand |
-| `bho` | Bhojpuri | Devanagari | Bihar, UP |
-| `mag` | Magahi | Devanagari | Bihar |
-| `ang` | Angika | Devanagari | Bihar |
-| `ne` | Nepali | Devanagari | Sikkim |
-| `kok` | Konkani | Devanagari | Goa |
-| `doi` | Dogri | Devanagari | Jammu |
-| `mni` | Manipuri | Meitei | Manipur |
-| `sat` | Santali | Ol Chiki | Jharkhand |
-| `brx` | Bodo | Devanagari | Assam |
-| `sa` | Sanskrit | Devanagari | Classical |
-| `sd` | Sindhi | Devanagari/Arabic | Gujarat |
-| `ks` | Kashmiri | Devanagari/Nastaliq | J&K |
-| `raj` | Rajasthani | Devanagari | Rajasthan |
-| `chh` | Chhattisgarhi | Devanagari | Chhattisgarh |
-| `tcy` | Tulu | Kannada | Karnataka |
-
-### Usage in API Requests
-
-```json
-// Explicit language in agent request
-{
-  "prompt": "Write a social post about organic farming",
-  "context": {
-    "language": "mai"
-  }
-}
-```
-
-### Configuration (`config/languages.yaml`)
-
-Add new languages by editing the YAML — zero code changes required.
-
----
-
-## 15. Error Handling & Response Middleware
-
-All API responses follow a **consistent envelope format**. The `ResponseEnvelopeMiddleware` wraps every JSON response automatically.
-
-### Response Envelope
-
-```json
-// Success
-{
-  "success": true,
-  "data": { ... },
-  "error": null,
-  "meta": {
-    "request_id": "req_abc123",
-    "response_time_ms": 245
-  }
-}
-
-// Error
-{
-  "success": false,
-  "data": null,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Field 'prompt' is required",
-    "details": [...]
-  },
-  "meta": {
-    "request_id": "req_abc123"
-  }
-}
-```
-
-### ApiResponse Helper
+Edit `app/services/optimization/smart_router.py`:
 
 ```python
-from app.middleware.response import ApiResponse
-
-# Success
-return ApiResponse.ok(data={"result": "..."}, meta={"agent": "social"})
-
-# Created
-return ApiResponse.created(data={"id": 123})
-
-# Error
-return ApiResponse.error(message="Not found", code="NOT_FOUND", status=404)
-
-# Paginated
-return ApiResponse.paginated(items=[...], total=100, page=1, per_page=20)
+ROUTING_RULES.append({
+    "keywords": ["relevant", "keywords", "for", "this", "agent"],
+    "agent": "my_new_agent",
+    "domain": "my_sector",
+})
 ```
-
-### Exception Handlers
-
-| Exception | HTTP Code | Auto-Handled |
-|-----------|-----------|-------------|
-| `HTTPException` | Varies | ✅ Returns structured JSON |
-| `RequestValidationError` | 422 | ✅ Lists all field errors |
-| `ValidationError` (Pydantic) | 422 | ✅ Lists all field errors |
-| `Exception` (unhandled) | 500 | ✅ Returns generic error with request_id |
 
 ---
 
-## 13. Configuration Reference
+## Deployment
 
-All configuration is managed via environment variables (`.env` file) with sensible defaults.
-
-### Core Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `APP_ENV` | `local` | Environment: local, staging, production |
-| `DEBUG` | `true` | Enable Swagger UI at `/docs` and ReDoc at `/redoc` |
-| `DATABASE_URL` | `postgresql+asyncpg://...` | Async PostgreSQL connection string |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection for caching |
-| `MASTER_API_KEY` | `sk_master_...` | Master key for provisioning endpoints |
-
-### AI Driver Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AI_DRIVER` | `mock` | Primary LLM driver (`openai`, `gemini`, `anthropic`, `groq`, `ollama`, `mock`) |
-| `AI_FALLBACK_DRIVER` | `gemini` | Automatic fallback if primary fails |
-| `AI_VISION_DRIVER` | `gemini` | Driver for image analysis capabilities |
-| `AI_IMAGE_DRIVER` | `openai` | Driver for image generation (DALL-E) |
-
-### Intelligence Toggles
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AI_SMART_ROUTER_ENABLED` | `true` | Enable complexity-based model selection |
-| `AI_PROMPT_CACHE_ENABLED` | `true` | Enable exact-match Redis cache |
-| `AI_PROMPT_CACHE_TTL` | `7200` | Cache TTL in seconds (2 hours) |
-| `AI_SEMANTIC_CACHE_ENABLED` | `true` | Enable vector similarity cache |
-| `AI_SEMANTIC_CACHE_THRESHOLD` | `0.83` | Similarity threshold (cosine) |
-| `AI_QUALITY_GATE_ENABLED` | `true` | Enable quality scoring + auto-regeneration |
-| `AI_QUALITY_GATE_THRESHOLD` | `6` | Minimum quality score (0-10) |
-| `AI_CIRCUIT_BREAKER_THRESHOLD` | `3` | Failures before circuit opens |
-| `AI_CIRCUIT_BREAKER_COOLDOWN` | `60` | Cooldown seconds before half-open |
-| `AI_RATE_LIMIT_RPM` | `30` | Requests per minute per tenant |
-
-### Self-Learning Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AI_AUTO_LEARNING_ENABLED` | `true` | Enable the self-learning pipeline |
-| `AI_META_PROMPT_ENABLED` | `true` | Enable OPRO prompt optimization |
-| `AI_META_PROMPT_MODEL` | `gemini-2.0-flash` | Model used by the meta-optimizer |
-| `AI_META_PROMPT_THRESHOLD` | `20` | Min feedback items before optimization |
-| `AI_EDIT_ANALYSIS` | `true` | Learn from user edits (diff analysis) |
-| `AI_AB_TESTING` | `true` | Enable A/B testing of prompts |
-| `AI_EXPLORE_RATE` | `0.2` | % of traffic routed to candidate prompts |
-
-### Token Budget Settings
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AI_TOKEN_BUDGET_ENABLED` | `true` | Enable per-tenant token budgets |
-| `AI_TOKEN_BUDGET_MONTHLY` | `500000` | Default monthly token limit per tenant |
-
----
-
-## 14. Developer Quickstart
-
-### Prerequisites
-- Docker / Podman with Compose plugin
-- Git
-
-### Setup
-```bash
-# 1. Clone
-git clone https://github.com/sutracodehq-ui/sutra-ai-engine.git
-cd sutra-ai-engine
-
-# 2. Configure
-cp .env.example .env
-# Edit .env — set API keys for the providers you want to use
-
-# 3. Start all services
-podman compose up -d
-
-# 4. Run database migrations
-podman exec sutra-ai-api alembic upgrade head
-
-# 5. Verify
-curl http://localhost:8090/health
-# → {"status":"ok","service":"sutra-ai"}
-
-curl http://localhost:8090/ready
-# → {"status":"ok","database":"connected","redis":"connected","chromadb":"unknown"}
-```
-
-### Access Points
-
-| Resource | URL |
-|----------|-----|
-| **API Server** | http://localhost:8090 |
-| **Swagger Docs** | http://localhost:8090/docs |
-| **ReDoc Docs** | http://localhost:8090/redoc |
-| **Developer Docs** | http://localhost:8090/docs/dev |
-| **Adminer (DB UI)** | http://localhost:8091 |
-| **ChromaDB** | http://localhost:8100 |
-
-### Running the CLI
+### Docker
 
 ```bash
-# Rotate API keys for a tenant
-podman exec sutra-ai-api python -m app.scripts.rotate_key <slug> live
+docker-compose up -d
 ```
 
-### Project Structure
-```
-sutracode-ai-engine/
-├── agent_config/              # YAML configs for all 43 AI agents
-│   ├── copywriter.yaml        # Core Marketing (Phase 0)
-│   ├── seo.yaml
-│   ├── social_media.yaml
-│   ├── email_campaign.yaml
-│   ├── whatsapp.yaml
-│   ├── sms.yaml
-│   ├── ad_creative.yaml
-│   ├── brand_auditor.yaml
-│   ├── content_repurpose.yaml
-│   ├── click_shield.yaml
-│   ├── persona_builder.yaml   # Marketing Intelligence (Phase 1)
-│   ├── campaign_strategist.yaml
-│   ├── ab_test_advisor.yaml
-│   ├── competitor_analyst.yaml
-│   ├── url_analyzer.yaml
-│   ├── performance_reporter.yaml  # Analytics (Phase 2)
-│   ├── budget_optimizer.yaml
-│   ├── anomaly_alerter.yaml
-│   ├── visual_designer.yaml     # Creative (Phase 3)
-│   ├── video_scriptwriter.yaml
-│   ├── landing_page_builder.yaml
-│   ├── auto_publisher.yaml      # Autonomous (Phase 4)
-│   ├── lead_scorer.yaml
-│   ├── chatbot_trainer.yaml
-│   ├── review_reputation.yaml   # Reputation (Phase 5)
-│   ├── trend_spotter.yaml
-│   ├── funnel_analyzer.yaml
-│   ├── influencer_matcher.yaml
-│   ├── journey_mapper.yaml
-│   ├── auto_scheduler.yaml      # Smart Automation (Phase 6)
-│   ├── audience_segmenter.yaml
-│   ├── churn_predictor.yaml
-│   ├── roi_calculator.yaml      # Advanced Analytics (Phase 7)
-│   ├── content_grader.yaml
-│   ├── attribution_analyst.yaml
-│   ├── pricing_strategist.yaml
-│   ├── google_ads_optimizer.yaml  # Platform-Specific (Phase 8)
-│   ├── meta_ads_optimizer.yaml
-│   ├── linkedin_growth.yaml
-│   ├── cold_call_scripter.yaml    # Voice & Calling (Phase 9)
-│   ├── call_sentiment_analyzer.yaml
-│   ├── whatsapp_bot_builder.yaml
-│   ├── call_summarizer.yaml
-│   └── ivr_designer.yaml
-├── app/
-│   ├── main.py                # FastAPI entry point + app factory
-│   ├── config.py              # Pydantic Settings (all env vars)
-│   ├── dependencies.py        # FastAPI dependency injection
-│   ├── api/
-│   │   ├── health.py          # /health and /ready endpoints
-│   │   └── v1/                # All v1 API routes
-│   │       ├── router.py      # Route aggregator
-│   │       ├── chat.py        # Chat completions API
-│   │       ├── agents.py      # Agent listing + execution (43 auto-generated)
-│   │       ├── voice.py       # 🆕 Voice pipeline (process, transcribe, speak)
-│   │       ├── content.py     # Content generation endpoints
-│   │       ├── intelligence.py  # Intelligence + language endpoints
-│   │       ├── url_analyzer.py  # URL analysis endpoints
-│   │       ├── conversations.py
-│   │       ├── tenants.py
-│   │       ├── rag.py
-│   │       ├── billing.py
-│   │       └── provision.py
-│   ├── middleware/
-│   │   └── response.py        # ApiResponse + ResponseEnvelopeMiddleware
-│   ├── models/                # SQLAlchemy ORM models
-│   ├── schemas/               # Pydantic request/response schemas
-│   ├── services/
-│   │   ├── agents/            # AI Agent classes + Hub (43 agents)
-│   │   │   ├── base.py        # BaseAgent (config-driven, A/B testing, multilingual)
-│   │   │   ├── hub.py         # AiAgentHub (registry + orchestrator)
-│   │   │   └── ...            # 43 individual agent classes
-│   │   ├── voice/             # 🆕 Voice Pipeline
-│   │   │   └── voice_service.py  # R2 upload + Whisper STT + TTS
-│   │   ├── chat/              # Chat Pipeline
-│   │   ├── drivers/           # LLM provider implementations (6 drivers)
-│   │   ├── intelligence/      # The Intelligence Layer
-│   │   │   ├── multilingual.py  # 🆕 30+ Indian language support
-│   │   │   ├── web_scraper.py   # URL scraping + analysis
-│   │   │   ├── smart_router.py
-│   │   │   ├── quality_gate.py
-│   │   │   ├── circuit_breaker.py
-│   │   │   └── ...
-│   │   ├── learning/          # Self-Learning Engine (OPRO)
-│   │   ├── rag/               # RAG & Knowledge Base
-│   │   └── llm_service.py     # Unified LLM interface
-│   ├── workers/               # Celery tasks
-│   └── scripts/               # CLI utilities
-├── config/                    # 🆕 Config-driven settings
-│   ├── openapi.yaml           # Swagger API metadata
-│   ├── languages.yaml         # 🆕 30+ supported languages
-│   └── voice.yaml             # 🆕 STT/TTS/R2 settings
-├── docs/
-│   └── developer_docs.md      # This documentation
-├── alembic/                   # Database migrations
-├── docker/
-│   ├── Dockerfile             # API server image (multi-stage)
-│   └── Dockerfile.worker      # Worker image
-├── docker-compose.yml
-├── pyproject.toml
-└── .env
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | Required |
+| `REDIS_URL` | Redis for caching/queues | `redis://localhost:6379` |
+| `OLLAMA_HOST` | Ollama LLM server | `http://localhost:11434` |
+| `AI_AGENT_MEMORY_ENABLED` | Enable RAG memory | `true` |
+| `CHROMADB_HOST` | ChromaDB for vector search | `localhost` |
+
+### Health Check
+
+```bash
+curl http://localhost:8000/health
 ```
 
 ---
 
-*Contact: engineering@sutracode.app for API support.*
+## Complete Agent Catalog (149 Agents)
+
+All agents grouped by product. Each agent entry includes its identifier, description, capabilities, and real-world use cases.
+
+---
+
+### 📢 Product 1: Tryambaka Marketing Suite (39 agents)
+
+> The flagship marketing intelligence platform. Covers everything from copywriting to attribution analysis.
+
+#### Core Marketing Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 1 | **Copywriter** | `copywriter` | Generates high-converting marketing copy: taglines, headlines, ad copy, product descriptions, CTAs, and brand stories. |
+| 2 | **SEO Specialist** | `seo` | On-page and off-page SEO optimization: keyword research, meta descriptions, content structure, internal linking, and SERP analysis. |
+| 3 | **Social Media Manager** | `social` | Creates platform-native social media posts for Instagram, Twitter/X, LinkedIn, and Facebook with hashtag strategy. |
+| 4 | **Email Campaign Manager** | `email_campaign` | Designs email sequences: welcome series, drip campaigns, newsletters, re-engagement flows, and subject line optimization. |
+| 5 | **WhatsApp Marketer** | `whatsapp` | Creates WhatsApp Business API templates, broadcast messages, and conversational flows compliant with Meta policies. |
+| 6 | **SMS Campaign Writer** | `sms` | Writes concise SMS campaigns within 160-character limits with trackable short links and action-oriented CTAs. |
+| 7 | **Ad Creative Designer** | `ad_creative` | Generates ad creatives for Google, Meta, and LinkedIn with A/B test variations, targeting suggestions, and budget allocation. |
+| 8 | **Brand Auditor** | `brand_auditor` | Audits brand consistency across channels: voice, tone, visual identity, messaging alignment, and competitive positioning. |
+| 9 | **Content Repurposer** | `content_repurposer` | Transforms long-form content into multiple formats: blogs → social posts → email snippets → video scripts → infographics. |
+| 10 | **Click Shield** | `click_shield` | Detects and prevents click fraud on paid advertising campaigns by analyzing traffic patterns and flagging suspicious clicks. |
+
+**Use Cases:**
+- A D2C brand uses Copywriter + Social + Email Campaign to launch a product in 1 day
+- An agency uses Content Repurposer to turn one blog post into 15 social posts
+- A startup uses Brand Auditor before investor pitch to ensure consistent messaging
+
+#### Marketing Intelligence Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 11 | **Persona Builder** | `persona_builder` | Creates detailed buyer personas from demographics, psychographics, pain points, and buying behavior data. |
+| 12 | **Campaign Strategist** | `campaign_strategist` | Designs full-funnel campaign strategies: awareness → consideration → conversion → retention with budget splits. |
+| 13 | **A/B Test Advisor** | `ab_test_advisor` | Recommends what to A/B test (headlines, CTAs, images, layouts), calculates sample sizes, and interprets statistical significance. |
+| 14 | **Competitor Analyst** | `competitor_analyst` | Deep-dives into competitor strategies: pricing, messaging, channel mix, content themes, and market positioning. |
+| 15 | **URL Analyzer** | `url_analyzer` | Analyzes any website: SEO health, tech stack, page speed, mobile-friendliness, social signals, and competitive intelligence. |
+
+**Use Cases:**
+- A SaaS founder uses Persona Builder before launching to understand their ICP
+- A marketing head uses Competitor Analyst to prepare a quarterly strategy
+
+#### Analytics & Optimization Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 16 | **Performance Reporter** | `performance_reporter` | Generates weekly/monthly marketing performance reports with KPIs, trends, and actionable recommendations. |
+| 17 | **Budget Optimizer** | `budget_optimizer` | Optimizes marketing budget allocation across channels based on ROAS, CAC, and LTV projections. |
+| 18 | **Anomaly Alerter** | `anomaly_alerter` | Detects unusual patterns in marketing data: sudden traffic drops, CTR spikes, cost anomalies, and conversion rate changes. |
+| 19 | **ROI Calculator** | `roi_calculator` | Calculates marketing ROI across channels with attribution modeling, comparing spend vs revenue generated. |
+| 20 | **Content Grader** | `content_grader` | Scores content quality on readability, SEO optimization, engagement potential, and brand voice consistency. |
+| 21 | **Attribution Analyst** | `attribution_analyst` | Multi-touch attribution modeling: first-click, last-click, linear, time-decay, and data-driven models. |
+| 22 | **Pricing Strategist** | `pricing_strategist` | Recommends pricing strategies: penetration, skimming, value-based, competitive; with price elasticity analysis. |
+
+**Use Cases:**
+- A CMO uses Performance Reporter for board-ready monthly reports
+- An e-commerce team uses Anomaly Alerter to catch a sudden drop in conversion rate
+
+#### Creative & Media Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 23 | **Visual Designer** | `visual_designer` | Creates design briefs for banners, social graphics, and brand-consistent image specifications. |
+| 24 | **Video Scriptwriter** | `video_scriptwriter` | Writes video scripts: reels, YouTube intros, ad storyboards, explainer videos, and voiceover scripts. |
+| 25 | **Landing Page Builder** | `landing_page_builder` | Generates complete landing page copy and structure: hero section, benefits, social proof, FAQ, and CTA. |
+
+#### Autonomous Operations Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 26 | **Auto Publisher** | `auto_publisher` | Schedules and auto-publishes content across platforms with optimal timing based on audience activity patterns. |
+| 27 | **Lead Scorer** | `lead_scorer` | Scores leads based on engagement signals, demographics, and behavior patterns to prioritize sales outreach. |
+| 28 | **Chatbot Trainer** | `chatbot_trainer` | Generates training data and conversation flows for customer-facing chatbots. |
+
+#### Reputation & Growth Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 29 | **Review Reputation Manager** | `review_reputation` | Monitors and responds to online reviews (Google, Trustpilot, G2), generates professional response templates. |
+| 30 | **Trend Spotter** | `trend_spotter` | Identifies trending topics, hashtags, and content formats in real-time for timely brand engagement. |
+| 31 | **Funnel Analyzer** | `funnel_analyzer` | Diagnoses conversion funnel bottlenecks: where users drop off and why, with fix recommendations. |
+| 32 | **Influencer Matcher** | `influencer_matcher` | Matches brands with relevant influencers based on niche, audience demographics, and engagement rates. |
+| 33 | **Journey Mapper** | `journey_mapper` | Maps complete customer journeys from awareness to advocacy, identifying touchpoints and emotion curves. |
+
+#### Smart Automation Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 34 | **Auto Scheduler** | `auto_scheduler` | AI-powered content calendar that auto-schedules posts for optimal engagement times. |
+| 35 | **Audience Segmenter** | `audience_segmenter` | Segments audiences by behavior, demographics, and purchase history for targeted campaigns. |
+| 36 | **Churn Predictor** | `churn_predictor` | Predicts which customers are about to churn based on engagement decline and usage patterns. |
+
+#### Platform-Specific Agents
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 37 | **Google Ads Optimizer** | `google_ads_optimizer` | Optimizes Google Ads: keyword bids, ad copy, quality score, negative keywords, and campaign structure. |
+| 38 | **Meta Ads Optimizer** | `meta_ads_optimizer` | Optimizes Facebook/Instagram ads: audience targeting, creative testing, budget pacing, and lookalike audiences. |
+| 39 | **LinkedIn Growth** | `linkedin_growth` | LinkedIn organic growth: post optimization, connection strategy, thought leadership content, and SSI improvement. |
+
+**Use Cases:**
+- A performance marketer uses Google Ads Optimizer + Meta Ads Optimizer to manage ₹50L/month ad spend
+- A CEO uses LinkedIn Growth for personal branding and lead generation
+
+---
+
+### 📞 Product 2: VoiceFlow (5 agents)
+
+> AI agents for voice, calls, and conversational intelligence.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 40 | **Cold Call Scripter** | `cold_call_scripter` | Generates cold call scripts with objection handling, hooks, and closing techniques tailored to Indian B2B sales. |
+| 41 | **Call Sentiment Analyzer** | `call_sentiment_analyzer` | Analyzes call transcripts for customer sentiment: positive, negative, neutral with emotion scoring and key moments. |
+| 42 | **WhatsApp Bot Builder** | `whatsapp_bot_builder` | Designs conversational WhatsApp bot flows with menu trees, quick replies, and API integration points. |
+| 43 | **Call Summarizer** | `call_summarizer` | Summarizes sales/support calls into action items, key decisions, follow-ups, and customer sentiment scores. |
+| 44 | **IVR Designer** | `ivr_designer` | Designs IVR menu flows with multilingual support, intelligent call routing, and customer-friendly navigation. |
+
+**Use Cases:**
+- A BPO uses Call Sentiment Analyzer to monitor 10,000 daily calls for quality
+- A startup's sales team uses Cold Call Scripter for B2B outreach to Indian enterprises
+- A hospital uses IVR Designer for Hindi/English patient routing
+
+---
+
+### 🎬 Product 3: VideoMind (5 agents)
+
+> AI-powered video analysis, scripting, and content creation.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 45 | **YouTube Analyzer** | `youtube_analyzer` | Analyzes YouTube videos: extracts transcripts, engagement signals, SEO tags, content structure, and competitor benchmarking. |
+| 46 | **Video Summarizer** | `video_summarizer` | Summarizes long videos into executive summaries, chapter markers, timestamped key moments, and TL;DR bullet points. |
+| 47 | **Caption Generator** | `caption_generator` | Generates captions and subtitles in any Indian language from video transcripts. Outputs SRT/VTT formatted files. |
+| 48 | **Audio Dubber** | `audio_dubber` | Translates transcripts to target Indian languages and generates TTS audio dubs. Returns translated text + base64 audio. |
+| 49 | **Social Clip Maker** | `social_clip_maker` | Identifies viral-worthy moments from long videos, suggests short-form clips for Reels/Shorts with hooks and hashtags. |
+
+**Use Cases:**
+- A YouTube educator uses Video Summarizer to create chapter markers automatically
+- A media house uses Audio Dubber to dub Hindi content into Tamil, Telugu, Bengali
+- A content agency uses Social Clip Maker to extract 10 reels from one 30-min podcast
+
+---
+
+### 📚 Product 4: EdBrain (5 agents)
+
+> AI tutoring, notes, quizzes, and learning tools.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 50 | **Note Generator** | `note_generator` | Generates structured study notes from any topic: organized sections, bullet points, key terms, and summary boxes. |
+| 51 | **Key Points Extractor** | `key_points_extractor` | Extracts the most important points from text, lectures, or documents. Prioritizes exam-relevant content. |
+| 52 | **Quiz Generator** | `quiz_generator` | Creates MCQ, true/false, fill-in-the-blank, and short-answer questions from any content with answer keys. |
+| 53 | **Flashcard Creator** | `flashcard_creator` | Generates spaced-repetition flashcards from any content: front (question), back (answer), with difficulty tags. |
+| 54 | **Lecture Planner** | `lecture_planner` | Plans complete lecture sessions: learning objectives, content flow, activities, assessments, and time allocation. |
+
+**Use Cases:**
+- A UPSC aspirant uses Note Generator + Quiz Generator for daily preparation
+- A coaching institute uses Lecture Planner for standardized class delivery across branches
+- A medical student uses Flashcard Creator for anatomy and pharmacology revision
+
+---
+
+### 💹 Product 5: FinWise (10 agents)
+
+> Stock analysis, tax planning, and personal finance for India.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 55 | **Stock Analyzer** | `stock_analyzer` | Fundamental and technical analysis of Indian stocks: P/E ratio, debt, promoter holding, chart patterns, support/resistance. |
+| 56 | **Stock Predictor** | `stock_predictor` | Uses historical patterns and market indicators to predict short-term price movements with confidence scores. |
+| 57 | **Market Trend Analyzer** | `market_trend_analyzer` | Analyzes broader market trends: sectoral rotation, FII/DII flows, global cues, and macroeconomic indicators. |
+| 58 | **AI Trend Tracker** | `ai_trend_tracker` | Tracks the latest AI industry trends, breakthrough research, new models, and market developments. |
+| 59 | **Crypto Analyzer** | `crypto_analyzer` | Analyzes cryptocurrencies: on-chain metrics, market cap, volume, social sentiment, and regulatory impact for Indian investors. |
+| 60 | **Tax Planner** | `tax_planner` | Indian income tax planning: Old vs New regime comparison, Section 80C/80D deductions, HRA, LTA, and ITR filing guidance. |
+| 61 | **Loan Comparator** | `loan_comparator` | Compares home, personal, car, and education loans across Indian banks: interest rates, EMI, processing fees, foreclosure charges. |
+| 62 | **Insurance Advisor** | `insurance_advisor` | Recommends health, term, motor, and travel insurance: coverage analysis, claim settlement ratios, premium comparison. |
+| 63 | **SIP Calculator** | `sip_calculator` | Calculates SIP returns: CAGR projections, ELSS tax savings, goal-based investment planning, and fund comparison. |
+| 64 | **Retirement Planner** | `retirement_planner` | Plans retirement corpus: NPS vs PPF vs EPF comparison, inflation-adjusted goals, withdrawal strategies, and pension planning. |
+
+**Use Cases:**
+- A salaried professional uses Tax Planner to save ₹1.5L under 80C
+- A first-time investor uses SIP Calculator to plan ₹10K/month for 15 years
+- A CA firm uses Stock Analyzer + Market Trend Analyzer for client advisory
+
+---
+
+### 🏥 Product 6: HealthMate (9 agents)
+
+> AI health assistant: lab reports, diet, Ayurveda, fitness.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 65 | **Lab Report Interpreter** | `lab_report_interpreter` | Interprets blood tests, urine tests, and other lab reports: explains values, flags abnormalities, and suggests follow-ups. |
+| 66 | **Symptom Triage** | `symptom_triage` | Assesses symptoms and classifies urgency: emergency (go to ER), urgent (see doctor today), or routine (schedule appointment). |
+| 67 | **Diet Planner** | `diet_planner` | Creates personalized Indian diet plans for health goals: diabetes management, weight loss, PCOS, pregnancy, and sports. |
+| 68 | **Mental Health Companion** | `mental_health_companion` | Provides empathetic mental health support: stress management, anxiety coping techniques, and guided exercises. |
+| 69 | **Medicine Info** | `medicine_info` | Explains medications: uses, dosage, side effects, drug interactions, and Indian brand name equivalents. |
+| 70 | **Patient Follow-Up** | `patient_followup` | Generates patient follow-up reminders, post-discharge care instructions, and medication adherence tracking. |
+| 71 | **Ayurveda Advisor** | `ayurveda_advisor` | Provides Ayurvedic health guidance: dosha assessment, herbal remedies, dietary recommendations, and yoga prescriptions. |
+| 72 | **Sports Nutrition** | `sports_nutrition` | Sports nutrition for Indian athletes: macros, meal timing, Indian food-based plans, WADA-compliant supplements. |
+| 73 | **Fitness Coach** | `fitness_coach` | Personalized workout plans: home workouts for Indian apartments, gym programs, yoga integration, seasonal adaptation. |
+
+**Use Cases:**
+- A patient uses Lab Report Interpreter to understand their CBC report before a doctor visit
+- A diabetic uses Diet Planner for a month-long Indian meal plan with glycemic index tracking
+- An Ayurveda clinic uses Ayurveda Advisor for initial dosha assessment of new patients
+
+> ⚠️ **Safety:** Health agents include medical disclaimers and always recommend consulting a qualified doctor. Symptom Triage, Mental Health Companion, and Medicine Info responses are NEVER cached.
+
+---
+
+### ⚖️ Product 7: LegalEase (4 agents)
+
+> Indian legal docs, contracts, GST, and compliance.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 74 | **Contract Analyzer** | `contract_analyzer` | Reviews contracts and agreements: identifies risky clauses, missing protections, and suggests amendments. |
+| 75 | **RTI Drafter** | `rti_drafter` | Drafts Right to Information applications for Indian government departments with proper format and legal backing. |
+| 76 | **GST Compliance** | `gst_compliance` | GST compliance guidance: HSN codes, return filing, ITC claims, e-invoicing, and reconciliation. |
+| 77 | **Legal Document Writer** | `legal_document_writer` | Drafts legal documents: NDAs, MOUs, partnership deeds, legal notices, affidavits, and power of attorney. |
+
+**Use Cases:**
+- A startup founder uses Contract Analyzer before signing a vendor agreement
+- A citizen uses RTI Drafter to request information about road construction delays
+- A small business uses GST Compliance for monthly GSTR-3B filing assistance
+
+---
+
+### 👔 Product 8: HireGenius (5 agents)
+
+> AI-powered hiring, JDs, resume screening, and onboarding.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 78 | **Resume Screener** | `resume_screener` | Screens resumes against job requirements: skill matching, experience scoring, red flag detection, and shortlist ranking. |
+| 79 | **Interview Q Generator** | `interview_q_generator` | Generates structured interview questions by role, level, and competency: technical, behavioral, and situational. |
+| 80 | **JD Writer** | `jd_writer` | Writes professional job descriptions: role summary, responsibilities, requirements, culture fit, and compensation range. |
+| 81 | **Salary Benchmarker** | `salary_benchmarker` | Benchmarks salaries for Indian market: CTC ranges by role, city, experience level, and industry comparisons. |
+| 82 | **Onboarding Guide** | `onboarding_guide` | Creates structured onboarding plans: first day, first week, first 30/60/90 days with checklists and milestones. |
+
+**Use Cases:**
+- An HR team uses Resume Screener to filter 500 applications for a backend developer role
+- A startup uses JD Writer + Salary Benchmarker to create competitive listings on Naukri
+- A new hire gets a personalized 90-day onboarding plan from Onboarding Guide
+
+---
+
+### 🛒 Product 9: ShopBrain (5 agents)
+
+> Product listings, pricing, reviews, and catalog management.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 83 | **Product Description Writer** | `product_description_writer` | Writes SEO-optimized product descriptions for Amazon, Flipkart, and Shopify with bullet points and keywords. |
+| 84 | **Review Analyzer** | `review_analyzer` | Analyzes customer reviews: sentiment breakdown, common complaints, feature requests, and competitive insights. |
+| 85 | **Dynamic Pricing** | `dynamic_pricing` | Recommends pricing strategies based on competition, demand, seasonality, and margin targets. |
+| 86 | **Returns Predictor** | `returns_predictor` | Predicts return probability for products based on category, price, description quality, and customer segment. |
+| 87 | **Catalog Enricher** | `catalog_enricher` | Enriches product catalogs with missing attributes, standardized categories, and enhanced descriptions. |
+
+**Use Cases:**
+- An Amazon seller uses Product Description Writer for 200 product listings
+- A D2C brand uses Review Analyzer to identify the top 3 complaints across 10,000 reviews
+- An e-commerce platform uses Returns Predictor to flag high-return-risk orders
+
+---
+
+### 🌾 Product 10: KisanAI (5 agents)
+
+> Crop advisory, soil reports, MSP tracking for Indian farmers.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 88 | **Crop Advisor** | `crop_advisor` | Advises on crop selection, pest management, irrigation, and harvest timing based on region, soil, and season. |
+| 89 | **Soil Report Interpreter** | `soil_report_interpreter` | Interprets soil test reports: pH, NPK levels, micronutrients, and recommends fertilizer schedules. |
+| 90 | **Weather Planting** | `weather_planting` | Advises planting schedules based on monsoon predictions, temperature, and rainfall patterns for Indian regions. |
+| 91 | **MSP Tracker** | `msp_tracker` | Tracks Minimum Support Prices for crops, nearby mandi rates, and best selling strategies for farmers. |
+| 92 | **Subsidy Finder** | `subsidy_finder` | Finds eligible government subsidies and schemes: PM-KISAN, PMFBY, KCC, soil health card, and state schemes. |
+
+**Use Cases:**
+- A farmer in Punjab uses Crop Advisor for wheat rotation planning
+- An FPO uses MSP Tracker to advise 500 member farmers on best selling time
+- A progressive farmer uses Soil Report Interpreter after getting soil test from KVK
+
+> 💡 **Pricing:** KisanAI is priced at ₹499/mo — the lowest — because farmers are the priority.
+
+---
+
+### 🏠 Product 11: PropertyGuru (4 agents)
+
+> Property valuation, RERA check, rental yields for India.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 93 | **Property Valuator** | `property_valuator` | Estimates property values based on location, carpet area, floor, amenities, and market comparables. |
+| 94 | **Rental Yield Calculator** | `rental_yield_calculator` | Calculates rental yield: gross vs net yield, rent vs EMI comparison, and investment ROI projections. |
+| 95 | **RERA Compliance** | `rera_compliance` | Checks builder RERA compliance: registration status, carpet area calculations, and buyer rights. |
+| 96 | **Area Comparator** | `area_comparator` | Compares localities: connectivity, infrastructure, appreciation trends, schools, hospitals, and livability index. |
+
+**Use Cases:**
+- A home buyer uses Property Valuator to check if ₹85L for a 3BHK in Pune is fair
+- An NRI uses Rental Yield Calculator to evaluate investment in Hyderabad vs Bangalore
+- A buyer uses RERA Compliance to verify a builder's registration before booking
+
+---
+
+### ✈️ Product 12: TravelBuddy (5 agents)
+
+> Trip planning, visa guide, and budget optimization.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 97 | **Trip Planner** | `trip_planner` | Plans Indian and international trips: itineraries, budgets, best travel times, food, and booking recommendations. |
+| 98 | **Visa Guide** | `visa_guide` | Guides Indian passport holders on visa requirements, documents, application process, and interview tips for any country. |
+| 99 | **Travel Budget Optimizer** | `travel_budget_optimizer` | Optimizes travel budgets: finds deals, alternative routes, cost-saving tips, and free activities at destinations. |
+| 100 | **Cultural Advisor** | `cultural_advisor` | Provides cultural etiquette, dress codes, tipping customs, and local phrases for international destinations. |
+| 101 | **Itinerary Generator** | `itinerary_generator` | Auto-generates day-wise optimized itineraries with routes, timings, restaurant suggestions, and backup plans. |
+
+**Use Cases:**
+- A family uses Trip Planner for a 7-day Rajasthan road trip with hotel and food suggestions
+- A first-time traveler uses Visa Guide for Japan tourist visa application step-by-step
+- A backpacker uses Travel Budget Optimizer for a Europe trip under ₹1.5L
+
+---
+
+### 🚛 Product 13: LogiSmart (4 agents)
+
+> Route optimization, shipment tracking, warehouse planning.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 102 | **Route Optimizer** | `route_optimizer` | Plans optimal delivery routes considering traffic, fuel costs, time windows, and driver constraints. |
+| 103 | **Shipment Tracker** | `shipment_tracker` | Tracks shipments across carriers, predicts delays, and generates customer notifications. |
+| 104 | **Warehouse Planner** | `warehouse_planner` | Designs warehouse layouts: zone planning, pick path optimization, capacity planning, and seasonal scaling. |
+| 105 | **Last Mile Optimizer** | `last_mile_optimizer` | Optimizes last-mile delivery: clustering deliveries, rider assignment, and failed delivery prediction. |
+
+**Use Cases:**
+- A logistics company uses Route Optimizer for 500-vehicle fleet daily planning
+- An e-commerce fulfillment center uses Last Mile Optimizer to reduce delivery failures
+- A 3PL uses Warehouse Planner for a new 50,000 sq ft facility layout
+
+---
+
+### 🏛️ Product 14: JanSeva (4 agents)
+
+> Scheme eligibility, complaint drafting, form filling.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 106 | **Scheme Eligibility** | `scheme_eligibility` | Checks eligibility for government schemes: PM-KISAN, Ayushman Bharat, PM Awas, Ujjwala, and state schemes. |
+| 107 | **Complaint Drafter** | `complaint_drafter` | Drafts formal complaints for consumer forums, CPGRAMS, traffic violations, and municipal issues in proper format. |
+| 108 | **Document Translator** | `document_translator` | Translates government documents between Hindi, English, and regional Indian languages. |
+| 109 | **Form Filler** | `form_filler` | Guides users through government form filling: passport, PAN card, Aadhaar update, voter ID, and driving license. |
+
+**Use Cases:**
+- A rural citizen uses Scheme Eligibility to discover they're eligible for PM Awas Yojana
+- A consumer uses Complaint Drafter to file a complaint on the National Consumer Helpline
+- An elderly person uses Form Filler guidance for Aadhaar address update
+
+> 💡 **Pricing:** JanSeva at ₹299/mo — civic service agents priced for universal access.
+
+---
+
+### 🎯 Product 15: SuccessIQ (5 agents)
+
+> NPS, retention, churn prevention, and upsell intelligence.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 110 | **NPS Analyzer** | `nps_analyzer` | Analyzes Net Promoter Score surveys: categorizes promoters/detractors, identifies themes, and recommends actions. |
+| 111 | **Retention Strategist** | `retention_strategist` | Creates customer retention strategies: loyalty programs, engagement campaigns, and win-back sequences. |
+| 112 | **Feedback Synthesizer** | `feedback_synthesizer` | Aggregates and synthesizes customer feedback from multiple channels into actionable insight reports. |
+| 113 | **Churn Reversal** | `churn_reversal` | Generates personalized save offers, escalation scripts, and win-back campaigns for at-risk customers. |
+| 114 | **Upsell Advisor** | `upsell_advisor` | Identifies upsell and cross-sell opportunities based on usage patterns, tier analysis, and timing signals. |
+
+**Use Cases:**
+- A SaaS company uses NPS Analyzer to understand why enterprise customers rate them 6/10
+- A subscription business uses Churn Reversal to reduce monthly churn by 30%
+- A B2B sales team uses Upsell Advisor to prioritize expansion revenue opportunities
+
+---
+
+### ⚡ Product 16: WorkPilot (6 agents)
+
+> Email summaries, meeting notes, invoices, reminders.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 115 | **Email Summarizer** | `email_summarizer` | Summarizes long email threads: key decisions, action items, deadlines, and who's responsible for what. |
+| 116 | **Meeting Notes** | `meeting_notes` | Generates structured meeting notes from transcripts: agenda items, decisions, action items, and follow-ups. |
+| 117 | **Invoice Generator** | `invoice_generator` | Creates GST-compliant invoices with automatic tax calculation, HSN codes, and professional formatting. |
+| 118 | **Expense Tracker** | `expense_tracker` | Tracks and categorizes business expenses: auto-categorization, GST input claims, and monthly summaries. |
+| 119 | **Daily Briefing** | `daily_briefing` | Generates personalized morning briefings: pending tasks, calendar events, market updates, and weather. |
+| 120 | **Reminder Agent** | `reminder_agent` | Creates smart reminders with follow-up scheduling, escalation rules, and priority-based nudges. |
+
+**Use Cases:**
+- A freelancer uses Invoice Generator for ₹10K/month client billing with GST
+- A team lead uses Meeting Notes after every standup to auto-send action items
+- A solopreneur uses Daily Briefing for a 2-minute morning context download
+
+---
+
+### 🎙️ Product 17: CreatorStudio (5 agents)
+
+> YouTube optimization, reels, sponsorships, monetization.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 121 | **YouTube Revenue Optimizer** | `youtube_revenue_optimizer` | Optimizes YouTube for max revenue: title formulas, thumbnail psychology, SEO tags, AdSense RPM, and upload scheduling. |
+| 122 | **Reel Script Writer** | `reel_script_writer` | Writes viral scripts for Reels, YouTube Shorts, and TikTok: 1.5-second hooks, pattern interrupts, CTAs, and trending audio. |
+| 123 | **Sponsorship Matcher** | `sponsorship_matcher` | Matches creators with brand sponsorships by niche, engagement rate, audience demographics, and rate card guidance. |
+| 124 | **Audience Growth Strategist** | `audience_growth_strategist` | Data-driven strategies: content pillars, posting frequency, engagement tactics, cross-platform funnels, and community building. |
+| 125 | **Content Monetizer** | `content_monetizer` | Monetization beyond ads: online courses, memberships, digital products, merchconuslting, and newsletter strategies for Indian creators. |
+
+**Use Cases:**
+- A YouTuber with 50K subs uses YouTube Revenue Optimizer to double RPM from ₹30 to ₹60
+- An Instagram creator uses Reel Script Writer to produce 30 reels/month
+- A creator with 100K followers uses Sponsorship Matcher to land ₹50K brand deals
+
+---
+
+### 🛡️ Product 18: CyberShield (5 agents)
+
+> Phishing detection, compliance, threat briefings.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 126 | **Phishing Detector** | `phishing_detector` | Analyzes emails and URLs for phishing: lookalike domains, spoofed senders, UPI/KYC scams specific to India. Risk scoring 0-100. |
+| 127 | **Password Auditor** | `password_auditor` | Audits password policies: strength scoring, breach detection awareness, 2FA/MFA setup, and passkey migration advice. |
+| 128 | **Incident Reporter** | `incident_reporter` | Drafts CERT-In compliant cybersecurity incident reports with 6-hour reporting format and containment steps. |
+| 129 | **Compliance Checker** | `compliance_checker` | Checks compliance: DPDP Act 2023, IT Act, CERT-In Directions 2022, RBI cybersecurity framework, PCI DSS, ISO 27001. |
+| 130 | **Threat Briefing** | `threat_briefing` | Daily cybersecurity threat landscape briefing: active threats to Indian orgs, vulnerability advisories, CERT-In alerts. |
+
+**Use Cases:**
+- An IT admin uses Phishing Detector to analyze a suspicious "SBI KYC update" email
+- A CISO uses Compliance Checker before a DPDP Act audit
+- A security team uses Incident Reporter to file a CERT-In report within the mandatory 6-hour window
+
+---
+
+### 🚀 Product 19: LaunchPad (5 agents)
+
+> Pitch decks, valuation, funding, cap tables.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 131 | **Pitch Deck Analyzer** | `pitch_deck_analyzer` | Scores pitch decks section-by-section (problem, solution, market, traction, team, ask) with improvement suggestions. |
+| 132 | **Funding Tracker** | `funding_tracker` | Tracks Indian startup funding rounds, active VCs, sector trends, and accelerator programs (Y Combinator, Sequoia Surge). |
+| 133 | **Startup Valuation** | `startup_valuation` | Estimates valuation using 5 methods: revenue multiple, comparable analysis, DCF, Berkus, and Rule of 40. |
+| 134 | **Cap Table Manager** | `cap_table_manager` | Manages cap tables: ESOP pool sizing, vesting schedules, dilution modeling, and Indian ESOP taxation (Section 17(2)). |
+| 135 | **Market Sizing** | `market_sizing` | Calculates TAM/SAM/SOM using top-down and bottom-up approaches with Indian market data (MOSPI, RBI, NASSCOM). |
+
+**Use Cases:**
+- A pre-seed founder uses Pitch Deck Analyzer before approaching angel investors
+- A Series A startup uses Cap Table Manager to plan a 10% ESOP pool without over-dilution
+- A fintech startup uses Market Sizing for a ₹2Cr seed round deck
+
+---
+
+### 🌱 Product 20: GreenIQ (4 agents)
+
+> Carbon footprint, ESG reports, solar ROI, green buildings.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 136 | **Carbon Footprint** | `carbon_footprint` | Calculates carbon emissions from energy, transport, food, and waste. Suggests reduction strategies and Indian offsetting programs. |
+| 137 | **ESG Report Writer** | `esg_report_writer` | Drafts ESG reports in BRSR format (SEBI mandatory for top 1000 listed companies), GRI Standards, and UN SDG mapping. |
+| 138 | **Solar ROI Calculator** | `solar_roi_calculator` | Calculates rooftop solar ROI: system sizing, PM Surya Ghar Yojana subsidy (40-60%), payback period, and 25-year savings. |
+| 139 | **Green Certification** | `green_certification` | Guides toward IGBC, GRIHA, LEED, and BEE certifications for buildings with checklist generation and cost-benefit analysis. |
+
+**Use Cases:**
+- A listed company uses ESG Report Writer for mandatory BRSR filing with SEBI
+- A homeowner uses Solar ROI Calculator: discovers ₹3L system pays back in 3 years with government subsidy
+- A real estate developer uses Green Certification for IGBC Platinum rating on new project
+
+---
+
+### 🏏 Product 21: SportsIQ (4 agents)
+
+> Cricket analytics, fantasy teams, sports nutrition.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 140 | **Cricket Analyst** | `cricket_analyst` | Player performance analysis, head-to-head matchups, pitch reports, IPL auction analytics, and match predictions. |
+| 141 | **Fantasy Team Builder** | `fantasy_team_builder` | Builds optimal Dream11/MPL teams considering form, venue history, credits, and captain/VC selection. |
+| 142 | **Sports Nutrition** | `sports_nutrition` | Indian athlete nutrition: macros, pre/post workout meals using Indian foods, vegetarian protein optimization. |
+| 143 | **Fitness Coach** | `fitness_coach` | Personalized workouts: small apartment routines, terrace workouts, gym programs, yoga integration, and seasonal plans. |
+
+**Use Cases:**
+- An IPL fan uses Cricket Analyst for CSK vs MI head-to-head stats and pitch report
+- A fantasy cricket player uses Fantasy Team Builder for optimal Dream11 team with differential picks
+- A gym-goer uses Fitness Coach for a home workout plan during monsoon season
+
+---
+
+### ⚡🚗 Product 22: EcoMotion (5 agents)
+
+> EV comparison, charging planning, solar systems.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 144 | **EV Comparator** | `ev_comparator` | Compares Indian EVs: ARAI range vs real-world, FAME subsidy, TCO, battery warranty, state-wise subsidies (Delhi, Maharashtra, Gujarat). |
+| 145 | **Charging Station Planner** | `charging_station_planner` | Plans charging network placement: traffic corridors, demand hotspots, grid capacity, BIS standards, and revenue projections. |
+| 146 | **Battery Health** | `battery_health` | EV battery analysis: State of Health estimation, degradation prediction, optimal charging habits, and Indian climate impact. |
+| 147 | **Solar Planner** | `solar_planner` | Designs complete home/commercial solar systems: load analysis, panel/inverter selection, net metering, and PM Surya Ghar subsidy. |
+
+**Use Cases:**
+- A buyer uses EV Comparator to decide between Tata Nexon EV and MG ZS EV
+- A CPSE uses Charging Station Planner for 100 DC fast chargers on NH-48
+- A homeowner uses Solar Planner: 6kWp system design with Tata Solar panels and net metering application
+
+> ℹ️ Solar ROI Calculator from GreenIQ is also available in this product for convenience.
+
+---
+
+### 🔬 Product 23: DataForge (3 agents)
+
+> Data curation, ML pipelines, dataset optimization.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 148 | **Data Curator** | `data_curator` | Guides data collection, cleaning, normalization, and labeling strategies for ML datasets. |
+| 149 | **Dataset Optimizer** | `dataset_optimizer` | Optimizes datasets: balancing classes, removing duplicates, augmentation strategies, and quality scoring. |
+| — | **ML Pipeline** | `ml_pipeline` | Designs end-to-end ML pipelines: feature engineering, model selection, training, evaluation, and deployment strategies. |
+
+**Use Cases:**
+- A data team uses Data Curator to standardize 500K messy customer records
+- An ML engineer uses ML Pipeline to design a churn prediction model pipeline
+- A startup uses Dataset Optimizer to balance an imbalanced fraud detection dataset
+
+---
+
+## License
+
+Proprietary — SutraCode Technologies. All rights reserved.
