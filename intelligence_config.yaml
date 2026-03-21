@@ -484,3 +484,33 @@ health:
     clinic_visit: { color: "yellow", response_time: "24-48 hours" }
     urgent: { color: "orange", response_time: "today" }
     emergency: { color: "red", response_time: "immediate — call 108" }
+
+# ─── Billing & Metering ────────────────────────────────────
+billing:
+  tiers:
+    free:
+      price_inr: 0
+      daily_limit: 50
+      agents: 5
+      voice: false
+      websocket: false
+    starter:
+      price_inr: 999
+      daily_limit: 500
+      agents: 25
+      voice: false
+      websocket: true
+    pro:
+      price_inr: 2999
+      daily_limit: 2000
+      agents: "all"
+      voice: true
+      websocket: true
+    enterprise:
+      price_inr: 9999
+      daily_limit: 0           # unlimited
+      agents: "all"
+      voice: true
+      websocket: true
+      custom_agents: true
+      priority_queue: true
