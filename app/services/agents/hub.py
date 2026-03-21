@@ -88,6 +88,13 @@ class AiAgentHub:
         from app.services.agents.meta_ads_optimizer import MetaAdsOptimizerAgent
         from app.services.agents.linkedin_growth import LinkedinGrowthAgent
 
+        # ─── Phase 9: Voice & Calling ─────────────────────
+        from app.services.agents.cold_call_scripter import ColdCallScripterAgent
+        from app.services.agents.call_sentiment_analyzer import CallSentimentAnalyzerAgent
+        from app.services.agents.whatsapp_bot_builder import WhatsappBotBuilderAgent
+        from app.services.agents.call_summarizer import CallSummarizerAgent
+        from app.services.agents.ivr_designer import IvrDesignerAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -113,6 +120,9 @@ class AiAgentHub:
             PricingStrategistAgent,
             # Phase 8: Platform-Specific
             GoogleAdsOptimizerAgent, MetaAdsOptimizerAgent, LinkedinGrowthAgent,
+            # Phase 9: Voice & Calling
+            ColdCallScripterAgent, CallSentimentAnalyzerAgent,
+            WhatsappBotBuilderAgent, CallSummarizerAgent, IvrDesignerAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)

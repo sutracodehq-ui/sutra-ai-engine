@@ -1,7 +1,7 @@
 # SutraAI Engine — Developer Documentation
 
-> **Version 0.1.0** · Standalone Multi-Tenant AI Microservice  
-> Multi-Agent Orchestration · Self-Learning · Content Generation
+> **Version 0.2.0** · Standalone Multi-Tenant AI Microservice  
+> 43 AI Agents · Voice Pipeline · 30+ Indian Languages · Self-Learning
 
 ---
 
@@ -12,15 +12,18 @@
 3. [Database Schema](#3-database-schema)
 4. [Authentication & Multi-Tenancy](#4-authentication--multi-tenancy)
 5. [LLM Driver System](#5-llm-driver-system)
-6. [Agent Architecture](#6-agent-architecture)
+6. [Agent Architecture](#6-agent-architecture) — *43 Agents across 10 Phases*
 7. [Chat Pipeline Lifecycle](#7-chat-pipeline-lifecycle)
 8. [Intelligence Layer](#8-intelligence-layer)
 9. [RAG & Knowledge Base](#9-rag--knowledge-base)
 10. [Self-Learning Engine](#10-self-learning-engine)
 11. [Background Workers](#11-background-workers)
-12. [API Reference](#12-api-reference)
-13. [Configuration Reference](#13-configuration-reference)
-14. [Developer Quickstart](#14-developer-quickstart)
+12. [API Reference](#12-api-reference) — *60+ Endpoints*
+13. [Voice Pipeline](#13-voice-pipeline) — *🆕 STT, TTS, R2*
+14. [Multilingual Support](#14-multilingual-support) — *🆕 30+ Indian Languages*
+15. [Error Handling & Response Middleware](#15-error-handling--response-middleware)
+16. [Configuration Reference](#16-configuration-reference)
+17. [Developer Quickstart](#17-developer-quickstart)
 
 ---
 
@@ -348,19 +351,101 @@ class LlmResponse:
 
 Agents are **specialized AI workers** defined by YAML configurations. Each agent has a domain, response schema, and capabilities.
 
-### Currently Registered Agents
+### Currently Registered Agents (43 Total)
 
-| Agent | Identifier | Domain | Complexity |
-|-------|-----------|--------|------------|
-| **Copywriter** | `copywriter` | Headlines, body copy, CTAs, persuasive writing | Moderate |
-| **SEO** | `seo` | Meta tags, keywords, content optimization | Complex |
-| **Social Media** | `social_media` | Platform-optimized posts, hashtags, schedules | Moderate |
-| **Email Campaign** | `email_campaign` | Newsletters, drip sequences, subject lines | Moderate |
-| **WhatsApp** | `whatsapp` | Template messages, quick replies | Simple |
-| **SMS** | `sms` | Short promotional and transactional messages | Simple |
-| **Ad Creative** | `ad_creative` | Ad copy for Facebook, Google, LinkedIn | Simple |
-| **Brand Auditor** | `brand_auditor` | Voice consistency, style guide adherence | Complex |
-| **Content Repurposer** | `content_repurpose` | Multi-channel content adaptation | Moderate |
+#### Core Marketing (Phase 0)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Copywriter | `copywriter` | Headlines, body copy, CTAs, persuasive writing |
+| SEO | `seo` | Meta tags, keywords, content optimization |
+| Social Media | `social` | Platform-optimized posts, hashtags, schedules |
+| Email Campaign | `email_campaign` | Newsletters, drip sequences, subject lines |
+| WhatsApp | `whatsapp` | Template messages, quick replies |
+| SMS | `sms` | Short promotional and transactional messages |
+| Ad Creative | `ad_creative` | Ad copy for Facebook, Google, LinkedIn |
+| Brand Auditor | `brand_auditor` | Voice consistency, style guide adherence |
+| Content Repurposer | `content_repurpose` | Multi-channel content adaptation |
+| Click Shield | `click_shield` | Click fraud detection and scoring |
+
+#### Marketing Intelligence (Phase 1)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Persona Builder | `persona_builder` | Audience persona construction |
+| Campaign Strategist | `campaign_strategist` | Campaign planning and strategy |
+| A/B Test Advisor | `ab_test_advisor` | Test recommendations and analysis |
+| Competitor Analyst | `competitor_analyst` | Competitive intelligence |
+| URL Analyzer | `url_analyzer` | Website crawling and analysis |
+
+#### Analytics & Insights (Phase 2)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Performance Reporter | `performance_reporter` | Marketing performance reports |
+| Budget Optimizer | `budget_optimizer` | Budget allocation optimization |
+| Anomaly Alerter | `anomaly_alerter` | Performance anomaly detection |
+
+#### Creative & Media (Phase 3)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Visual Designer | `visual_designer` | Image and visual content generation |
+| Video Scriptwriter | `video_scriptwriter` | Video scripts and storyboards |
+| Landing Page Builder | `landing_page_builder` | Landing page copy and structure |
+
+#### Autonomous Operations (Phase 4)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Auto Publisher | `auto_publisher` | Automated content publishing |
+| Lead Scorer | `lead_scorer` | Lead scoring and qualification |
+| Chatbot Trainer | `chatbot_trainer` | Bot training data generation |
+
+#### Reputation & Growth (Phase 5)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Review Reputation Manager | `review_reputation` | Online review analysis and response |
+| Trend Spotter | `trend_spotter` | Emerging trend identification |
+| Funnel Analyzer | `funnel_analyzer` | Conversion funnel optimization |
+| Influencer Matcher | `influencer_matcher` | Influencer discovery and outreach |
+| Customer Journey Mapper | `journey_mapper` | Touchpoint mapping and journey optimization |
+
+#### Smart Automation (Phase 6)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Auto-Scheduler | `auto_scheduler` | Optimal posting time analysis |
+| Audience Segmenter | `audience_segmenter` | Customer micro-segmentation |
+| Churn Predictor | `churn_predictor` | Churn risk prediction and retention |
+
+#### Advanced Analytics (Phase 7)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| ROI Calculator | `roi_calculator` | Marketing ROI, ROAS, CAC, LTV |
+| Content Grader | `content_grader` | Content quality scoring |
+| Attribution Analyst | `attribution_analyst` | Multi-channel attribution modeling |
+| Pricing Strategist | `pricing_strategist` | Competitive pricing analysis |
+
+#### Platform-Specific (Phase 8)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Google Ads Optimizer | `google_ads_optimizer` | Google Ads campaign optimization |
+| Meta Ads Optimizer | `meta_ads_optimizer` | Facebook/Instagram ads optimization |
+| LinkedIn Growth | `linkedin_growth` | LinkedIn content and B2B outreach |
+
+#### Voice & Calling (Phase 9)
+
+| Agent | Identifier | Domain |
+|-------|-----------|--------|
+| Cold Call Scripter | `cold_call_scripter` | Cold call scripts with objection handling |
+| Call Sentiment Analyzer | `call_sentiment_analyzer` | Call recording sentiment analysis |
+| WhatsApp Bot Builder | `whatsapp_bot_builder` | WhatsApp Business bot flows |
+| Call Summarizer | `call_summarizer` | Call transcription summarization |
+| IVR Designer | `ivr_designer` | IVR menu flow design |
 
 ### Agent Hydration Lifecycle
 
@@ -369,43 +454,47 @@ Agents are **specialized AI workers** defined by YAML configurations. Each agent
    - **A/B Test** (10% traffic): Tries an inactive `AgentOptimization` candidate prompt.
    - **Active Prompt**: Uses the latest `is_active=True` prompt from `agent_optimizations` table.
    - **YAML Fallback**: Falls back to the static system prompt from config.
-3. **Context Aggregation**: Pulls Conversation History + Voice Profile + RAG results.
-4. **Smart Routing**: Analyzes complexity and selects optimal driver/model tier.
-5. **Execution**: Calls the LLM via the `LlmService`.
+3. **Multilingual Injection**: Detects user language and injects language-specific instructions.
+4. **Context Aggregation**: Pulls Conversation History + Voice Profile + RAG results.
+5. **Smart Routing**: Analyzes complexity and selects optimal driver/model tier.
+6. **Execution**: Calls the LLM via the `LlmService`.
 
 ### YAML Configuration Format
 
 ```yaml
 # agent_config/social_media.yaml
-domain: "social media content strategy, platform-optimized posts, hashtags"
+name: "Social Media"
+identifier: social
+domain: "social media content strategy"
+description: "Platform-optimized social media content generation"
+
+system_prompt: |
+  You are an expert social media content strategist...
 
 response_schema:
-  - post_text
-  - hashtags
-  - best_time_to_post
-  - platform_tips
-  - character_count
-  - image_prompt
+  format: json
+  fields:
+    - post_text
+    - hashtags
+    - best_time_to_post
+    - image_prompt
 
 capabilities:
-  - Generate platform-optimized social media post copy
-  - Create hashtag sets for maximum reach
-  - Generate AI images via image_prompt field
-  - Create content calendars and posting schedules
+  - "Generate platform-optimized social media posts"
+  - "Create hashtag sets for maximum reach"
 
-extra_instructions: |
-  SOCIAL MEDIA SPECIFIC RULES:
-  - ALWAYS include an "image_prompt" field in your JSON response.
-  - The image_prompt should describe a visually compelling image.
+rules:
+  - "Always include an image_prompt field"
+  - "Keep posts within platform character limits"
 ```
 
-### Adding a New Agent
+### Adding a New Agent (3 Steps)
 
 ```bash
 # 1. Create YAML config
 touch agent_config/my_agent.yaml
 
-# 2. Create agent class
+# 2. Create agent class (one-liner)
 cat > app/services/agents/my_agent.py << 'EOF'
 """My Agent — description."""
 from app.services.agents.base import BaseAgent
@@ -417,6 +506,7 @@ class MyAgent(BaseAgent):
 EOF
 
 # 3. Register in hub.py (add to _auto_register imports + list)
+# → Auto-generates /v1/agents/my_agent/run endpoint in Swagger
 ```
 
 ---
@@ -691,13 +781,48 @@ Celery workers handle all asynchronous processing. Redis serves as both broker (
 |--------|----------|------|-------------|
 | `POST` | `/v1/chat/completions` | API Key | Send a chat prompt (sync or streaming) |
 
-### Agents
+### Agents (43 Endpoints — Auto-Generated from YAML)
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/v1/agents` | API Key | List all available agents with capabilities |
-| `POST` | `/v1/agents/{type}/run` | API Key | Execute a single agent task |
-| `POST` | `/v1/agents/batch` | API Key | Run multiple agents in parallel on the same prompt |
+| `GET` | `/v1/agents` | API Key | List all 43 agents with capabilities |
+| `POST` | `/v1/agents/{type}/run` | API Key | Execute any agent (e.g., `/v1/agents/social/run`) |
+| `POST` | `/v1/agents/batch` | API Key | Run multiple agents in parallel |
+
+Every registered agent automatically gets a `POST /v1/agents/{identifier}/run` endpoint in Swagger.
+
+### Content Generation
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/v1/content/social-post` | API Key | Generate platform-specific social posts |
+| `POST` | `/v1/content/email-template` | API Key | Generate full email templates |
+| `POST` | `/v1/content/ad-copy` | API Key | Generate ad copy with A/B variants |
+| `POST` | `/v1/content/repurpose` | API Key | Transform content into multiple formats |
+| `POST` | `/v1/content/calendar-suggest` | API Key | Suggest content calendar topics |
+| `POST` | `/v1/content/landing-page` | API Key | Generate landing page copy |
+
+### Intelligence
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/v1/intelligence/sentiment` | API Key | Analyze text sentiment |
+| `POST` | `/v1/intelligence/language` | API Key | Detect text language |
+| `POST` | `/v1/intelligence/brand-analyze` | API Key | Extract brand identity from URL |
+| `POST` | `/v1/intelligence/url-analyze` | API Key | Full URL digital footprint analysis |
+| `POST` | `/v1/intelligence/seo-audit` | API Key | Comprehensive SEO audit |
+| `POST` | `/v1/intelligence/hashtag-suggest` | API Key | Hashtag recommendations by niche |
+| `POST` | `/v1/intelligence/competitor-analyze` | API Key | Competitor website analysis |
+| `GET` | `/v1/intelligence/languages` | API Key | List 30+ supported languages |
+| `GET` | `/v1/intelligence/status` | API Key | Circuit breaker and cache status |
+
+### Voice Pipeline
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/v1/voice/process` | API Key | Full pipeline: Audio → R2 → STT → Agent → TTS |
+| `POST` | `/v1/voice/transcribe` | API Key | Transcribe audio only (STT) |
+| `POST` | `/v1/voice/speak` | API Key | Text-to-speech only (TTS) |
 
 ### Conversations
 
@@ -708,6 +833,12 @@ Celery workers handle all asynchronous processing. Redis serves as both broker (
 | `GET` | `/v1/conversations/{id}` | API Key | Get conversation with history |
 | `POST` | `/v1/conversations/{id}/messages` | API Key | Send a message within a conversation |
 
+### URL Analyzer
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/v1/url-analyzer/analyze` | API Key | Extract metadata, SEO signals from URL |
+
 ### Tenants
 
 | Method | Endpoint | Auth | Description |
@@ -716,30 +847,229 @@ Celery workers handle all asynchronous processing. Redis serves as both broker (
 | `PATCH` | `/v1/tenants/me` | API Key | Update tenant config |
 | `POST` | `/v1/tenants/me/rotate-key` | API Key | Rotate API keys (live or test) |
 
-### Intelligence
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/v1/intelligence/status` | API Key | Get circuit breaker and cache status |
-
 ### RAG
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/v1/rag/documents` | API Key | Upload text documents to the knowledge base |
+| `POST` | `/v1/rag/documents` | API Key | Upload text documents to knowledge base |
 | `POST` | `/v1/rag/query` | API Key | Query the knowledge base directly |
 
 ### Provisioning
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/provision/org` | Master Key | Provision a new tenant (called by Identity service) |
+| `POST` | `/provision/org` | Master Key | Provision a new tenant |
 
 ### Billing
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/v1/billing/usage` | API Key | Get current period token usage and cost |
+
+---
+
+## 13. Voice Pipeline
+
+The Voice Pipeline enables **audio-first interactions** with full auto-language detection. No toggle needed — the engine detects the user's language and responds in it automatically.
+
+### Pipeline Architecture
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant API as FastAPI
+    participant R2 as Cloudflare R2
+    participant W as OpenAI Whisper
+    participant Agent as AI Agent
+    participant TTS as OpenAI TTS
+
+    U->>API: POST /v1/voice/process (audio file)
+    API->>R2: 1. Upload to R2 (voice/{tenant}/{date}/)
+    API->>W: 2. Transcribe (auto-detect language)
+    W-->>API: { text, language: "bho", duration: 4.2 }
+    API->>Agent: 3. Execute with language context
+    Agent-->>API: Response in detected language
+    API->>TTS: 4. Text-to-Speech (optional)
+    TTS-->>API: Audio bytes (MP3)
+    API->>R2: 5. Upload TTS reply to R2
+    API-->>U: { transcription, agent_response, r2_keys }
+```
+
+### Configuration (`config/voice.yaml`)
+
+```yaml
+stt:
+  provider: "openai"       # OpenAI Whisper
+  model: "whisper-1"
+  max_file_size_mb: 25
+
+tts:
+  provider: "openai"
+  model: "tts-1"           # tts-1 (fast) | tts-1-hd (quality)
+  default_voice: "alloy"   # alloy, echo, fable, onyx, nova, shimmer
+
+storage:
+  bucket_prefix: "voice"   # R2 path: voice/{tenant}/{date}/{id}.webm
+  retention_days: 90
+```
+
+### Voice Process Request
+
+```bash
+curl -X POST http://localhost:8090/v1/voice/process \
+  -H "Authorization: Bearer sk_live_..." \
+  -F file=@voice_message.webm \
+  -F agent_type=copywriter \
+  -F generate_voice_reply=true \
+  -F voice=nova
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "transcription": {
+      "text": "हमनी के लिए एगो सोशल पोस्ट लिखs",
+      "language": "bho",
+      "duration": 4.2
+    },
+    "detected_language": "bho",
+    "agent_type": "copywriter",
+    "agent_response": "...(response in Bhojpuri)...",
+    "r2_key": "voice/acme/2026/03/21/abc123.webm",
+    "voice_response_r2_key": "voice/acme/2026/03/21/abc123_reply.mp3"
+  }
+}
+```
+
+### Supported Audio Formats
+
+`webm`, `mp3`, `wav`, `ogg`, `flac`, `m4a`, `mp4` (up to 25MB)
+
+---
+
+## 14. Multilingual Support (30+ Indian Languages)
+
+The engine supports **all 22 Indian Scheduled Languages** plus regional languages, auto-detecting the input language and responding in it.
+
+### How It Works
+
+1. **Auto-detect mode (default)**: Language instructions are injected into every agent's system prompt
+2. **Explicit mode**: Pass `"language": "mai"` in the request context to force a language
+3. **Voice mode**: Whisper STT auto-detects the spoken language
+
+### Supported Languages
+
+| Code | Language | Script | Region |
+|------|----------|--------|--------|
+| `hi` | Hindi | Devanagari | Pan-India |
+| `bn` | Bengali | Bengali | West Bengal, Tripura |
+| `te` | Telugu | Telugu | Andhra Pradesh, Telangana |
+| `mr` | Marathi | Devanagari | Maharashtra |
+| `ta` | Tamil | Tamil | Tamil Nadu |
+| `gu` | Gujarati | Gujarati | Gujarat |
+| `kn` | Kannada | Kannada | Karnataka |
+| `ml` | Malayalam | Malayalam | Kerala |
+| `pa` | Punjabi | Gurmukhi | Punjab |
+| `or` | Odia | Odia | Odisha |
+| `ur` | Urdu | Nastaliq | J&K, Telangana |
+| `as` | Assamese | Bengali | Assam |
+| `mai` | Maithili | Devanagari | Bihar, Jharkhand |
+| `bho` | Bhojpuri | Devanagari | Bihar, UP |
+| `mag` | Magahi | Devanagari | Bihar |
+| `ang` | Angika | Devanagari | Bihar |
+| `ne` | Nepali | Devanagari | Sikkim |
+| `kok` | Konkani | Devanagari | Goa |
+| `doi` | Dogri | Devanagari | Jammu |
+| `mni` | Manipuri | Meitei | Manipur |
+| `sat` | Santali | Ol Chiki | Jharkhand |
+| `brx` | Bodo | Devanagari | Assam |
+| `sa` | Sanskrit | Devanagari | Classical |
+| `sd` | Sindhi | Devanagari/Arabic | Gujarat |
+| `ks` | Kashmiri | Devanagari/Nastaliq | J&K |
+| `raj` | Rajasthani | Devanagari | Rajasthan |
+| `chh` | Chhattisgarhi | Devanagari | Chhattisgarh |
+| `tcy` | Tulu | Kannada | Karnataka |
+
+### Usage in API Requests
+
+```json
+// Explicit language in agent request
+{
+  "prompt": "Write a social post about organic farming",
+  "context": {
+    "language": "mai"
+  }
+}
+```
+
+### Configuration (`config/languages.yaml`)
+
+Add new languages by editing the YAML — zero code changes required.
+
+---
+
+## 15. Error Handling & Response Middleware
+
+All API responses follow a **consistent envelope format**. The `ResponseEnvelopeMiddleware` wraps every JSON response automatically.
+
+### Response Envelope
+
+```json
+// Success
+{
+  "success": true,
+  "data": { ... },
+  "error": null,
+  "meta": {
+    "request_id": "req_abc123",
+    "response_time_ms": 245
+  }
+}
+
+// Error
+{
+  "success": false,
+  "data": null,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Field 'prompt' is required",
+    "details": [...]
+  },
+  "meta": {
+    "request_id": "req_abc123"
+  }
+}
+```
+
+### ApiResponse Helper
+
+```python
+from app.middleware.response import ApiResponse
+
+# Success
+return ApiResponse.ok(data={"result": "..."}, meta={"agent": "social"})
+
+# Created
+return ApiResponse.created(data={"id": 123})
+
+# Error
+return ApiResponse.error(message="Not found", code="NOT_FOUND", status=404)
+
+# Paginated
+return ApiResponse.paginated(items=[...], total=100, page=1, per_page=20)
+```
+
+### Exception Handlers
+
+| Exception | HTTP Code | Auto-Handled |
+|-----------|-----------|-------------|
+| `HTTPException` | Varies | ✅ Returns structured JSON |
+| `RequestValidationError` | 422 | ✅ Lists all field errors |
+| `ValidationError` (Pydantic) | 422 | ✅ Lists all field errors |
+| `Exception` (unhandled) | 500 | ✅ Returns generic error with request_id |
 
 ---
 
@@ -853,8 +1183,8 @@ podman exec sutra-ai-api python -m app.scripts.rotate_key <slug> live
 ### Project Structure
 ```
 sutracode-ai-engine/
-├── agent_config/           # YAML configs for all AI agents
-│   ├── copywriter.yaml
+├── agent_config/              # YAML configs for all 43 AI agents
+│   ├── copywriter.yaml        # Core Marketing (Phase 0)
 │   ├── seo.yaml
 │   ├── social_media.yaml
 │   ├── email_campaign.yaml
@@ -862,86 +1192,96 @@ sutracode-ai-engine/
 │   ├── sms.yaml
 │   ├── ad_creative.yaml
 │   ├── brand_auditor.yaml
-│   └── content_repurpose.yaml
+│   ├── content_repurpose.yaml
+│   ├── click_shield.yaml
+│   ├── persona_builder.yaml   # Marketing Intelligence (Phase 1)
+│   ├── campaign_strategist.yaml
+│   ├── ab_test_advisor.yaml
+│   ├── competitor_analyst.yaml
+│   ├── url_analyzer.yaml
+│   ├── performance_reporter.yaml  # Analytics (Phase 2)
+│   ├── budget_optimizer.yaml
+│   ├── anomaly_alerter.yaml
+│   ├── visual_designer.yaml     # Creative (Phase 3)
+│   ├── video_scriptwriter.yaml
+│   ├── landing_page_builder.yaml
+│   ├── auto_publisher.yaml      # Autonomous (Phase 4)
+│   ├── lead_scorer.yaml
+│   ├── chatbot_trainer.yaml
+│   ├── review_reputation.yaml   # Reputation (Phase 5)
+│   ├── trend_spotter.yaml
+│   ├── funnel_analyzer.yaml
+│   ├── influencer_matcher.yaml
+│   ├── journey_mapper.yaml
+│   ├── auto_scheduler.yaml      # Smart Automation (Phase 6)
+│   ├── audience_segmenter.yaml
+│   ├── churn_predictor.yaml
+│   ├── roi_calculator.yaml      # Advanced Analytics (Phase 7)
+│   ├── content_grader.yaml
+│   ├── attribution_analyst.yaml
+│   ├── pricing_strategist.yaml
+│   ├── google_ads_optimizer.yaml  # Platform-Specific (Phase 8)
+│   ├── meta_ads_optimizer.yaml
+│   ├── linkedin_growth.yaml
+│   ├── cold_call_scripter.yaml    # Voice & Calling (Phase 9)
+│   ├── call_sentiment_analyzer.yaml
+│   ├── whatsapp_bot_builder.yaml
+│   ├── call_summarizer.yaml
+│   └── ivr_designer.yaml
 ├── app/
-│   ├── main.py             # FastAPI entry point + app factory
-│   ├── config.py           # Pydantic Settings (all env vars)
-│   ├── dependencies.py     # FastAPI dependency injection
+│   ├── main.py                # FastAPI entry point + app factory
+│   ├── config.py              # Pydantic Settings (all env vars)
+│   ├── dependencies.py        # FastAPI dependency injection
 │   ├── api/
-│   │   ├── health.py       # /health and /ready endpoints
-│   │   └── v1/             # All v1 API routes
-│   │       ├── router.py   # Route aggregator
-│   │       ├── chat.py     # Chat completions API
-│   │       ├── agents.py   # Agent listing + execution
+│   │   ├── health.py          # /health and /ready endpoints
+│   │   └── v1/                # All v1 API routes
+│   │       ├── router.py      # Route aggregator
+│   │       ├── chat.py        # Chat completions API
+│   │       ├── agents.py      # Agent listing + execution (43 auto-generated)
+│   │       ├── voice.py       # 🆕 Voice pipeline (process, transcribe, speak)
+│   │       ├── content.py     # Content generation endpoints
+│   │       ├── intelligence.py  # Intelligence + language endpoints
+│   │       ├── url_analyzer.py  # URL analysis endpoints
 │   │       ├── conversations.py
 │   │       ├── tenants.py
-│   │       ├── intelligence.py
 │   │       ├── rag.py
 │   │       ├── billing.py
 │   │       └── provision.py
-│   ├── models/             # SQLAlchemy ORM models
-│   │   ├── tenant.py
-│   │   ├── ai_conversation.py
-│   │   ├── ai_task.py
-│   │   ├── voice_profile.py
-│   │   ├── agent_feedback.py
-│   │   ├── agent_optimization.py
-│   │   ├── agent_training_data.py
-│   │   └── token_usage_log.py
-│   ├── schemas/            # Pydantic request/response schemas
+│   ├── middleware/
+│   │   └── response.py        # ApiResponse + ResponseEnvelopeMiddleware
+│   ├── models/                # SQLAlchemy ORM models
+│   ├── schemas/               # Pydantic request/response schemas
 │   ├── services/
-│   │   ├── agents/         # AI Agent classes + Hub
-│   │   │   ├── base.py     # BaseAgent (config-driven, A/B testing)
-│   │   │   ├── hub.py      # AiAgentHub (registry + orchestrator)
-│   │   │   └── ...         # Individual agent classes
-│   │   ├── chat/           # Chat Pipeline
-│   │   │   ├── pipeline.py # Full execution pipeline
-│   │   │   ├── engine.py   # Entry point (ChatEngine)
-│   │   │   ├── aggregator.py # Parallel context fetch
-│   │   │   └── pruner.py   # History compression
-│   │   ├── drivers/        # LLM provider implementations
-│   │   │   ├── base.py     # LlmDriver abstract + LlmResponse
-│   │   │   ├── openai_driver.py
-│   │   │   ├── gemini_driver.py
-│   │   │   ├── anthropic_driver.py
-│   │   │   ├── groq_driver.py
-│   │   │   ├── ollama_driver.py
-│   │   │   └── mock_driver.py
-│   │   ├── intelligence/   # The Intelligence Layer
-│   │   │   ├── smart_router.py     # Complexity-based model selection
-│   │   │   ├── quality_gate.py     # Multi-dimensional output scoring
-│   │   │   ├── circuit_breaker.py  # Per-driver health tracking
-│   │   │   ├── retry_strategy.py   # Exponential backoff
-│   │   │   ├── prompt_cache.py     # Redis exact-match cache
-│   │   │   ├── semantic_cache.py   # ChromaDB vector cache
-│   │   │   ├── rate_limiter.py     # Per-tenant throttling
-│   │   │   ├── token_budget.py     # Monthly token budget enforcement
-│   │   │   ├── pii_redactor.py     # PII masking (emails, phones)
-│   │   │   ├── moderation.py       # Content safety (OpenAI API)
-│   │   │   ├── competitor_lock.py  # Brand protection
-│   │   │   ├── sentiment.py        # User sentiment analysis
-│   │   │   ├── language.py         # Language auto-detection
-│   │   │   ├── thinking.py         # Chain-of-thought wrapper
-│   │   │   └── token_forecaster.py # Usage prediction
-│   │   ├── learning/       # Self-Learning Engine
-│   │   │   ├── meta_prompt.py      # OPRO optimizer
-│   │   │   ├── prompt_evolution.py # Prompt version management
-│   │   │   └── edit_analyzer.py    # Learn from user edits
-│   │   ├── rag/            # RAG & Knowledge Base
-│   │   │   ├── knowledge_base.py   # ChromaDB interface
-│   │   │   ├── document_processor.py
-│   │   │   ├── web_crawler.py
-│   │   │   └── brand_extractor.py
-│   │   ├── driver_manager.py  # LLM Factory + Fallback Chain
-│   │   ├── llm_service.py    # Unified LLM interface
-│   │   └── tenant_service.py # Tenant CRUD + key management
-│   ├── workers/            # Celery tasks
-│   └── scripts/            # CLI utilities
-├── alembic/                # Database migrations
+│   │   ├── agents/            # AI Agent classes + Hub (43 agents)
+│   │   │   ├── base.py        # BaseAgent (config-driven, A/B testing, multilingual)
+│   │   │   ├── hub.py         # AiAgentHub (registry + orchestrator)
+│   │   │   └── ...            # 43 individual agent classes
+│   │   ├── voice/             # 🆕 Voice Pipeline
+│   │   │   └── voice_service.py  # R2 upload + Whisper STT + TTS
+│   │   ├── chat/              # Chat Pipeline
+│   │   ├── drivers/           # LLM provider implementations (6 drivers)
+│   │   ├── intelligence/      # The Intelligence Layer
+│   │   │   ├── multilingual.py  # 🆕 30+ Indian language support
+│   │   │   ├── web_scraper.py   # URL scraping + analysis
+│   │   │   ├── smart_router.py
+│   │   │   ├── quality_gate.py
+│   │   │   ├── circuit_breaker.py
+│   │   │   └── ...
+│   │   ├── learning/          # Self-Learning Engine (OPRO)
+│   │   ├── rag/               # RAG & Knowledge Base
+│   │   └── llm_service.py     # Unified LLM interface
+│   ├── workers/               # Celery tasks
+│   └── scripts/               # CLI utilities
+├── config/                    # 🆕 Config-driven settings
+│   ├── openapi.yaml           # Swagger API metadata
+│   ├── languages.yaml         # 🆕 30+ supported languages
+│   └── voice.yaml             # 🆕 STT/TTS/R2 settings
+├── docs/
+│   └── developer_docs.md      # This documentation
+├── alembic/                   # Database migrations
 ├── docker/
-│   ├── Dockerfile          # API server image (multi-stage)
-│   └── Dockerfile.worker   # Worker image
-├── docs/                   # This documentation
+│   ├── Dockerfile             # API server image (multi-stage)
+│   └── Dockerfile.worker      # Worker image
 ├── docker-compose.yml
 ├── pyproject.toml
 └── .env
