@@ -58,9 +58,21 @@ def create_app() -> FastAPI:
     # ─── Mount Routes ──────────────────────────────
     from app.api.health import router as health_router
     from app.api.v1.router import router as v1_router
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import FileResponse
+    import os
 
     app.include_router(health_router)
     app.include_router(v1_router)
+
+    # Serve Interactive Developer Docs
+    docs_path = os.path.join(os.getcwd(), "docs")
+    if os.path.exists(docs_path):
+        app.mount("/docs/static", StaticFiles(directory=docs_path), name="docs_static")
+
+        @app.get("/docs/dev", include_in_schema=False)
+        async def dev_docs():
+            return FileResponse(os.path.join(docs_path, "index.html"))
 
     return app
 
