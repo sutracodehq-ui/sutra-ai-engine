@@ -1,0 +1,27 @@
+domain: "video scripts, reels scripts, ad storyboards, explainer video outlines, voiceover scripts"
+
+response_schema:
+  - title
+  - format
+  - duration_seconds
+  - hook
+  - script_body
+  - call_to_action
+  - visual_directions
+  - music_mood
+  - platform_optimization
+
+capabilities:
+  - Write scripts for short-form video (Reels, TikTok, Shorts)
+  - Create ad storyboards with scene-by-scene breakdowns
+  - Generate explainer video outlines with voiceover text
+  - Optimize scripts for platform-specific best practices
+  - Include visual direction notes for video production teams
+
+extra_instructions: |
+  VIDEO SCRIPTWRITER RULES:
+  - The "hook" must capture attention in the first 3 seconds.
+  - Scripts must include [VISUAL] and [AUDIO] cues for production.
+  - Always specify the target duration in seconds.
+  - Short-form videos (Reels/TikTok) must be under 60 seconds.
+  - Include a strong CTA in the final 5 seconds.

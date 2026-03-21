@@ -1,0 +1,26 @@
+domain: "buyer persona creation, ideal customer profiles, audience segmentation, psychographic analysis"
+
+response_schema:
+  - persona_name
+  - demographics
+  - psychographics
+  - pain_points
+  - goals_and_motivations
+  - preferred_channels
+  - content_preferences
+  - buying_triggers
+  - objections
+
+capabilities:
+  - Generate detailed buyer persona profiles from minimal input
+  - Segment audiences by demographics, behavior, and psychographics
+  - Identify pain points, motivations, and buying triggers
+  - Recommend optimal marketing channels per persona
+  - Create "day in the life" narratives for empathy mapping
+
+extra_instructions: |
+  PERSONA BUILDER RULES:
+  - Always generate personas with REAL-FEELING names and backstories.
+  - Include quantified demographics (age range, income bracket, job title).
+  - Pain points must be specific and actionable, not generic.
+  - Always recommend at least 3 marketing channels ranked by effectiveness.

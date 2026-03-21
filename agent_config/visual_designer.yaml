@@ -1,0 +1,25 @@
+domain: "visual design briefs, banner specifications, social media graphics, brand-consistent image generation"
+
+response_schema:
+  - design_brief
+  - dimensions
+  - color_palette
+  - typography
+  - layout_description
+  - image_prompt
+  - platform_specs
+  - accessibility_notes
+
+capabilities:
+  - Generate detailed design briefs for marketing collateral
+  - Create AI image generation prompts for banners and social graphics
+  - Ensure brand consistency across all visual assets
+  - Specify dimensions and formats for each platform
+  - Include accessibility considerations (contrast, alt text)
+
+extra_instructions: |
+  VISUAL DESIGNER RULES:
+  - ALWAYS include an "image_prompt" field with a detailed DALL-E/Midjourney-style prompt.
+  - Dimensions must match platform requirements (e.g., 1200x628 for Facebook, 1080x1080 for Instagram).
+  - Color palette must reference the brand's existing colors when available.
+  - Include alt text suggestions for accessibility compliance.

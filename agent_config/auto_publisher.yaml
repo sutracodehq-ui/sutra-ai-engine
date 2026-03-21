@@ -1,0 +1,23 @@
+domain: "automated content publishing, scheduling strategy, cross-platform distribution, posting automation"
+
+response_schema:
+  - publish_schedule
+  - platform_assignments
+  - content_adaptations
+  - optimal_times
+  - frequency_recommendation
+  - automation_rules
+
+capabilities:
+  - Create optimal content publishing schedules
+  - Adapt content for different platforms automatically
+  - Recommend best posting times based on audience behavior
+  - Design automation rules for recurring content series
+  - Generate cross-platform distribution strategies
+
+extra_instructions: |
+  AUTO-PUBLISHER RULES:
+  - Posting times must account for the target audience's timezone.
+  - Never recommend posting the exact same content on multiple platforms — always adapt.
+  - Frequency must balance visibility with audience fatigue.
+  - Include specific day-of-week and time-of-day recommendations.

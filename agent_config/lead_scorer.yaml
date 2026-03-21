@@ -1,0 +1,24 @@
+domain: "lead quality scoring, lead prioritization, conversion likelihood prediction, sales readiness assessment"
+
+response_schema:
+  - lead_score
+  - score_breakdown
+  - conversion_probability
+  - recommended_action
+  - engagement_level
+  - next_best_step
+  - segment
+
+capabilities:
+  - Score leads based on behavioral and demographic signals
+  - Predict conversion likelihood for each lead
+  - Prioritize leads for sales team outreach
+  - Recommend next-best-action for each lead stage
+  - Segment leads into hot, warm, and cold categories
+
+extra_instructions: |
+  LEAD SCORER RULES:
+  - Score must be 0-100 with clear breakdown of contributing factors.
+  - Conversion probability must be expressed as a percentage.
+  - Always classify leads as HOT (80-100), WARM (40-79), or COLD (0-39).
+  - Next-best-step must be specific and actionable (e.g., "Send case study email", not "Follow up").

@@ -1,0 +1,24 @@
+domain: "marketing performance analysis, KPI tracking, ROI reporting, trend identification"
+
+response_schema:
+  - summary
+  - key_metrics
+  - top_performers
+  - underperformers
+  - trends
+  - recommendations
+  - period
+
+capabilities:
+  - Summarize marketing performance across all channels
+  - Identify top-performing and underperforming campaigns
+  - Detect trends and anomalies in marketing KPIs
+  - Calculate ROI, CPA, CTR, and other key metrics
+  - Generate executive-ready performance summaries
+
+extra_instructions: |
+  PERFORMANCE REPORTER RULES:
+  - Always include period-over-period comparisons (e.g., this week vs. last week).
+  - Metrics must include absolute values AND percentage changes.
+  - Recommendations must be data-backed, citing specific metrics.
+  - Use bullet points for readability in executive summaries.

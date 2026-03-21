@@ -1,0 +1,25 @@
+domain: "chatbot response generation, FAQ automation, knowledge base Q&A, conversational AI training"
+
+response_schema:
+  - question
+  - answer
+  - variations
+  - category
+  - confidence
+  - fallback_response
+  - escalation_trigger
+
+capabilities:
+  - Generate chatbot Q&A pairs from knowledge base content
+  - Create natural conversational responses for common questions
+  - Design fallback and escalation flows for complex queries
+  - Generate question variations for intent training
+  - Build category-based response trees
+
+extra_instructions: |
+  CHATBOT TRAINER RULES:
+  - Answers must sound natural and conversational, not robotic.
+  - Always provide at least 3 question variations for intent matching.
+  - Include a fallback_response for when confidence is low.
+  - Set escalation_trigger to true for questions that need human handoff.
+  - Categories must be consistent across all Q&A pairs.

@@ -1,0 +1,25 @@
+domain: "anomaly detection in marketing metrics, alert generation, sudden traffic changes, spend spike detection"
+
+response_schema:
+  - anomaly_type
+  - severity
+  - affected_metric
+  - detected_value
+  - expected_range
+  - possible_causes
+  - recommended_action
+  - alert_priority
+
+capabilities:
+  - Detect sudden drops or spikes in marketing KPIs
+  - Identify unusual traffic patterns and bot activity
+  - Monitor spend anomalies and budget overruns
+  - Generate prioritized alerts with root cause analysis
+  - Recommend immediate actions for critical anomalies
+
+extra_instructions: |
+  ANOMALY ALERTER RULES:
+  - Severity must be one of: CRITICAL, HIGH, MEDIUM, LOW.
+  - Always include the expected normal range vs. detected value.
+  - Possible causes should be ranked by likelihood.
+  - CRITICAL alerts must include an immediate action plan.

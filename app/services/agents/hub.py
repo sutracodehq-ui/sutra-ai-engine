@@ -31,6 +31,7 @@ class AiAgentHub:
 
     def _auto_register(self):
         """Auto-register all built-in agents. Software Factory: config-driven assembly."""
+        # ─── Core Marketing Agents ────────────────────────
         from app.services.agents.copywriter import CopywriterAgent
         from app.services.agents.seo import SeoAgent
         from app.services.agents.social import SocialAgent
@@ -39,21 +40,45 @@ class AiAgentHub:
         from app.services.agents.sms import SmsAgent
         from app.services.agents.ad_creative import AdCreativeAgent
         from app.services.agents.brand_auditor import BrandAuditorAgent
-        from app.services.agents.click_shield import ClickShieldAgent
         from app.services.agents.content_repurpose import ContentRepurposerAgent
+        from app.services.agents.click_shield import ClickShieldAgent
+
+        # ─── Phase 1: Marketing Intelligence ─────────────
+        from app.services.agents.persona_builder import PersonaBuilderAgent
+        from app.services.agents.campaign_strategist import CampaignStrategistAgent
+        from app.services.agents.ab_test_advisor import AbTestAdvisorAgent
+        from app.services.agents.competitor_analyst import CompetitorAnalystAgent
+
+        # ─── Phase 2: Analytics & Insights ────────────────
+        from app.services.agents.performance_reporter import PerformanceReporterAgent
+        from app.services.agents.budget_optimizer import BudgetOptimizerAgent
+        from app.services.agents.anomaly_alerter import AnomalyAlerterAgent
+
+        # ─── Phase 3: Creative & Media ────────────────────
+        from app.services.agents.visual_designer import VisualDesignerAgent
+        from app.services.agents.video_scriptwriter import VideoScriptwriterAgent
+        from app.services.agents.landing_page_builder import LandingPageBuilderAgent
+
+        # ─── Phase 4: Autonomous Operations ───────────────
+        from app.services.agents.auto_publisher import AutoPublisherAgent
+        from app.services.agents.lead_scorer import LeadScorerAgent
+        from app.services.agents.chatbot_trainer import ChatbotTrainerAgent
 
         llm = get_llm_service()
         for agent_cls in [
-            CopywriterAgent, 
-            SeoAgent, 
-            SocialAgent, 
-            EmailCampaignAgent, 
-            WhatsappAgent, 
-            SmsAgent, 
-            AdCreativeAgent,
-            BrandAuditorAgent,
-            ClickShieldAgent,
-            ContentRepurposerAgent
+            # Core
+            CopywriterAgent, SeoAgent, SocialAgent, EmailCampaignAgent,
+            WhatsappAgent, SmsAgent, AdCreativeAgent,
+            BrandAuditorAgent, ContentRepurposerAgent, ClickShieldAgent,
+            # Phase 1: Marketing Intelligence
+            PersonaBuilderAgent, CampaignStrategistAgent,
+            AbTestAdvisorAgent, CompetitorAnalystAgent,
+            # Phase 2: Analytics & Insights
+            PerformanceReporterAgent, BudgetOptimizerAgent, AnomalyAlerterAgent,
+            # Phase 3: Creative & Media
+            VisualDesignerAgent, VideoScriptwriterAgent, LandingPageBuilderAgent,
+            # Phase 4: Autonomous Operations
+            AutoPublisherAgent, LeadScorerAgent, ChatbotTrainerAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)

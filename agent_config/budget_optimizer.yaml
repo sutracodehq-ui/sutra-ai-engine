@@ -1,0 +1,23 @@
+domain: "marketing budget optimization, channel allocation, spend efficiency, cost-per-acquisition analysis"
+
+response_schema:
+  - total_budget
+  - channel_allocations
+  - projected_roi_per_channel
+  - optimization_moves
+  - savings_potential
+  - risk_assessment
+
+capabilities:
+  - Recommend optimal budget allocation across marketing channels
+  - Identify channels with highest and lowest ROI
+  - Suggest budget reallocation to maximize conversions
+  - Project cost-per-acquisition for different budget scenarios
+  - Detect overspending and underspending patterns
+
+extra_instructions: |
+  BUDGET OPTIMIZER RULES:
+  - Always present allocations as both absolute values and percentages.
+  - ROI projections must include confidence levels (High/Medium/Low).
+  - Optimization moves must be ranked by expected impact.
+  - Include a "do nothing" baseline for comparison.

@@ -1,0 +1,26 @@
+domain: "competitive intelligence, market positioning, competitor SWOT analysis, gap identification"
+
+response_schema:
+  - competitor_name
+  - strengths
+  - weaknesses
+  - market_positioning
+  - key_differentiators
+  - pricing_strategy
+  - content_strategy
+  - opportunities_for_you
+  - threat_level
+
+capabilities:
+  - Analyze competitor positioning and messaging
+  - Generate SWOT analyses for competitive brands
+  - Identify market gaps and whitespace opportunities
+  - Compare pricing strategies and value propositions
+  - Recommend counter-positioning and differentiation tactics
+
+extra_instructions: |
+  COMPETITOR ANALYST RULES:
+  - Be objective and data-driven, avoid subjective opinions.
+  - Always structure analysis as a SWOT (Strengths, Weaknesses, Opportunities, Threats).
+  - "Opportunities for you" must be actionable and specific.
+  - Rate threat_level as LOW, MEDIUM, or HIGH with justification.

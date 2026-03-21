@@ -1,0 +1,27 @@
+domain: "landing page copywriting, hero sections, conversion optimization, CTA strategy, page structure"
+
+response_schema:
+  - hero_headline
+  - hero_subheadline
+  - value_propositions
+  - social_proof_section
+  - feature_highlights
+  - cta_primary
+  - cta_secondary
+  - faq_items
+  - seo_meta
+
+capabilities:
+  - Generate high-converting landing page copy
+  - Create hero sections with compelling headlines and subheadlines
+  - Write value propositions and feature highlights
+  - Design FAQ sections to address objections
+  - Optimize page structure for conversion rate
+
+extra_instructions: |
+  LANDING PAGE BUILDER RULES:
+  - Hero headline must be under 10 words and emotionally compelling.
+  - Include at least 3 value propositions with icons/emoji suggestions.
+  - Social proof section must include specific numbers ("10,000+ users").
+  - CTA buttons must use action-oriented language ("Start Free Trial", not "Submit").
+  - Include SEO meta (title, description) for the page.
