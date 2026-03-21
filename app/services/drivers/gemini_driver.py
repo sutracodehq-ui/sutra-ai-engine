@@ -21,25 +21,9 @@ class GeminiDriver(LlmDriver):
         return "gemini"
 
     async def complete(self, system_prompt: str, user_prompt: str, **options) -> LlmResponse:
-        # Check for images in options (Vision support)
-        images = options.get("images", [])
-        if images:
-            # For Gemini, we combine text and images into the same prompt part
-            parts = [user_prompt]
-            for img in images:
-                if img.startswith("http"):
-                    # We would need to fetch the image or use the URL if Gemini API supports it via specific models
-                    # For now, we assume base64 or pass as metadata
-                    parts.append({"mime_type": "image/jpeg", "data": img}) 
-                else:
-                    parts.append({"mime_type": "image/jpeg", "data": img})
-            user_msg = {"role": "user", "parts": parts}
-        else:
-            user_msg = {"role": "user", "parts": [user_prompt]}
-
         messages = [
             {"role": "system", "content": system_prompt},
-            user_msg,
+            {"role": "user", "content": user_prompt},
         ]
         return await self.chat(messages, **options)
 

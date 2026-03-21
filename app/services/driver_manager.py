@@ -71,6 +71,16 @@ class DriverManager:
             chain.append(s.ai_fallback_driver)
         return chain
 
+    # Keys that are routing/meta concerns and should never leak to drivers
+    _STRIP_KEYS = {"messages", "driver_override", "model_override", "driver", "model_name"}
+
+    def _clean_options(self, options: dict, model_override: str | None = None) -> dict:
+        """Remove routing/meta keys and inject model override."""
+        cleaned = {k: v for k, v in options.items() if k not in self._STRIP_KEYS}
+        if model_override:
+            cleaned["model"] = model_override
+        return cleaned
+
     async def complete(
         self,
         system_prompt: str,
@@ -80,18 +90,17 @@ class DriverManager:
         **options
     ) -> LlmResponse:
         """Run completion through the override or fallback chain."""
-        if model_override:
-            options["model"] = model_override
+        opts = self._clean_options(options, model_override)
 
         if driver_override:
             return await self._run_targeted(
                 driver_override,
-                lambda d: d.complete(system_prompt, user_prompt, **options),
+                lambda d: d.complete(system_prompt, user_prompt, **opts),
                 "complete"
             )
 
         return await self._run_with_fallback(
-            lambda d: d.complete(system_prompt, user_prompt, **options),
+            lambda d: d.complete(system_prompt, user_prompt, **opts),
             "complete",
         )
 
@@ -103,18 +112,17 @@ class DriverManager:
         **options
     ) -> LlmResponse:
         """Run chat through the override or fallback chain."""
-        if model_override:
-            options["model"] = model_override
+        opts = self._clean_options(options, model_override)
 
         if driver_override:
             return await self._run_targeted(
                 driver_override,
-                lambda d: d.chat(messages, **options),
+                lambda d: d.chat(messages, **opts),
                 "chat"
             )
 
         return await self._run_with_fallback(
-            lambda d: d.chat(messages, **options),
+            lambda d: d.chat(messages, **opts),
             "chat",
         )
 
@@ -128,8 +136,7 @@ class DriverManager:
         **options
     ) -> AsyncGenerator[str, None]:
         """Stream through the override or fallback chain."""
-        if model_override:
-            options["model"] = model_override
+        opts = self._clean_options(options, model_override)
 
         # Support both (system, user) and (messages) formats
         if messages is None:
@@ -139,7 +146,7 @@ class DriverManager:
             ]
 
         if driver_override:
-            async for chunk in self._run_targeted_stream(driver_override, messages, **options):
+            async for chunk in self._run_targeted_stream(driver_override, messages, **opts):
                 yield chunk
             return
 
@@ -155,7 +162,7 @@ class DriverManager:
             try:
                 driver = self.driver(driver_name)
                 logger.info(f"DriverManager: streaming with {driver_name}")
-                async for chunk in driver.stream(messages, **options):
+                async for chunk in driver.stream(messages, **opts):
                     yield chunk
                 self._circuit.record_success(driver_name)
                 return

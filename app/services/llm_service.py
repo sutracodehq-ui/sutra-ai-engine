@@ -6,7 +6,7 @@ Software Factory: consumers use LlmService, never drivers directly.
 """
 
 import logging
-from typing import Any, AsyncGenerator
+from typing import AsyncGenerator
 
 from app.services.driver_manager import get_driver_manager
 from app.services.drivers.base import LlmResponse
@@ -28,17 +28,15 @@ class LlmService:
         driver: str | None = None,
         model: str | None = None,
         **kwargs
-    ) -> dict[str, Any]:
-        """Synchronous completion with explicit driver/model overrides."""
-        response: LlmResponse = await self._manager.complete(
+    ) -> LlmResponse:
+        """Single-turn completion with explicit driver/model overrides."""
+        return await self._manager.complete(
             system_prompt,
             prompt,
-            messages=messages,
             driver_override=driver,
             model_override=model,
             **kwargs
         )
-        return response.to_dict()
 
     async def stream(
         self,

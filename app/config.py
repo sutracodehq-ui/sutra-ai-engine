@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     master_api_key: str = "sk_master_change_me_in_production"
 
     # ─── AI Driver (primary text completion) ────────
-    ai_driver: str = "groq"
-    ai_fallback_driver: str = "gemini"
+    ai_driver: str = "ollama"
+    ai_fallback_driver: str = "groq"
 
     # ─── Pipeline Routing (capability-specific) ─────
     # Vision: image analysis, OCR, visual understanding

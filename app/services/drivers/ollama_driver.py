@@ -27,7 +27,6 @@ class OllamaDriver(LlmDriver):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
-        options.pop("messages", None)
         return await self.chat(messages, **options)
 
     async def chat(self, messages: list[dict], **options) -> LlmResponse:
