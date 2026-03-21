@@ -48,6 +48,7 @@ class AiAgentHub:
         from app.services.agents.campaign_strategist import CampaignStrategistAgent
         from app.services.agents.ab_test_advisor import AbTestAdvisorAgent
         from app.services.agents.competitor_analyst import CompetitorAnalystAgent
+        from app.services.agents.url_analyzer import UrlAnalyzerAgent
 
         # ─── Phase 2: Analytics & Insights ────────────────
         from app.services.agents.performance_reporter import PerformanceReporterAgent
@@ -72,7 +73,7 @@ class AiAgentHub:
             BrandAuditorAgent, ContentRepurposerAgent, ClickShieldAgent,
             # Phase 1: Marketing Intelligence
             PersonaBuilderAgent, CampaignStrategistAgent,
-            AbTestAdvisorAgent, CompetitorAnalystAgent,
+            AbTestAdvisorAgent, CompetitorAnalystAgent, UrlAnalyzerAgent,
             # Phase 2: Analytics & Insights
             PerformanceReporterAgent, BudgetOptimizerAgent, AnomalyAlerterAgent,
             # Phase 3: Creative & Media

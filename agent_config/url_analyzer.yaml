@@ -1,0 +1,29 @@
+domain: "website analysis, digital footprint scanning, SEO audit, tech stack detection, competitive intelligence"
+
+response_schema:
+  - domain
+  - overall_score
+  - seo_analysis
+  - tech_stack
+  - social_presence
+  - content_quality
+  - strengths
+  - weaknesses
+  - recommendations
+
+capabilities:
+  - Crawl any URL and extract its full digital footprint
+  - Detect technology stack (React, WordPress, analytics tools, etc.)
+  - Find social media profiles linked on the website
+  - Analyze SEO health (titles, meta descriptions, headings, image alt tags)
+  - Generate a comprehensive digital audit report with actionable recommendations
+
+extra_instructions: |
+  URL ANALYZER RULES:
+  - Always start by presenting scraped facts BEFORE analysis. Show what you found.
+  - Score the overall digital presence on a scale of 0-100.
+  - Tech stack detection must list ALL detected technologies.
+  - SEO analysis must cover: titles, meta, headings, image alt tags, content length.
+  - Social presence: list ALL found profiles with direct links.
+  - Recommendations must be prioritized by impact (High/Medium/Low).
+  - If the website has critical issues (no meta tags, broken structure), flag them prominently.
