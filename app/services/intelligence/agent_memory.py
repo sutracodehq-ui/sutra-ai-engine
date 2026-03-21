@@ -46,8 +46,11 @@ class AgentMemoryService:
     async def recall(self, agent_type: str, prompt: str, n_results: int = 2) -> list[dict]:
         """
         Retrieve similar past (prompt, response) pairs for few-shot injection.
+        
+        Uses Agentic RAG: decomposes complex prompts into multiple sub-queries
+        for more targeted retrieval, then deduplicates and ranks results.
 
-        Returns list of {"prompt": str, "response": str} dicts.
+        Returns list of {"prompt": str, "response": str, "similarity": float} dicts.
         """
         if not self._enabled:
             return []
@@ -61,29 +64,38 @@ class AgentMemoryService:
             if collection.count() == 0:
                 return []
 
-            results = collection.query(
-                query_texts=[prompt],
-                n_results=min(n_results, collection.count()),
-            )
+            # ─── Agentic RAG: Multi-Query Decomposition ─────
+            queries = self._decompose_query(prompt)
+            all_examples: dict[str, dict] = {}  # id → example (dedup)
 
-            examples = []
-            if results and results["metadatas"] and results["metadatas"][0]:
-                for i, meta in enumerate(results["metadatas"][0]):
-                    distance = results["distances"][0][i] if results["distances"] else 1.0
-                    similarity = 1 - distance
+            for query in queries:
+                results = collection.query(
+                    query_texts=[query],
+                    n_results=min(n_results, collection.count()),
+                )
 
-                    # Only use examples with >70% similarity
-                    if similarity >= 0.7:
-                        examples.append({
-                            "prompt": results["documents"][0][i],
-                            "response": meta.get("response", ""),
-                            "similarity": round(similarity, 3),
-                        })
+                if results and results["metadatas"] and results["metadatas"][0]:
+                    for i, meta in enumerate(results["metadatas"][0]):
+                        distance = results["distances"][0][i] if results["distances"] else 1.0
+                        similarity = 1 - distance
+                        doc_id = results["ids"][0][i]
+
+                        # Only use examples with >70% similarity, keep best per doc
+                        if similarity >= 0.7:
+                            if doc_id not in all_examples or all_examples[doc_id]["similarity"] < similarity:
+                                all_examples[doc_id] = {
+                                    "prompt": results["documents"][0][i],
+                                    "response": meta.get("response", ""),
+                                    "similarity": round(similarity, 3),
+                                }
+
+            # Sort by similarity, take top N
+            examples = sorted(all_examples.values(), key=lambda x: x["similarity"], reverse=True)[:n_results]
 
             if examples:
                 logger.info(
                     f"AgentMemory: recalled {len(examples)} examples for {agent_type} "
-                    f"(best similarity: {examples[0]['similarity']})"
+                    f"(best similarity: {examples[0]['similarity']}, queries: {len(queries)})"
                 )
 
             return examples
@@ -91,6 +103,45 @@ class AgentMemoryService:
         except Exception as e:
             logger.warning(f"AgentMemory recall failed for {agent_type}: {e}")
             return []
+
+    def _decompose_query(self, prompt: str) -> list[str]:
+        """
+        Decompose a complex prompt into multiple sub-queries for better retrieval.
+        
+        Agentic RAG: Instead of searching for the entire prompt as one vector,
+        break it into semantic chunks that might match different past examples.
+        """
+        queries = [prompt]  # Always include the full prompt
+
+        # Split by sentences for multi-part prompts
+        sentences = [s.strip() for s in prompt.replace("?", ".").replace("!", ".").split(".") if s.strip()]
+        if len(sentences) > 1:
+            # Add meaningful sentences (not too short)
+            for sentence in sentences:
+                if len(sentence.split()) >= 5:
+                    queries.append(sentence)
+
+        # Extract key phrases (text between quotes or after "about/for/on")
+        import re
+        quoted = re.findall(r'"([^"]+)"', prompt)
+        queries.extend(quoted)
+
+        topic_matches = re.findall(r'(?:about|for|on|regarding)\s+(.+?)(?:\.|,|$)', prompt, re.I)
+        queries.extend(topic_matches)
+
+        # Deduplicate while preserving order, limit to 4 queries max
+        seen = set()
+        unique_queries = []
+        for q in queries:
+            q_clean = q.strip().lower()
+            if q_clean and q_clean not in seen:
+                seen.add(q_clean)
+                unique_queries.append(q)
+            if len(unique_queries) >= 4:
+                break
+
+        return unique_queries
+
 
     async def remember(self, agent_type: str, prompt: str, response: str, quality_score: float = 1.0) -> None:
         """

@@ -139,22 +139,36 @@ class HybridRouter:
             )
 
     async def _call_cloud(self, prompt: str, system_prompt: str, **options) -> LlmResponse:
-        """Call the cloud driver (Groq primary, Gemini fallback)."""
+        """
+        Call cloud with tiered escalation for maximum quality:
+        Tier 1: Groq (free, fast — Llama 3.3 70B)
+        Tier 2: Gemini (cheap, smart — Gemini 2.0 Flash)
+        Tier 3: Anthropic (premium, smartest — Claude Sonnet)
+        """
         from app.services.llm_service import get_llm_service
         service = get_llm_service()
-        settings = get_settings()
 
-        # Try Groq first (free), then Gemini
-        for driver in ["groq", settings.ai_fallback_driver]:
+        # Ordered by cost: free → cheap → premium
+        cloud_tiers = [
+            ("groq", "Tier1:Free"),
+            ("gemini", "Tier2:Smart"),
+            ("anthropic", "Tier3:Premium"),
+        ]
+
+        for driver, tier_label in cloud_tiers:
             try:
-                return await service.complete(
+                response = await service.complete(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     driver=driver,
                     **options
                 )
+                response.metadata = response.metadata or {}
+                response.metadata["cloud_tier"] = tier_label
+                logger.info(f"HybridRouter: cloud success via {tier_label} ({driver})")
+                return response
             except Exception as e:
-                logger.warning(f"HybridRouter: cloud driver '{driver}' failed: {e}")
+                logger.warning(f"HybridRouter: {tier_label} ({driver}) failed: {e}")
                 continue
 
         # All cloud drivers failed — return empty

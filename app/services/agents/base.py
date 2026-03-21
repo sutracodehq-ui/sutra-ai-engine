@@ -42,9 +42,58 @@ class BaseAgent:
             return yaml.safe_load(f)
 
     def _build_from_config(self, context: dict | None = None) -> str:
-        """Build a system prompt from the static YAML config."""
+        """
+        Build a system prompt from the static YAML config.
+        
+        Auto-injections:
+        1. Chain-of-Thought: Adds reasoning instructions for better output quality
+        2. JSON Mode: Enforces strict JSON output when response_schema.format == "json"
+        3. Rules: Appends any agent-specific rules from YAML
+        """
         prompt = self._config.get("system_prompt", "You are a helpful AI assistant.")
-        # Optional: Add context-specific injections here if needed
+
+        # ─── Chain-of-Thought Injection ───────────────────
+        cot_instruction = (
+            "\n\n## Reasoning Process"
+            "\nBefore generating your final response, think through the problem step by step:"
+            "\n1. Analyze the user's request and identify key requirements"
+            "\n2. Consider the best approach to fulfill each requirement"
+            "\n3. Generate a high-quality, comprehensive response"
+            "\nDo NOT include your reasoning steps in the final output."
+        )
+        prompt += cot_instruction
+
+        # ─── JSON Mode Enforcement ────────────────────────
+        schema = self._config.get("response_schema", {})
+        if isinstance(schema, dict) and schema.get("format") == "json":
+            fields = schema.get("fields", [])
+            fields_str = ", ".join(f'"{f}"' for f in fields) if fields else "relevant fields"
+            prompt += (
+                f"\n\n## Output Format"
+                f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
+                f"\nRequired top-level keys: {fields_str}"
+                f"\nEnsure all values are properly typed (strings, numbers, arrays as appropriate)."
+            )
+        elif isinstance(schema, list) and schema:
+            fields_str = ", ".join(f'"{f}"' for f in schema)
+            prompt += (
+                f"\n\n## Output Format"
+                f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
+                f"\nRequired top-level keys: {fields_str}"
+            )
+
+        # ─── Rules Injection ──────────────────────────────
+        rules = self._config.get("rules", [])
+        if rules:
+            rules_text = "\n".join(f"- {r}" for r in rules)
+            prompt += f"\n\n## Rules\n{rules_text}"
+
+        # ─── Capabilities Context ─────────────────────────
+        capabilities = self._config.get("capabilities", [])
+        if capabilities:
+            caps_text = "\n".join(f"- {c}" for c in capabilities)
+            prompt += f"\n\n## Your Capabilities\n{caps_text}"
+
         return prompt
 
     async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None) -> Tuple[str, Optional[int]]:
