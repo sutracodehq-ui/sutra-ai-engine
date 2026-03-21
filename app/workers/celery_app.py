@@ -83,6 +83,11 @@ celery_app.conf.beat_schedule = {
         "task": "scan_web_intelligence",
         "schedule": crontab(minute=0),  # Top of every hour
     },
+    # Daily 6 AM — VoIP call analytics and sentiment
+    "voip-analytics": {
+        "task": "voip_analytics",
+        "schedule": crontab(hour=6, minute=0),
+    },
 }
 
 # Auto-discover tasks

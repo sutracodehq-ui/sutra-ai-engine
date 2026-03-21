@@ -278,3 +278,162 @@ evolution_engine:
     - "Write a press release for a new AI product launch"
     - "Create a risk assessment for a cryptocurrency investment"
     - "Summarize the key principles of agile project management"
+
+# ─── A2A Routes (Agent-to-Agent) ───────────────────────────
+a2a_routes:
+  stock_predictor:
+    can_consult: [ai_trend_tracker, market_trend_analyzer, crypto_analyzer]
+  stock_analyzer:
+    can_consult: [market_trend_analyzer, ai_trend_tracker]
+  campaign_strategist:
+    can_delegate: [copywriter, social_media, email_campaign]
+    can_consult: [seo, content_grader]
+  seo:
+    can_consult: [content_grader, copywriter]
+  copywriter:
+    can_consult: [seo, content_grader]
+  data_curator:
+    can_consult: [dataset_optimizer, ml_pipeline]
+  dataset_optimizer:
+    can_consult: [data_curator, ml_pipeline]
+  ml_pipeline:
+    can_delegate: [data_curator, dataset_optimizer]
+    can_consult: [ai_trend_tracker]
+
+# ─── Orchestrator ──────────────────────────────────────────
+orchestrator:
+  max_sub_tasks: 5
+  max_parallel: 3
+  synthesis_model: null  # Use default model
+
+# ─── Agentic RAG ──────────────────────────────────────────
+agentic_rag:
+  min_relevance_threshold: 0.5
+  max_iterations: 2
+  max_chunks: 5
+  collections:
+    - web_articles
+    - stock_data
+    - crypto_data
+    - agent_responses
+    - knowledge_graph
+
+# ─── Knowledge Graph ──────────────────────────────────────
+knowledge_graph:
+  entity_types:
+    - company
+    - person
+    - technology
+    - product
+    - concept
+    - market_sector
+    - cryptocurrency
+    - stock_ticker
+    - ai_model
+    - framework
+
+# ─── Auto Benchmark ───────────────────────────────────────
+auto_benchmark:
+  min_quality_for_benchmark: 7.0
+  max_benchmarks_per_run: 10
+
+# ─── VoIP Engine (Self-Hosted) ─────────────────────────────
+voip:
+  # Faster-Whisper STT (Speech-to-Text)
+  stt:
+    model_size: "base"              # tiny, base, small, medium, large-v3
+    device: "cpu"                   # cpu or cuda
+    compute_type: "int8"            # int8 (CPU) or float16 (GPU)
+    beam_size: 5
+    force_language: null            # null = auto-detect, "hi" = force Hindi
+
+  # Edge-TTS (Text-to-Speech) — Indian Voices
+  tts:
+    default_voice: "en-IN-NeerjaNeural"
+    indian_voices:
+      hi: "hi-IN-SwaraNeural"          # Hindi female
+      hi_male: "hi-IN-MadhurNeural"    # Hindi male
+      en: "en-IN-NeerjaNeural"         # Indian English female
+      en_male: "en-IN-PrabhatNeural"   # Indian English male
+      ta: "ta-IN-PallaviNeural"        # Tamil female
+      te: "te-IN-ShrutiNeural"         # Telugu female
+      bn: "bn-IN-TanishaaNeural"       # Bengali female
+      mr: "mr-IN-AarohiNeural"         # Marathi female
+      kn: "kn-IN-SapnaNeural"          # Kannada female
+      ml: "ml-IN-SobhanaNeural"        # Malayalam female
+      gu: "gu-IN-DhwaniNeural"         # Gujarati female
+      pa: "pa-IN-GurpreetNeural"       # Punjabi male
+
+  # India-First Personas
+  personas:
+    support_agent_india:
+      name: "Support Agent (India)"
+      voice: "hi-IN-SwaraNeural"
+      agent: "chatbot_trainer"
+      tone: "polite, respectful, patient, helpful"
+      languages: ["hi", "en", "hinglish"]
+      max_turns: 30
+      transfer_to_human: true
+      greetings:
+        hi: "नमस्ते! मैं आपकी कैसे मदद कर सकती हूँ?"
+        en: "Hello! Thank you for calling. How can I help you today?"
+
+    sales_agent_india:
+      name: "Sales Agent (India)"
+      voice: "hi-IN-MadhurNeural"
+      agent: "campaign_strategist"
+      tone: "friendly, energetic, respectful, persuasive"
+      languages: ["hi", "en", "hinglish"]
+      max_turns: 20
+      greetings:
+        hi: "नमस्ते! मैं {company} से बोल रहा हूँ।"
+        en: "Hi! I'm calling from {company}."
+
+    cold_caller_india:
+      name: "Cold Caller (India)"
+      voice: "en-IN-PrabhatNeural"
+      agent: "cold_call_scripter"
+      tone: "professional, confident, brief, respectful"
+      languages: ["en", "hi"]
+      max_turns: 10
+      greetings:
+        en: "Hi, this is {name} calling from {company}. Do you have a moment?"
+        hi: "नमस्ते, मैं {name}, {company} से बोल रहा हूँ।"
+
+    edtech_support:
+      name: "EdTech Support"
+      voice: "en-IN-NeerjaNeural"
+      agent: "lecture_planner"
+      tone: "encouraging, simple, patient, clear"
+      languages: ["hi", "en", "ta", "te", "bn"]
+      max_turns: 25
+      greetings:
+        hi: "नमस्ते! स्कूल हेल्पलाइन में आपका स्वागत है।"
+        en: "Hello! Welcome to the school helpline."
+        ta: "வணக்கம்! பள்ளி உதவி எண்ணுக்கு வரவேற்கிறோம்."
+
+    survey_agent:
+      name: "Survey Agent"
+      voice: "hi-IN-SwaraNeural"
+      agent: "persona_builder"
+      tone: "cheerful, brief, respectful"
+      languages: ["hi", "en"]
+      max_turns: 15
+      greetings:
+        hi: "नमस्ते! क्या आपके पास 2 मिनट हैं एक छोटे सर्वे के लिए?"
+        en: "Hi! Do you have 2 minutes for a quick survey?"
+
+  # TRAI Compliance (India)
+  trai_compliance:
+    call_start_time: "09:00"        # 9 AM IST
+    call_end_time: "21:00"          # 9 PM IST
+    check_dnd_registry: true
+    recording_consent_required: true
+
+  # Consent messages per language
+  consent_messages:
+    en: "This call may be recorded for quality and training purposes."
+    hi: "गुणवत्ता और प्रशिक्षण के लिए इस कॉल को रिकॉर्ड किया जा सकता है।"
+    ta: "இந்த அழைப்பு தரம் மற்றும் பயிற்சி நோக்கங்களுக்காக பதிவு செய்யப்படலாம்."
+    te: "ఈ కాల్ నాణ్యత మరియు శిక్షణ ప్రయోజనాల కోసం రికార్డ్ చేయబడవచ్చు."
+    bn: "এই কলটি গুণমান এবং প্রশিক্ষণের উদ্দেশ্যে রেকর্ড করা হতে পারে।"

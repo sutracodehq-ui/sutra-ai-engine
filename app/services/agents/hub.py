@@ -116,6 +116,11 @@ class AiAgentHub:
         from app.services.agents.ai_trend_tracker import AiTrendTrackerAgent
         from app.services.agents.crypto_analyzer import CryptoAnalyzerAgent
 
+        # ─── Phase 13: Data & ML Intelligence ─────────────
+        from app.services.agents.data_curator import DataCuratorAgent
+        from app.services.agents.dataset_optimizer import DatasetOptimizerAgent
+        from app.services.agents.ml_pipeline import MlPipelineAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -153,6 +158,8 @@ class AiAgentHub:
             # Phase 12: Market & Finance Intelligence
             StockAnalyzerAgent, StockPredictorAgent, MarketTrendAnalyzerAgent,
             AiTrendTrackerAgent, CryptoAnalyzerAgent,
+            # Phase 13: Data & ML Intelligence
+            DataCuratorAgent, DatasetOptimizerAgent, MlPipelineAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
