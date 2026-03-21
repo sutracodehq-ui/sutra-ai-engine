@@ -115,16 +115,16 @@ services:
     restart: unless-stopped
 
   # ─── Ollama (Local LLM) ──────────────────────────────
-  sutra-ai-ollama:
-    image: ollama/ollama:latest
-    container_name: sutra-ai-ollama
-    ports:
-      - "11435:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - sutra-ai-network
-    restart: unless-stopped
+  # sutra-ai-ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: sutra-ai-ollama
+  #   ports:
+  #     - "11435:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   networks:
+  #     - sutra-ai-network
+  #   restart: unless-stopped
     # Removed GPU profile to start by default
 
   # ─── Adminer (DB Management UI) ───────────────────────

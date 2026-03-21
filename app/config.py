@@ -6,8 +6,14 @@ Uses Pydantic Settings for type coercion and validation.
 """
 
 from functools import lru_cache
+from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Ensure .env is loaded even if not injected by container runtime
+env_path = Path(__file__).parents[2] / ".env"
+load_dotenv(dotenv_path=env_path)
 
 
 class Settings(BaseSettings):
@@ -29,7 +35,7 @@ class Settings(BaseSettings):
     master_api_key: str = "sk_master_change_me_in_production"
 
     # ─── AI Driver (primary text completion) ────────
-    ai_driver: str = "mock"
+    ai_driver: str = "groq"
     ai_fallback_driver: str = "gemini"
 
     # ─── Pipeline Routing (capability-specific) ─────
