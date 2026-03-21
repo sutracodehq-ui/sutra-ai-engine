@@ -1,6 +1,6 @@
 # SutraCode AI Engine — Developer Documentation
 
-> **149 agents · 23 products · 31 phases · India-first multi-sector AI platform**
+> **187 agents · 32 products · 40 phases · India-first multi-sector AI platform**
 
 ---
 
@@ -1440,6 +1440,178 @@ All agents grouped by product. Each agent entry includes its identifier, descrip
 - A data team uses Data Curator to standardize 500K messy customer records
 - An ML engineer uses ML Pipeline to design a churn prediction model pipeline
 - A startup uses Dataset Optimizer to balance an imbalanced fraud detection dataset
+
+---
+
+### 💒 Product 24: ShaadiAI (5 agents)
+
+> AI-powered Indian wedding planning and management.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 150 | **Wedding Budget Planner** | `wedding_budget_planner` | Plans budgets by city tier: venue, catering, decor, photography allocation with shagun recovery estimates. |
+| 151 | **Vendor Matcher** | `vendor_matcher` | Matches vendors (photographers, caterers, decorators) by budget, location, availability, and reviews. |
+| 152 | **Invitation Writer** | `invitation_writer` | Wedding card text in Hindi/English/regional languages — traditional, modern, digital, and bilingual formats. |
+| 153 | **Event Timeline** | `event_timeline` | Minute-by-minute event timelines: mehendi → sangeet → haldi → wedding → reception with vendor coordination. |
+| 154 | **Guest List Manager** | `guest_list_manager` | Guest categorization, seating plans, RSVP tracking, dietary preferences, and return gift planning. |
+
+**Use Cases:**
+- A couple uses Wedding Budget Planner to plan a ₹15L wedding in Jaipur
+- A wedding planner uses Event Timeline for a 3-day destination wedding schedule
+- Parents use Invitation Writer for bilingual (Hindi + English) wedding cards
+
+> 💡 **India Insight:** ₹5 lakh crore wedding industry — every family is a customer.
+
+---
+
+### 🔮 Product 25: JyotishAI (5 agents)
+
+> Vedic astrology, Vastu, Panchang, and spiritual guidance.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 155 | **Kundli Analyzer** | `kundli_analyzer` | Birth chart analysis: planetary positions, dasha periods, yogas, Mangal Dosha, gemstone recommendations. |
+| 156 | **Muhurat Finder** | `muhurat_finder` | Finds auspicious timings for marriage, griha pravesh, business launch, vehicle purchase, and ceremonies. |
+| 157 | **Vastu Advisor** | `vastu_advisor` | Vastu Shastra for homes/offices: room placement, directions, colors, and no-demolition remedies. |
+| 158 | **Panchang Reader** | `panchang_reader` | Daily panchang: tithi, nakshatra, yoga, karana, Rahu Kaal, festival calendar, and regional variations. |
+| 159 | **Mantra Guide** | `mantra_guide` | Recommends mantras and meditation by planetary condition and life goal. Chanting count, timing, mala selection. |
+
+**Use Cases:**
+- A family uses Muhurat Finder for auspicious griha pravesh timing
+- A business owner uses Vastu Advisor for office layout without structural changes
+- A devotee uses Mantra Guide for Navagraha healing mantras
+
+> ⚠️ **Disclaimer:** All astrology agents include cultural/traditional guidance disclaimers.
+
+---
+
+### 🍽️ Product 26: FoodBrain (5 agents)
+
+> Recipe generation, restaurant optimization, kitchen management.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 160 | **Recipe Generator** | `recipe_generator` | Indian recipes by available ingredients, dietary restrictions, regional cuisine, cooking time, and skill level. |
+| 161 | **Menu Designer** | `menu_designer` | Restaurant menu creation: pricing psychology, food cost analysis, menu engineering (Stars/Plowhorses/Dogs matrix). |
+| 162 | **Food Cost Optimizer** | `food_cost_optimizer` | Portion control, waste reduction, APMC/mandi supplier comparison, seasonal ingredient substitution. |
+| 163 | **Zomato Listing Optimizer** | `zomato_listing_optimizer` | Optimizes Zomato/Swiggy listings: descriptions, tags, photo guidelines, review management, promotional strategy. |
+| 164 | **Kitchen Inventory** | `kitchen_inventory` | Tracks perishables, auto-reorder suggestions, FIFO enforcement, expiry alerts, and monsoon storage tips. |
+
+**Use Cases:**
+- A home cook uses Recipe Generator: "I have paneer, spinach, and cream — what can I make?"
+- A restaurant owner uses Menu Designer to redesign their thali pricing
+- A cloud kitchen uses Zomato Listing Optimizer to improve ratings from 3.8 to 4.3
+
+---
+
+### 🎮 Product 27: GameIQ (4 agents)
+
+> Game strategies, esports analytics, stream optimization.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 165 | **Game Strategy** | `game_strategy` | BGMI, Valorant, Free Fire strategies: drop spots, weapon loadouts, team compositions, and rank climbing tips. |
+| 166 | **Esports Analyst** | `esports_analyst` | Tournament analysis: player stats, meta trends, roster changes, Indian esports scene (BGMI Masters, Valorant Challengers). |
+| 167 | **Stream Optimizer** | `stream_optimizer` | Twitch/YouTube Gaming optimization: OBS settings for Indian internet, engagement tactics, growth strategies. |
+| 168 | **Gaming PC Builder** | `gaming_pc_builder` | PC/laptop build recommendations: ₹30K to ₹2L+ budgets with Indian retailer pricing (MD Computers, PrimeABGB). |
+
+**Use Cases:**
+- A BGMI player uses Game Strategy for Erangel drop spots and rotation strategies
+- A gaming streamer uses Stream Optimizer for 720p streaming on Indian broadband
+- A teen uses Gaming PC Builder for best ₹50K gaming setup
+
+---
+
+### 🏗️ Product 28: BuildSmart (4 agents)
+
+> Construction estimation, interior design, material planning.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 169 | **Construction Estimator** | `construction_estimator` | Per sq ft costs by city tier and finish quality: ₹1200-3500+/sqft with phase-wise budget breakdowns. |
+| 170 | **Interior Designer** | `interior_designer` | Room-by-room design: style selection, color palettes, furniture from Urban Ladder/Pepperfry/IKEA, budget tiers. |
+| 171 | **Material Calculator** | `material_calculator` | Calculates cement bags, steel tonnes, bricks, sand, aggregate quantities from floor plan dimensions. |
+| 172 | **Contractor Checker** | `contractor_checker` | Contractor evaluation checklists, milestone payment schedules, quality checkpoints, and dispute guidance. |
+
+**Use Cases:**
+- A homeowner uses Construction Estimator for a 1500 sqft house in Pune
+- A couple uses Interior Designer for a 2BHK makeover under ₹8L
+- A builder uses Material Calculator for a 4-floor residential project
+
+---
+
+### 👶 Product 29: ParentSquad (4 agents)
+
+> Child milestones, school selection, vaccination, nutrition.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 173 | **Child Milestone Tracker** | `child_milestone_tracker` | Developmental milestones by age: motor, cognitive, speech with delay detection and pediatrician referral flags. |
+| 174 | **School Selector** | `school_selector` | Compares CBSE/ICSE/IB/State boards: fees, results, infrastructure, admission process with RTE quota guidance. |
+| 175 | **Vaccination Scheduler** | `vaccination_scheduler` | NIS + IAP vaccination schedule, catch-up plans for missed vaccines, government vs private options. |
+| 176 | **Child Nutrition** | `child_nutrition` | Age-appropriate Indian meals: weaning foods, lunch box ideas, brain foods, and picky eating solutions. |
+
+**Use Cases:**
+- New parents use Child Milestone Tracker for their 6-month-old's development
+- Parents use School Selector to compare 5 schools near them for Class 1 admission
+- A mother uses Vaccination Scheduler to catch up on missed IAP vaccines
+
+> ⚠️ **Safety:** Parenting health agents always recommend consulting a pediatrician.
+
+---
+
+### 📰 Product 30: NewsRadar (4 agents)
+
+> Fact-checking, news digests, media monitoring, PR.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 177 | **Fake News Detector** | `fake_news_detector` | Fact-checks claims using source verification, logical analysis, and known misinformation patterns. Confidence scoring. |
+| 178 | **News Summarizer** | `news_summarizer` | Daily top-10 news digest: politics, business, tech, sports with market summary (Sensex, Nifty, gold). |
+| 179 | **Media Monitor** | `media_monitor` | Brand/person mention tracking: sentiment analysis, share of voice, crisis detection, and coverage reports. |
+| 180 | **Press Release Writer** | `press_release_writer` | Professional press releases: AP style, inverted pyramid format, with PTI/ANI distribution guidance. |
+
+**Use Cases:**
+- A user forwards a WhatsApp message to Fake News Detector for verification
+- A CEO uses News Summarizer for a 2-minute morning briefing
+- A PR agency uses Media Monitor to track client mentions during a product launch
+
+---
+
+### 🐕 Product 31: PetPal (3 agents)
+
+> Pet health, nutrition, and training for Indian pet owners.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 181 | **Pet Health** | `pet_health` | Symptom checker for dogs/cats: vaccination schedules, breed-specific care, monsoon/tick prevention, emergency vs routine. |
+| 182 | **Pet Nutrition** | `pet_nutrition` | Diet plans: homemade Indian recipes (chicken + rice), commercial brand comparison (Royal Canin, Drools, Farmina). |
+| 183 | **Pet Trainer** | `pet_trainer` | Positive reinforcement training: housetraining, commands, leash training, Indian apartment living, Indie dog care. |
+
+**Use Cases:**
+- A new puppy owner uses Pet Health for the vaccination schedule
+- A Labrador owner uses Pet Nutrition for homemade diet vs Pedigree comparison
+- A rescue adopter uses Pet Trainer for housetraining an Indian Pariah dog
+
+---
+
+### 🧓 Product 32: SeniorSafe (4 agents)
+
+> Medication, pension, will drafting, and caregiver support.
+
+| # | Agent | Identifier | Description |
+|---|-------|-----------|-------------|
+| 184 | **Elder Health Monitor** | `elder_health_monitor` | Medication schedule management, chronic condition tracking (BP, sugar), fall prevention, emergency protocols. |
+| 185 | **Pension Advisor** | `pension_advisor` | EPF/EPS withdrawal, SCSS rates, PMVVY, senior citizen FD rates, Section 80TTB, and income generation strategies. |
+| 186 | **Will Drafter** | `will_drafter` | Simple will drafting under Indian Succession Act 1925: asset categories, beneficiaries, witness requirements, registration. |
+| 187 | **Caregiver Guide** | `caregiver_guide` | Daily care routines, physiotherapy exercises, mental stimulation, Alzheimer's/Parkinson's care, and caregiver burnout prevention. |
+
+**Use Cases:**
+- A senior citizen uses Pension Advisor to compare SCSS vs Senior Citizen FD rates
+- A family uses Will Drafter to create a simple will for aging parents
+- A caregiver uses Caregiver Guide for daily routines for a post-stroke patient
+
+> 💡 **Pricing:** SeniorSafe at ₹499/mo — affordable elder care for every family.
 
 ---
 
