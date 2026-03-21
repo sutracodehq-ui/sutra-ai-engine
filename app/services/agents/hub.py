@@ -65,6 +65,29 @@ class AiAgentHub:
         from app.services.agents.lead_scorer import LeadScorerAgent
         from app.services.agents.chatbot_trainer import ChatbotTrainerAgent
 
+        # ─── Phase 5: Reputation & Growth ─────────────────
+        from app.services.agents.review_reputation import ReviewReputationAgent
+        from app.services.agents.trend_spotter import TrendSpotterAgent
+        from app.services.agents.funnel_analyzer import FunnelAnalyzerAgent
+        from app.services.agents.influencer_matcher import InfluencerMatcherAgent
+        from app.services.agents.journey_mapper import JourneyMapperAgent
+
+        # ─── Phase 6: Smart Automation ────────────────────
+        from app.services.agents.auto_scheduler import AutoSchedulerAgent
+        from app.services.agents.audience_segmenter import AudienceSegmenterAgent
+        from app.services.agents.churn_predictor import ChurnPredictorAgent
+
+        # ─── Phase 7: Analytics & Intelligence ────────────
+        from app.services.agents.roi_calculator import RoiCalculatorAgent
+        from app.services.agents.content_grader import ContentGraderAgent
+        from app.services.agents.attribution_analyst import AttributionAnalystAgent
+        from app.services.agents.pricing_strategist import PricingStrategistAgent
+
+        # ─── Phase 8: Platform-Specific ───────────────────
+        from app.services.agents.google_ads_optimizer import GoogleAdsOptimizerAgent
+        from app.services.agents.meta_ads_optimizer import MetaAdsOptimizerAgent
+        from app.services.agents.linkedin_growth import LinkedinGrowthAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -80,6 +103,16 @@ class AiAgentHub:
             VisualDesignerAgent, VideoScriptwriterAgent, LandingPageBuilderAgent,
             # Phase 4: Autonomous Operations
             AutoPublisherAgent, LeadScorerAgent, ChatbotTrainerAgent,
+            # Phase 5: Reputation & Growth
+            ReviewReputationAgent, TrendSpotterAgent, FunnelAnalyzerAgent,
+            InfluencerMatcherAgent, JourneyMapperAgent,
+            # Phase 6: Smart Automation
+            AutoSchedulerAgent, AudienceSegmenterAgent, ChurnPredictorAgent,
+            # Phase 7: Analytics & Intelligence
+            RoiCalculatorAgent, ContentGraderAgent, AttributionAnalystAgent,
+            PricingStrategistAgent,
+            # Phase 8: Platform-Specific
+            GoogleAdsOptimizerAgent, MetaAdsOptimizerAgent, LinkedinGrowthAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
