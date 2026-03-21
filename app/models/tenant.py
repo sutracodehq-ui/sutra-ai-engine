@@ -32,6 +32,7 @@ class Tenant(Base, TimestampMixin):
     # Contact / metadata
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    webhook_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Relationships
     conversations = relationship("AiConversation", back_populates="tenant", lazy="dynamic")

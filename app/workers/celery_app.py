@@ -44,7 +44,7 @@ celery_app.conf.beat_schedule = {
     },
     # Daily 3:30 AM — A/B testing: Scores prompt variants, promotes winners
     "prompt-evolution": {
-        "task": "app.workers.prompt_evolution_job.prompt_evolution",
+        "task": "app.workers.evolution_job.run_prompt_evolution",
         "schedule": crontab(hour=3, minute=30),
     },
     # Daily 4 AM — Persist feedback data to R2

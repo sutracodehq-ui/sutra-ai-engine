@@ -21,9 +21,25 @@ class GeminiDriver(LlmDriver):
         return "gemini"
 
     async def complete(self, system_prompt: str, user_prompt: str, **options) -> LlmResponse:
+        # Check for images in options (Vision support)
+        images = options.get("images", [])
+        if images:
+            # For Gemini, we combine text and images into the same prompt part
+            parts = [user_prompt]
+            for img in images:
+                if img.startswith("http"):
+                    # We would need to fetch the image or use the URL if Gemini API supports it via specific models
+                    # For now, we assume base64 or pass as metadata
+                    parts.append({"mime_type": "image/jpeg", "data": img}) 
+                else:
+                    parts.append({"mime_type": "image/jpeg", "data": img})
+            user_msg = {"role": "user", "parts": parts}
+        else:
+            user_msg = {"role": "user", "parts": [user_prompt]}
+
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            user_msg,
         ]
         return await self.chat(messages, **options)
 
@@ -38,20 +54,21 @@ class GeminiDriver(LlmDriver):
             ),
         )
 
-        # Convert messages to Gemini format (user/model alternation)
         history = []
         for msg in messages:
             if msg["role"] == "system":
                 continue
             role = "model" if msg["role"] == "assistant" else "user"
-            history.append({"role": role, "parts": [msg["content"]]})
+            
+            # parts can be a list or a single string
+            parts = msg.get("parts") or [msg["content"]]
+            history.append({"role": role, "parts": parts})
 
-        # Use the last user message as the prompt
         chat_history = history[:-1] if len(history) > 1 else []
-        last_msg = history[-1]["parts"][0] if history else ""
+        last_parts = history[-1]["parts"] if history else [""]
 
         chat = model.start_chat(history=chat_history)
-        response = chat.send_message(last_msg)
+        response = chat.send_message(last_parts)
 
         content = response.text or ""
         usage = response.usage_metadata

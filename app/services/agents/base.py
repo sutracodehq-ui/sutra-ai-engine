@@ -1,173 +1,110 @@
 """
-Base Agent — foundation for all specialized AI agents.
+Base Agent — the foundation for all specialized AI agents.
 
-Software Factory pattern: each agent is assembled from config (YAML),
-system prompts are composed polymorphically, and message building
-follows a standardized pipeline.
+Software Factory:
+- Registry: Agents are identified by a unique 'identifier'.
+- Message Building: Agents handle the conversion of inputs to LLM-ready messages.
+- Evolved Prompts: Agents resolve their system prompt from the DB (A/B testing) or YAML.
 """
 
-import json
 import logging
-from abc import ABC, abstractmethod
+import random
+import yaml
+from typing import Any, List, Optional, Tuple
 from pathlib import Path
 
-import yaml
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.drivers.base import LlmResponse
-from app.services.llm_service import LlmService, get_llm_service
+from app.services.llm_service import get_llm_service, LlmResponse
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# ─── Agent Config Loader ────────────────────────────────────────
 
-_config_cache: dict[str, dict] = {}
-CONFIG_DIR = Path(__file__).parent.parent.parent.parent / "agent_config"
+class BaseAgent:
+    """Base class for all agents."""
 
+    def __init__(self, identifier: str, config_path: Path):
+        self.identifier = identifier
+        self.config_path = config_path
+        self._config = self._load_config()
 
-def load_agent_config(agent_type: str) -> dict:
-    """Load agent config from YAML. Cached after first load."""
-    if agent_type not in _config_cache:
-        config_path = CONFIG_DIR / f"{agent_type}.yaml"
-        if config_path.exists():
-            with open(config_path) as f:
-                _config_cache[agent_type] = yaml.safe_load(f)
-        else:
-            logger.warning(f"Agent config not found: {config_path}")
-            _config_cache[agent_type] = {}
-    return _config_cache[agent_type]
+    def _load_config(self) -> dict:
+        """Load agent configuration from YAML."""
+        if not self.config_path.exists():
+            logger.warning(f"Config path {self.config_path} does not exist.")
+            return {}
+        with open(self.config_path, "r") as f:
+            return yaml.safe_load(f)
 
-
-# ─── Base System Prompt ─────────────────────────────────────────
-
-BASE_SYSTEM_PROMPT = """You are an expert {{domain}} assistant inside SutraAI — a multi-product AI engine.
-
-YOU HAVE THESE CAPABILITIES:
-{{capabilities}}
-
-RESPONSE FORMAT RULES:
-1. When asked to CREATE, GENERATE, WRITE, MAKE, or DESIGN content → respond with PURE VALID JSON ONLY. No markdown, no code fences. Just the raw JSON using this schema: {{response_schema}}
-2. When asked a QUESTION, wants advice, explanation, or strategy → respond conversationally in plain text or markdown.
-3. When asked to REVISE or IMPROVE previous output → generate improved content as PURE JSON using the same schema.
-4. If unsure → default to PURE JSON with the schema above.
-
-CRITICAL:
-- You are an ACTION-TAKING agent, not a helpdesk.
-- NEVER say "use another tool" or "I can't do that" if it's within your capabilities.
-- NEVER wrap JSON inside markdown code fences.
-- ALWAYS respond with exactly ONE JSON object.
-- When generating content, use the context provided — never invent fake data.
-
-{{extra_instructions}}
-
-Stay within your domain. If asked something outside your scope, redirect politely."""
-
-
-class BaseAgent(ABC):
-    """
-    Abstract base for all AI agents.
-
-    Subclasses only need to implement `identifier` — everything else is
-    assembled from the YAML config (Software Factory pattern).
-    """
-
-    def __init__(self, llm: LlmService | None = None):
-        self._llm = llm or get_llm_service()
-        self._config = load_agent_config(self.identifier)
-
-    @property
-    @abstractmethod
-    def identifier(self) -> str:
-        """Unique agent identifier (e.g., 'copywriter', 'seo')."""
-        ...
-
-    @property
-    def domain(self) -> str:
-        return self._config.get("domain", "general AI assistance")
-
-    @property
-    def capabilities(self) -> list[str]:
-        return self._config.get("capabilities", [])
-
-    @property
-    def response_schema(self) -> list[str]:
-        return self._config.get("response_schema", [])
-
-    @property
-    def extra_instructions(self) -> str:
-        return self._config.get("extra_instructions", "")
-
-    def build_system_prompt(self, context: dict | None = None) -> str:
-        """Assemble the full system prompt from config + context."""
-        prompt = BASE_SYSTEM_PROMPT
-        prompt = prompt.replace("{{domain}}", self.domain)
-        prompt = prompt.replace("{{capabilities}}", "\n".join(f"- {c}" for c in self.capabilities))
-        prompt = prompt.replace("{{response_schema}}", json.dumps(self.response_schema))
-        prompt = prompt.replace("{{extra_instructions}}", self.extra_instructions)
-
-        # Inject tenant context if provided
-        if context:
-            context_block = "\n\n--- CONTEXT ---\n"
-            for key, value in context.items():
-                context_block += f"{key}: {value}\n"
-            prompt += context_block
-
+    def _build_from_config(self, context: dict | None = None) -> str:
+        """Build a system prompt from the static YAML config."""
+        prompt = self._config.get("system_prompt", "You are a helpful AI assistant.")
+        # Optional: Add context-specific injections here if needed
         return prompt
 
-    def build_messages(self, prompt: str, history: list[dict] | None = None, context: dict | None = None) -> list[dict]:
-        """Build the full message array for the LLM."""
-        messages = [{"role": "system", "content": self.build_system_prompt(context)}]
-
-        # Add conversation history
-        if history:
-            for msg in history:
-                messages.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", ""),
-                })
-
-        # Add current user prompt
-        messages.append({"role": "user", "content": prompt})
-        return messages
-
-    async def get_system_prompt(self, db: Any | None = None, context: dict | None = None) -> str:
+    async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None) -> Tuple[str, Optional[int]]:
         """
         Resolve the system prompt.
-        1. Checks database for an active AgentOptimization.
-        2. Falls back to static YAML + composition.
+        Pattern: 
+        1. 10% chance to try a 'Candidate' prompt (is_active=False) for A/B testing.
+        2. Fallback to 'Active' prompt (is_active=True).
+        3. Fallback to YAML config.
+        
+        Returns (prompt_text, optimization_id).
         """
-        if db:
-            from sqlalchemy import select
-            from app.models.agent_optimization import AgentOptimization
+        from app.models.agent_optimization import AgentOptimization
+
+        if not db:
+            return self._build_from_config(context), None
+
+        try:
+            # 1. Decide if we are in 'Test' mode (10% traffic)
+            is_test = random.random() < 0.1
             
-            # Check for active optimization
-            stmt = select(AgentOptimization).where(
-                AgentOptimization.agent_type == self.identifier,
-                AgentOptimization.is_active.is_(True)
-            ).order_by(AgentOptimization.version.desc()).limit(1)
-            
+            if is_test:
+                # Try to find a recent candidate (not yet active)
+                stmt = (
+                    select(AgentOptimization)
+                    .where(AgentOptimization.agent_type == self.identifier)
+                    .where(AgentOptimization.is_active == False)
+                    .order_by(AgentOptimization.version.desc())
+                    .limit(1)
+                )
+                result = await db.execute(stmt)
+                candidate = result.scalar_one_or_none()
+                if candidate:
+                    logger.info(f"🧪 A/B Testing: Using Candidate Prompt v{candidate.version} for {self.identifier}")
+                    return candidate.prompt_text, candidate.id
+
+            # 2. Try to find the Active prompt
+            stmt = (
+                select(AgentOptimization)
+                .where(AgentOptimization.agent_type == self.identifier)
+                .where(AgentOptimization.is_active == True)
+                .order_by(AgentOptimization.version.desc())
+                .limit(1)
+            )
             result = await db.execute(stmt)
-            optimization = result.scalar_one_or_none()
-            
-            if optimization:
-                logger.info(f"Agent '{self.identifier}': Using evolved prompt v{optimization.version}")
-                return optimization.prompt_text
+            active = result.scalar_one_or_none()
+            if active:
+                return active.prompt_text, active.id
+        except Exception as e:
+            logger.error(f"Error resolving evolved prompt for {self.identifier}: {e}")
 
-        return self.build_system_prompt(context)
-
-    async def execute(self, prompt: str, db: Any | None = None, context: dict | None = None, **options) -> LlmResponse:
-        """Execute a single-shot task."""
-        system_prompt = await self.get_system_prompt(db, context)
-        return await self._llm.complete(system_prompt, prompt, **options)
+        # 3. Final fallback: Static YAML
+        return self._build_from_config(context), None
 
     async def build_messages(
         self, 
         prompt: str, 
-        history: list[dict] | None = None, 
-        db: Any | None = None,
+        history: List[dict] | None = None, 
+        db: AsyncSession | None = None,
         context: dict | None = None
-    ) -> list[dict]:
+    ) -> Tuple[List[dict], Optional[int]]:
         """Build the full message array for the LLM."""
-        system_prompt = await self.get_system_prompt(db, context)
+        system_prompt, opt_id = await self.get_system_prompt(db, context)
         messages = [{"role": "system", "content": system_prompt}]
 
         # Add conversation history
@@ -180,25 +117,70 @@ class BaseAgent(ABC):
 
         # Add current user prompt
         messages.append({"role": "user", "content": prompt})
-        return messages
+        return messages, opt_id
+
+    async def execute(
+        self, 
+        prompt: str, 
+        db: AsyncSession | None = None, 
+        context: dict | None = None, 
+        **options
+    ) -> LlmResponse:
+        """Execute a single-shot task."""
+        messages, opt_id = await self.build_messages(prompt, None, db, context)
+        
+        # Split system from others for completion
+        system_msg = next((m for m in messages if m["role"] == "system"), None)
+        system_prompt = system_msg["content"] if system_msg else None
+        
+        service = get_llm_service()
+        response = await service.complete(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            **options
+        )
+        
+        # Attach the opt_id to response metadata for tracking
+        if opt_id:
+            response.metadata = response.metadata or {}
+            response.metadata["agent_optimization_id"] = opt_id
+            
+        return response
 
     async def execute_in_conversation(
         self,
         prompt: str,
-        history: list[dict],
-        db: Any | None = None,
+        history: List[dict],
+        db: AsyncSession | None = None,
         context: dict | None = None,
-        **options,
+        **options
     ) -> LlmResponse:
         """Execute within a conversation, sending full history."""
-        messages = await self.build_messages(prompt, history, db, context)
-        return await self._llm.chat(messages, **options)
+        messages, opt_id = await self.build_messages(prompt, history, db, context)
+        
+        # Extract system prompt
+        system_msg = next((m for m in messages if m["role"] == "system"), None)
+        system_prompt = system_msg["content"] if system_msg else None
+        other_messages = [m for m in messages if m["role"] != "system"]
+        
+        service = get_llm_service()
+        response = await service.chat(
+            messages=other_messages,
+            system_prompt=system_prompt,
+            **options
+        )
+
+        if opt_id:
+            response.metadata = response.metadata or {}
+            response.metadata["agent_optimization_id"] = opt_id
+
+        return response
 
     def info(self) -> dict:
         """Return agent metadata for the /v1/agents listing."""
         return {
-            "identifier": self.identifier,
-            "domain": self.domain,
-            "capabilities": self.capabilities,
-            "response_schema": self.response_schema,
+            "type": self.identifier,
+            "name": self._config.get("name", self.identifier.title()),
+            "description": self._config.get("description", ""),
+            "capabilities": self._config.get("capabilities", []),
         }

@@ -22,9 +22,22 @@ class OpenAiDriver(LlmDriver):
         return "openai"
 
     async def complete(self, system_prompt: str, user_prompt: str, **options) -> LlmResponse:
+        # Check for images in options (Vision support)
+        images = options.get("images", [])
+        if images:
+            user_content = [{"type": "text", "text": user_prompt}]
+            for img in images:
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {"url": img} if img.startswith("http") else {"url": f"data:image/jpeg;base64,{img}"}
+                })
+            user_msg = {"role": "user", "content": user_content}
+        else:
+            user_msg = {"role": "user", "content": user_prompt}
+
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            user_msg,
         ]
         return await self.chat(messages, **options)
 

@@ -111,12 +111,16 @@ async def send_message(
     context = {"tenant_slug": tenant.slug}
 
     try:
-        response = await hub.run_in_conversation(conv.agent_type, body.prompt, history, context)
+        response = await hub.run_in_conversation(conv.agent_type, body.prompt, history, context, db=db)
         task.status = "completed"
         task.result = {"content": response.content}
         task.tokens_used = response.total_tokens
         task.driver_used = response.driver
         task.model_used = response.model
+        
+        # Attribution for A/B testing
+        if response.metadata and "agent_optimization_id" in response.metadata:
+            task.agent_optimization_id = response.metadata["agent_optimization_id"]
 
         return ChatResponse(
             task_id=task.id,

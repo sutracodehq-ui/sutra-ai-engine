@@ -47,7 +47,11 @@ MODEL_TIERS: dict[str, dict[str, str]] = {
     "anthropic": {"simple": "claude-haiku-4-20250514", "moderate": "claude-sonnet-4-20250514", "complex": "claude-sonnet-4-20250514"},
     "gemini": {"simple": "gemini-2.0-flash", "moderate": "gemini-2.0-flash", "complex": "gemini-2.5-pro-preview-06-05"},
     "groq": {"simple": "llama-3.3-70b-versatile", "moderate": "llama-3.3-70b-versatile", "complex": "llama-3.3-70b-versatile"},
+    "ollama": {"simple": "llama3.2:3b", "moderate": "llama3.2:3b", "complex": "llama3.2:3b"},
 }
+
+# ─── Fallback Rules (Software Factory: Smart Escalation) ──────
+FALLBACK_TO_LOCAL = True  # If true, simple tasks go to Ollama if available
 
 
 class SmartRouter:
@@ -133,6 +137,11 @@ class SmartRouter:
         settings = get_settings()
         driver = settings.ai_driver
         complexity = self.assess_complexity(prompt, agent_type)
+        
+        # Smart Fallback: If task is simple and local fallback enabled, use Ollama
+        if complexity == "simple" and FALLBACK_TO_LOCAL:
+            driver = "ollama"
+            
         model = self.select_model(prompt, agent_type, driver)
 
         return {

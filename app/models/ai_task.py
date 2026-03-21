@@ -31,6 +31,11 @@ class AiTask(Base, TenantScopedMixin, TimestampMixin):
     # Error tracking
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Performance Attribution (for A/B testing)
+    agent_optimization_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("agent_optimizations.id"), nullable=True
+    )
+    
     # Relationships
     tenant = relationship("Tenant", back_populates="tasks")
     conversation = relationship("AiConversation", back_populates="tasks")
