@@ -33,6 +33,7 @@ class Tenant(Base, TimestampMixin):
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     webhook_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    identity_org_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True, unique=True)
 
     # Relationships
     conversations = relationship("AiConversation", back_populates="tenant", lazy="dynamic")

@@ -54,7 +54,7 @@ class TenantService:
     # ─── CRUD ───────────────────────────────────────────────
 
     @classmethod
-    async def create(cls, db: AsyncSession, *, name: str, slug: str, **kwargs) -> tuple[Tenant, str, str]:
+    async def create(cls, db: AsyncSession, *, name: str, slug: str, identity_org_id: str | None = None, **kwargs) -> tuple[Tenant, str, str]:
         """
         Create a new tenant and generate both API keys.
 
@@ -67,6 +67,7 @@ class TenantService:
         tenant = Tenant(
             name=name,
             slug=slug,
+            identity_org_id=identity_org_id,
             live_key_hash=cls.hash_api_key(raw_live_key),
             live_key_prefix=cls.key_prefix(raw_live_key),
             test_key_hash=cls.hash_api_key(raw_test_key),

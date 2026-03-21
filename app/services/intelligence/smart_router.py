@@ -39,6 +39,7 @@ AGENT_COMPLEXITY: dict[str, str] = {
     "social_media": "moderate",
     "email_campaign": "moderate",
     "seo": "complex",         # Requires analysis
+    "edtech": "complex",      # Pedagogical reasoning
 }
 
 # Model tiers

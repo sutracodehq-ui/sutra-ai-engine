@@ -74,18 +74,38 @@ async def get_current_tenant(
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization header format")
 
-    api_key = authorization.removeprefix("Bearer ").strip()
-    if not api_key:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key is required")
+    api_key_or_token = authorization.removeprefix("Bearer ").strip()
+    if not api_key_or_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is required")
 
-    tenant, environment = await TenantService.resolve_by_api_key(db, api_key)
+    # 1. Try resolving as SSO JWT
+    if "." in api_key_or_token and len(api_key_or_token) > 50:
+        from app.lib.auth.jwt_validator import JwtValidator
+        validator = JwtValidator()
+        payload = validator.decode_token(api_key_or_token)
+        
+        if payload and "org_id" in payload:
+            from sqlalchemy import select
+            from app.models.tenant import Tenant
+            identity_org_id = payload["org_id"]
+            
+            res = await db.execute(select(Tenant).where(Tenant.identity_org_id == identity_org_id))
+            tenant = res.scalar_one_or_none()
+            
+            if tenant:
+                if not tenant.is_active:
+                    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is suspended")
+                tenant._api_environment = "live" # SSO is always live
+                return tenant
+
+    # 2. Fallback to API Key resolution
+    tenant, environment = await TenantService.resolve_by_api_key(db, api_key_or_token)
     if tenant is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key or SSO token")
 
     if not tenant.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is suspended")
 
-    # Attach environment so downstream can check (e.g., force mock driver for test keys)
     tenant._api_environment = environment
     return tenant
 

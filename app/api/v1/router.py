@@ -13,6 +13,8 @@ from app.api.v1.billing import router as billing_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.voice import router as voice_router
 
+from app.api.v1.provision import router as provision_router
+
 router = APIRouter()
 router.include_router(auth_router)
 router.include_router(chat_router)
@@ -22,3 +24,4 @@ router.include_router(voice_router)
 router.include_router(intelligence_router)
 router.include_router(rag_router)
 router.include_router(billing_router)
+router.include_router(provision_router)
