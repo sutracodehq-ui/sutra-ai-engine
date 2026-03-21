@@ -5,6 +5,7 @@ Software Factory:
 - Registry: Agents are identified by a unique 'identifier'.
 - Message Building: Agents handle the conversion of inputs to LLM-ready messages.
 - Evolved Prompts: Agents resolve their system prompt from the DB (A/B testing) or YAML.
+- Self-Learning: Agents recall similar past responses and store new ones via AgentMemoryService.
 """
 
 import logging
@@ -117,6 +118,19 @@ class BaseAgent:
 
         messages = [{"role": "system", "content": system_prompt}]
 
+        # ─── Self-Learning: Inject RAG Memory ─────────────
+        settings = get_settings()
+        if settings.ai_agent_memory_enabled:
+            try:
+                from app.services.intelligence.agent_memory import get_agent_memory
+                memory = get_agent_memory()
+                examples = await memory.recall(self.identifier, prompt)
+                for ex in examples:
+                    messages.append({"role": "user", "content": ex["prompt"]})
+                    messages.append({"role": "assistant", "content": ex["response"]})
+            except Exception as e:
+                logger.warning(f"AgentMemory recall skipped: {e}")
+
         # Add conversation history
         if history:
             for msg in history:
@@ -136,26 +150,61 @@ class BaseAgent:
         context: dict | None = None, 
         **options
     ) -> LlmResponse:
-        """Execute a single-shot task."""
+        """Execute a single-shot task via HybridRouter or direct LLM."""
         messages, opt_id = await self.build_messages(prompt, None, db, context)
         
         # Split system from others for completion
         system_msg = next((m for m in messages if m["role"] == "system"), None)
         system_prompt = system_msg["content"] if system_msg else None
-        
-        service = get_llm_service()
-        response = await service.complete(
-            prompt=prompt,
-            system_prompt=system_prompt,
-            **options
-        )
-        
+
+        settings = get_settings()
+
+        # ─── Hybrid Routing: local-first → quality gate → cloud ─────
+        if settings.ai_hybrid_routing:
+            from app.services.intelligence.hybrid_router import get_hybrid_router
+            router = get_hybrid_router()
+
+            # Extract expected fields from agent config for quality scoring
+            expected_fields = None
+            if self.config and "response_schema" in self.config:
+                schema = self.config["response_schema"]
+                if isinstance(schema, dict) and "fields" in schema:
+                    expected_fields = schema["fields"]
+                elif isinstance(schema, list):
+                    expected_fields = schema
+
+            response = await router.execute(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                agent_type=self.identifier,
+                expected_fields=expected_fields,
+                **options
+            )
+        else:
+            # ─── Direct mode (hybrid disabled) ─────────────────
+            service = get_llm_service()
+            response = await service.complete(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                **options
+            )
+
+            # Store in memory when not using hybrid (hybrid handles its own)
+            if settings.ai_agent_memory_enabled and response.content:
+                try:
+                    from app.services.intelligence.agent_memory import get_agent_memory
+                    memory = get_agent_memory()
+                    await memory.remember(self.identifier, prompt, response.content)
+                except Exception as e:
+                    logger.warning(f"AgentMemory store skipped: {e}")
+
         # Attach the opt_id to response metadata for tracking
         if opt_id:
             response.metadata = response.metadata or {}
             response.metadata["agent_optimization_id"] = opt_id
-            
+
         return response
+
 
     async def execute_in_conversation(
         self,

@@ -120,6 +120,13 @@ class Settings(BaseSettings):
     ai_edit_analysis: bool = True
     ai_ab_testing: bool = True
     ai_explore_rate: float = 0.2
+    ai_agent_memory_enabled: bool = True
+
+    # ─── Hybrid Routing ──────────────────────────────
+    ai_hybrid_routing: bool = True
+    ai_hybrid_quality_threshold: int = 7
+    ai_hybrid_fast_path_threshold: float = 8.0
+    ai_hybrid_direct_cloud_threshold: float = 5.0
 
     # ─── Celery ────────────────────────────────────
     celery_broker_url: str = "redis://localhost:6379/1"

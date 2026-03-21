@@ -123,11 +123,11 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 30s
+      start_period: 15s
     networks:
       - sutra-ai-network
     restart: unless-stopped
@@ -136,15 +136,15 @@ services:
   sutra-ai-ollama-init:
     image: ollama/ollama:latest
     container_name: sutra-ai-ollama-init
+    environment:
+      - OLLAMA_HOST=http://sutra-ai-ollama:11434
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         echo "Waiting for Ollama server..."
-        until curl -sf http://sutra-ai-ollama:11434/api/tags > /dev/null 2>&1; do
-          sleep 2
-        done
-        echo "Ollama is up. Pulling qwen2.5:3b..."
-        OLLAMA_HOST=http://sutra-ai-ollama:11434 ollama pull qwen2.5:3b
+        sleep 5
+        echo "Pulling qwen2.5:3b..."
+        ollama pull qwen2.5:3b
         echo "Model qwen2.5:3b ready!"
     depends_on:
       sutra-ai-ollama:
@@ -152,6 +152,7 @@ services:
     networks:
       - sutra-ai-network
     restart: "no"
+
 
   # ─── Adminer (DB Management UI) ───────────────────────
   sutra-ai-adminer:

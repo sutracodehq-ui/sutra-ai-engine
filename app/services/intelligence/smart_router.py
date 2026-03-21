@@ -48,7 +48,7 @@ MODEL_TIERS: dict[str, dict[str, str]] = {
     "anthropic": {"simple": "claude-haiku-4-20250514", "moderate": "claude-sonnet-4-20250514", "complex": "claude-sonnet-4-20250514"},
     "gemini": {"simple": "gemini-2.0-flash", "moderate": "gemini-2.0-flash", "complex": "gemini-2.5-pro-preview-06-05"},
     "groq": {"simple": "llama-3.3-70b-versatile", "moderate": "llama-3.3-70b-versatile", "complex": "llama-3.3-70b-versatile"},
-    "ollama": {"simple": "llama3.2:3b", "moderate": "llama3.2:3b", "complex": "llama3.2:3b"},
+    "ollama": {"simple": "qwen2.5:3b", "moderate": "qwen2.5:3b", "complex": "qwen2.5:3b"},
 }
 
 # ─── Fallback Rules (Software Factory: Smart Escalation) ──────

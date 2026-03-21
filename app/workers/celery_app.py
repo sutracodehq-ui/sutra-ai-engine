@@ -32,9 +32,9 @@ celery_app.conf.update(
 # ─── Beat Schedule (Software Factory: declarative cron) ──────────
 
 celery_app.conf.beat_schedule = {
-    # Daily 2 AM — OPRO: LLM analyzes accepted vs rejected → improved instructions
+    # Daily 2 AM — Meta-Prompt: Analyze failures → generate improved prompts
     "meta-prompt-optimize": {
-        "task": "app.workers.meta_prompt_job.meta_prompt_optimize",
+        "task": "optimize_prompts",
         "schedule": crontab(hour=2, minute=0),
     },
     # Daily 3 AM — TextGrad: Reverse-engineers user edit patterns
@@ -47,10 +47,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.evolution_job.run_prompt_evolution",
         "schedule": crontab(hour=3, minute=30),
     },
-    # Daily 4 AM — Persist feedback data to R2
-    "training-data-sync": {
-        "task": "app.workers.training_sync_job.training_data_sync",
-        "schedule": crontab(hour=4, minute=0),
+    # Weekly Sunday 4 AM — Export feedback as JSONL training data
+    "export-training-data": {
+        "task": "export_training_data",
+        "schedule": crontab(hour=4, minute=0, day_of_week=0),
+        "kwargs": {"days_back": 7},
     },
     # Weekly Monday 5 AM — Regenerate fine-tuned Ollama Modelfiles
     "ollama-fine-tune": {
@@ -67,4 +68,5 @@ celery_app.conf.beat_schedule = {
 # Auto-discover tasks
 celery_app.autodiscover_tasks([
     "app.workers",
+    "app.workers.tasks",
 ])
