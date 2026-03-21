@@ -50,7 +50,7 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
     await db.flush()
 
     try:
-        response = await hub.run(agent_type, body.prompt, context, db=db, **body.options or {})
+        response = await hub.run(agent_type, body.prompt, db=db, context=context, **body.options or {})
         task.status = "completed"
         task.result = {"content": response.content}
         task.tokens_used = response.total_tokens
@@ -86,7 +86,7 @@ def _register_agent_routes():
     hub = get_agent_hub()
 
     for agent_info in hub.agent_info():
-        agent_type = agent_info["type"]
+        agent_type = agent_info["identifier"]
         agent_name = agent_info.get("name", agent_type.replace("_", " ").title())
         agent_desc = agent_info.get("description", "")
         capabilities = agent_info.get("capabilities", [])
@@ -140,7 +140,7 @@ async def batch_run(body: BatchRunRequest, tenant: CurrentTenant, db: DbSession)
     context = {}
     context["tenant_slug"] = tenant.slug
 
-    results = await hub.batch(body.prompt, body.agent_types, context, db=db, **body.options or {})
+    results = await hub.batch(body.prompt, body.agent_types, db=db, context=context, **body.options or {})
 
     output = {}
     for agent_type, response in results.items():

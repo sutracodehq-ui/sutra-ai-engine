@@ -7,7 +7,9 @@ class AgentInfo(BaseModel):
     """Agent metadata for GET /v1/agents."""
 
     identifier: str
+    name: str
     domain: str
+    description: str
     capabilities: list[str]
     response_schema: list[str]
 

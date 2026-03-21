@@ -188,9 +188,18 @@ class BaseAgent:
 
     def info(self) -> dict:
         """Return agent metadata for the /v1/agents listing."""
+        # Software Factory: extract fields list from response_schema dict
+        resp_schema = self._config.get("response_schema", {})
+        if isinstance(resp_schema, dict):
+            resp_fields = resp_schema.get("fields", [])
+        else:
+            resp_fields = []
+
         return {
-            "type": self.identifier,
-            "name": self._config.get("name", self.identifier.title()),
+            "identifier": self.identifier,
+            "name": self._config.get("name", self.identifier.replace("_", " ").title()),
+            "domain": self._config.get("domain", "general"),
             "description": self._config.get("description", ""),
             "capabilities": self._config.get("capabilities", []),
+            "response_schema": resp_fields,
         }

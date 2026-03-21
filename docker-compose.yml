@@ -22,6 +22,7 @@ services:
         condition: service_healthy
     networks:
       - sutra-ai-network
+      - marketing-network
     restart: unless-stopped
 
   # ─── Celery Worker (Queue Processing) ──────────────────
@@ -152,3 +153,6 @@ volumes:
 networks:
   sutra-ai-network:
     driver: bridge
+  marketing-network:
+    external: true
+    name: digital-mankerting-tool_marketing-network

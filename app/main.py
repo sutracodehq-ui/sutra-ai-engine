@@ -95,7 +95,7 @@ def create_app() -> FastAPI:
     from fastapi.responses import FileResponse
 
     app.include_router(health_router)
-    app.include_router(v1_router)
+    app.include_router(v1_router, prefix="/v1")
 
     # Serve Interactive Developer Docs
     docs_path = str(project_root / "docs")
