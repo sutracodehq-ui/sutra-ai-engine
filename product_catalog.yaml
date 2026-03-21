@@ -373,31 +373,174 @@ products:
       - ml_pipeline
     target_audience: "Data scientists, ML engineers, AI startups"
 
+  # ─── Product 24: ShaadiAI — Wedding & Events ───────────
+  shaadi_ai:
+    name: "ShaadiAI"
+    tagline: "AI-powered Indian wedding planning and management"
+    icon: "💒"
+    price_inr: 1499
+    agents:
+      - wedding_budget_planner
+      - vendor_matcher
+      - invitation_writer
+      - event_timeline
+      - guest_list_manager
+    target_audience: "Couples, families, wedding planners"
+
+  # ─── Product 25: JyotishAI — Astrology & Spirituality ──
+  jyotish_ai:
+    name: "JyotishAI"
+    tagline: "Vedic astrology, Vastu, Panchang, and spiritual guidance"
+    icon: "🔮"
+    price_inr: 999
+    agents:
+      - kundli_analyzer
+      - muhurat_finder
+      - vastu_advisor
+      - panchang_reader
+      - mantra_guide
+    target_audience: "Individuals, astrology enthusiasts, pandits"
+
+  # ─── Product 26: FoodBrain — Food & Restaurant ─────────
+  foodbrain:
+    name: "FoodBrain"
+    tagline: "Recipe generation, restaurant optimization, kitchen management"
+    icon: "🍽️"
+    price_inr: 1499
+    agents:
+      - recipe_generator
+      - menu_designer
+      - food_cost_optimizer
+      - zomato_listing_optimizer
+      - kitchen_inventory
+    target_audience: "Restaurants, cloud kitchens, home cooks"
+
+  # ─── Product 27: GameIQ — Gaming & Esports ─────────────
+  gameiq:
+    name: "GameIQ"
+    tagline: "Game strategies, esports analytics, stream optimization"
+    icon: "🎮"
+    price_inr: 999
+    agents:
+      - game_strategy
+      - esports_analyst
+      - stream_optimizer
+      - gaming_pc_builder
+    target_audience: "Gamers, esports teams, streamers"
+
+  # ─── Product 28: BuildSmart — Construction & Interior ──
+  buildsmart:
+    name: "BuildSmart"
+    tagline: "Construction estimation, interior design, material planning"
+    icon: "🏗️"
+    price_inr: 1999
+    agents:
+      - construction_estimator
+      - interior_designer
+      - material_calculator
+      - contractor_checker
+    target_audience: "Builders, homeowners, architects"
+
+  # ─── Product 29: ParentSquad — Parenting & Childcare ───
+  parentsquad:
+    name: "ParentSquad"
+    tagline: "Child milestones, school selection, vaccination, nutrition"
+    icon: "👶"
+    price_inr: 799
+    agents:
+      - child_milestone_tracker
+      - school_selector
+      - vaccination_scheduler
+      - child_nutrition
+    target_audience: "Parents, pediatricians, schools"
+
+  # ─── Product 30: NewsRadar — News & Media Intelligence ─
+  newsradar:
+    name: "NewsRadar"
+    tagline: "Fact-checking, news digests, media monitoring, PR"
+    icon: "📰"
+    price_inr: 1499
+    agents:
+      - fake_news_detector
+      - news_summarizer
+      - media_monitor
+      - press_release_writer
+    target_audience: "Media houses, PR agencies, brands"
+
+  # ─── Product 31: PetPal — Pet Care ─────────────────────
+  petpal:
+    name: "PetPal"
+    tagline: "Pet health, nutrition, and training for Indian pet owners"
+    icon: "🐕"
+    price_inr: 599
+    agents:
+      - pet_health
+      - pet_nutrition
+      - pet_trainer
+    target_audience: "Pet owners, veterinarians, pet shops"
+
+  # ─── Product 32: SeniorSafe — Elder Care ───────────────
+  seniorsafe:
+    name: "SeniorSafe"
+    tagline: "Medication, pension, will drafting, and caregiver support"
+    icon: "🧓"
+    price_inr: 499
+    agents:
+      - elder_health_monitor
+      - pension_advisor
+      - will_drafter
+      - caregiver_guide
+    target_audience: "Senior citizens, caregivers, families"
+
 # ─── Bundle: SutraCode FULL ENGINE ──────────────────────────
 bundles:
   full_engine:
     name: "SutraCode Full Engine"
-    tagline: "All 149 agents, all 23 products — one platform"
-    price_inr: 9999
+    tagline: "All 187 agents, all 32 products — one platform"
+    price_inr: 14999
     includes_all_products: true
 
   business_suite:
     name: "Business Suite"
-    tagline: "Marketing + HR + Legal + Finance + Productivity"
-    price_inr: 4999
+    tagline: "Marketing + HR + Legal + Finance + Productivity + News"
+    price_inr: 6999
     products:
       - tryambaka_marketing
       - hiregenius
       - legalease
       - finwise
       - workpilot
+      - newsradar
 
   consumer_suite:
     name: "Consumer Suite"
-    tagline: "Health + Travel + Sports + Productivity"
-    price_inr: 2999
+    tagline: "Health + Travel + Sports + Food + Parenting + Pet Care"
+    price_inr: 3999
     products:
       - healthmate
       - travelbuddy
       - sportsiq
+      - foodbrain
+      - parentsquad
+      - petpal
       - workpilot
+
+  homeowner_suite:
+    name: "Homeowner Suite"
+    tagline: "Property + Construction + Interior + Solar + Elder Care"
+    price_inr: 3499
+    products:
+      - propertyguru
+      - buildsmart
+      - ecomotion
+      - seniorsafe
+
+  creator_suite:
+    name: "Creator Suite"
+    tagline: "YouTube + Reels + Gaming + Video Intelligence"
+    price_inr: 2999
+    products:
+      - creatorstudio
+      - videomind
+      - gameiq
+

@@ -243,6 +243,62 @@ class AiAgentHub:
         from app.services.agents.battery_health import BatteryHealthAgent
         from app.services.agents.solar_planner import SolarPlannerAgent
 
+        # ─── Phase 32: Wedding & Events (ShaadiAI) ─────────
+        from app.services.agents.wedding_budget_planner import WeddingBudgetPlannerAgent
+        from app.services.agents.vendor_matcher import VendorMatcherAgent
+        from app.services.agents.invitation_writer import InvitationWriterAgent
+        from app.services.agents.event_timeline import EventTimelineAgent
+        from app.services.agents.guest_list_manager import GuestListManagerAgent
+
+        # ─── Phase 33: Astrology & Spirituality (JyotishAI) ─
+        from app.services.agents.kundli_analyzer import KundliAnalyzerAgent
+        from app.services.agents.muhurat_finder import MuhuratFinderAgent
+        from app.services.agents.vastu_advisor import VastuAdvisorAgent
+        from app.services.agents.panchang_reader import PanchangReaderAgent
+        from app.services.agents.mantra_guide import MantraGuideAgent
+
+        # ─── Phase 34: Food & Restaurant (FoodBrain) ───────
+        from app.services.agents.recipe_generator import RecipeGeneratorAgent
+        from app.services.agents.menu_designer import MenuDesignerAgent
+        from app.services.agents.food_cost_optimizer import FoodCostOptimizerAgent
+        from app.services.agents.zomato_listing_optimizer import ZomatoListingOptimizerAgent
+        from app.services.agents.kitchen_inventory import KitchenInventoryAgent
+
+        # ─── Phase 35: Gaming & Esports (GameIQ) ──────────
+        from app.services.agents.game_strategy import GameStrategyAgent
+        from app.services.agents.esports_analyst import EsportsAnalystAgent
+        from app.services.agents.stream_optimizer import StreamOptimizerAgent
+        from app.services.agents.gaming_pc_builder import GamingPcBuilderAgent
+
+        # ─── Phase 36: Construction & Interior (BuildSmart) ─
+        from app.services.agents.construction_estimator import ConstructionEstimatorAgent
+        from app.services.agents.interior_designer import InteriorDesignerAgent
+        from app.services.agents.material_calculator import MaterialCalculatorAgent
+        from app.services.agents.contractor_checker import ContractorCheckerAgent
+
+        # ─── Phase 37: Parenting & Childcare (ParentSquad) ──
+        from app.services.agents.child_milestone_tracker import ChildMilestoneTrackerAgent
+        from app.services.agents.school_selector import SchoolSelectorAgent
+        from app.services.agents.vaccination_scheduler import VaccinationSchedulerAgent
+        from app.services.agents.child_nutrition import ChildNutritionAgent
+
+        # ─── Phase 38: News & Media (NewsRadar) ───────────
+        from app.services.agents.fake_news_detector import FakeNewsDetectorAgent
+        from app.services.agents.news_summarizer import NewsSummarizerAgent
+        from app.services.agents.media_monitor import MediaMonitorAgent
+        from app.services.agents.press_release_writer import PressReleaseWriterAgent
+
+        # ─── Phase 39: Pet Care (PetPal) ──────────────────
+        from app.services.agents.pet_health import PetHealthAgent
+        from app.services.agents.pet_nutrition import PetNutritionAgent
+        from app.services.agents.pet_trainer import PetTrainerAgent
+
+        # ─── Phase 40: Elder Care (SeniorSafe) ────────────
+        from app.services.agents.elder_health_monitor import ElderHealthMonitorAgent
+        from app.services.agents.pension_advisor import PensionAdvisorAgent
+        from app.services.agents.will_drafter import WillDrafterAgent
+        from app.services.agents.caregiver_guide import CaregiverGuideAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -337,6 +393,32 @@ class AiAgentHub:
             # Phase 31: EV & Green Energy
             EvComparatorAgent, ChargingStationPlannerAgent,
             BatteryHealthAgent, SolarPlannerAgent,
+            # Phase 32: Wedding & Events (ShaadiAI)
+            WeddingBudgetPlannerAgent, VendorMatcherAgent, InvitationWriterAgent,
+            EventTimelineAgent, GuestListManagerAgent,
+            # Phase 33: Astrology & Spirituality (JyotishAI)
+            KundliAnalyzerAgent, MuhuratFinderAgent, VastuAdvisorAgent,
+            PanchangReaderAgent, MantraGuideAgent,
+            # Phase 34: Food & Restaurant (FoodBrain)
+            RecipeGeneratorAgent, MenuDesignerAgent, FoodCostOptimizerAgent,
+            ZomatoListingOptimizerAgent, KitchenInventoryAgent,
+            # Phase 35: Gaming & Esports (GameIQ)
+            GameStrategyAgent, EsportsAnalystAgent,
+            StreamOptimizerAgent, GamingPcBuilderAgent,
+            # Phase 36: Construction & Interior (BuildSmart)
+            ConstructionEstimatorAgent, InteriorDesignerAgent,
+            MaterialCalculatorAgent, ContractorCheckerAgent,
+            # Phase 37: Parenting & Childcare (ParentSquad)
+            ChildMilestoneTrackerAgent, SchoolSelectorAgent,
+            VaccinationSchedulerAgent, ChildNutritionAgent,
+            # Phase 38: News & Media (NewsRadar)
+            FakeNewsDetectorAgent, NewsSummarizerAgent,
+            MediaMonitorAgent, PressReleaseWriterAgent,
+            # Phase 39: Pet Care (PetPal)
+            PetHealthAgent, PetNutritionAgent, PetTrainerAgent,
+            # Phase 40: Elder Care (SeniorSafe)
+            ElderHealthMonitorAgent, PensionAdvisorAgent,
+            WillDrafterAgent, CaregiverGuideAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
