@@ -1,0 +1,119 @@
+# ─── SutraAI Engine — OpenAPI / Swagger Configuration ───────────
+# This file drives the Swagger docs at /docs and /redoc.
+# Edit this file to update API documentation without touching code.
+
+title: "SutraAI Engine"
+summary: "AI-Powered Software Factory for Digital Marketing"
+version: "1.0.0"
+
+contact:
+  name: "SutraCode"
+  url: "https://sutracode.com"
+  email: "support@sutracode.com"
+
+license:
+  name: "Proprietary"
+
+description: |
+  ## 🧠 SutraAI Engine — Software Factory API
+
+  The SutraAI Engine is a **self-learning AI microservice** that powers intelligent digital marketing tools.
+
+  ### Architecture
+  - **5-Layer Intelligence Kernel**: Perception → Memory → Reasoning → Execution → Learning
+  - **23 Specialized AI Agents**: Each agent inherits the full kernel and applies it to a specific domain
+  - **Self-Learning Pipeline**: Every interaction makes the engine smarter via OPRO meta-prompts, A/B testing, and anomaly detection
+
+  ### Key Capabilities
+  | Feature | Description |
+  |---------|-------------|
+  | 🤖 **Multi-Agent Orchestration** | Run 23 agents individually or in parallel |
+  | 🔍 **URL Digital Footprint Scanner** | Full SEO, tech stack, social, and indexing audits |
+  | 🛡️ **Click Fraud Protection** | Real-time scoring with self-learning anomaly detection |
+  | 💬 **Conversational AI** | Multi-turn, context-aware, streaming-capable chat |
+  | 📚 **RAG Knowledge Base** | Upload docs and enable retrieval-augmented generation |
+  | 🎯 **Smart Routing** | Automatically selects the cheapest model that can handle the task |
+  | 🔒 **Safety Guardrails** | PII redaction, content moderation, competitor lock |
+
+  ### Authentication
+  All endpoints require an API key passed in the `Authorization` header:
+  ```
+  Authorization: Bearer <your-api-key>
+  ```
+
+  ### Quick Start
+  ```bash
+  # List all agents
+  curl http://localhost:8090/v1/agents -H "Authorization: Bearer <KEY>"
+
+  # Run the copywriter agent
+  curl -X POST http://localhost:8090/v1/agents/copywriter/run \
+    -H "Authorization: Bearer <KEY>" \
+    -d '{"prompt": "Write a headline for our SaaS product"}'
+
+  # Analyze a URL
+  curl -X POST http://localhost:8090/v1/url-analyzer/analyze \
+    -H "Authorization: Bearer <KEY>" \
+    -d '{"url": "https://example.com"}'
+  ```
+
+# ─── Tag Descriptions ──────────────────────────────────────────
+# These appear as section headers in the Swagger UI.
+
+tags:
+  - name: "health"
+    description: "System health and readiness probes."
+
+  - name: "agents"
+    description: >
+      **AI Agent Hub** — Run any of the 23 specialized AI agents.
+      Each agent inherits the full intelligence kernel (sentiment, memory, reasoning, learning)
+      and applies it to a specific domain. Use `GET /agents` to list all available agents,
+      `POST /agents/{type}/run` to execute one, or `POST /agents/batch` to run multiple in parallel.
+
+  - name: "chat"
+    description: >
+      **Conversational AI** — Multi-turn chat with context-aware, streaming-capable responses.
+      Supports conversation history, RAG knowledge retrieval, and voice profiles.
+
+  - name: "click-shield"
+    description: >
+      **Click Fraud Protection** — Real-time ad click scoring, fraud detection,
+      and self-learning anomaly models. Includes human feedback endpoints for model refinement.
+
+  - name: "url-analyzer"
+    description: >
+      **Digital Footprint Scanner** — Scrape any URL to get SEO scores, Google indexing status,
+      tech stack detection, social profiles, structured data, security headers, and AI-generated
+      audit reports. All results are persisted for self-learning.
+
+  - name: "intelligence"
+    description: >
+      **Kernel Intelligence Layer** — Direct access to the engine's intelligence services:
+      sentiment analysis, language detection, URL digital footprint scanning, SEO audits,
+      hashtag suggestions, competitor analysis, and brand profiling.
+
+  - name: "content"
+    description: >
+      **Content Generation** — Dedicated endpoints for generating marketing content
+      with structured input/output. Social posts, email templates, ad copy with A/B variants,
+      content repurposing, content calendar suggestions, and landing page copy.
+
+  - name: "rag"
+
+    description: >
+      **Knowledge Base (RAG)** — Upload, manage, and query documents for Retrieval-Augmented Generation.
+      Powers context-aware responses across all agents.
+
+  - name: "conversations"
+    description: >
+      **Conversation Management** — Create, retrieve, and manage multi-turn conversation threads
+      with full history.
+
+  - name: "billing"
+    description: >
+      **Usage & Billing** — Token consumption tracking, plan limits, and usage reports per tenant.
+
+  - name: "tenants"
+    description: >
+      **Tenant Management** — Multi-tenant provisioning, API key management, and tenant configuration.

@@ -37,16 +37,42 @@ def create_app() -> FastAPI:
     """Factory function — assembles the FastAPI application."""
     settings = get_settings()
 
+    # ─── Load OpenAPI config from YAML (config-driven, not hardcoded) ───
+    import yaml
+    import os
+
+    openapi_config_path = os.path.join(os.getcwd(), "config", "openapi.yaml")
+    with open(openapi_config_path, "r") as f:
+        openapi_cfg = yaml.safe_load(f)
+
     app = FastAPI(
-        title="SutraAI Engine",
-        description="Standalone multi-tenant AI microservice — multi-agent orchestration, self-learning, content generation",
-        version="0.1.0",
-        docs_url="/docs" if settings.debug else None,
-        redoc_url="/redoc" if settings.debug else None,
+        title=openapi_cfg.get("title", "SutraAI Engine"),
+        summary=openapi_cfg.get("summary", ""),
+        description=openapi_cfg.get("description", ""),
+        version=openapi_cfg.get("version", "0.1.0"),
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_tags=openapi_cfg.get("tags", []),
+        contact=openapi_cfg.get("contact"),
+        license_info=openapi_cfg.get("license"),
         lifespan=lifespan,
     )
 
-    # CORS
+
+    # ─── Global Middleware ─────────────────────────────
+    from app.middleware.error_handler import (
+        ResponseEnvelopeMiddleware,
+        http_exception_handler,
+        validation_exception_handler,
+        fastapi_validation_handler,
+        generic_exception_handler,
+    )
+    from fastapi.exceptions import RequestValidationError
+    from pydantic import ValidationError
+
+    # Middleware (outermost = first to execute)
+    app.add_middleware(ResponseEnvelopeMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -54,6 +80,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Exception handlers
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, fastapi_validation_handler)
+    app.add_exception_handler(ValidationError, validation_exception_handler)
+    app.add_exception_handler(Exception, generic_exception_handler)
 
     # ─── Mount Routes ──────────────────────────────
     from app.api.health import router as health_router

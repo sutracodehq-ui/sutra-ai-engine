@@ -11,7 +11,7 @@ from app.models.click_log import ClickLog
 
 router = APIRouter(prefix="/clicks", tags=["click-shield"])
 
-@router.post("/track", response_model=ClickTrackResponse)
+@router.post("/track", response_model=ClickTrackResponse, summary="Track & Score a Click")
 async def track_click(
     payload: ClickTrackRequest,
     request: Request,
@@ -20,10 +20,18 @@ async def track_click(
     tenant = Depends(get_current_tenant)
 ):
     """
-    Track and score a click event for fraud.
-    
-    This endpoint is designed to be called by the Click Shield JS Pixel 
-    or directly from the main marketing tool's backend.
+    Track and score a click event for ad fraud in real-time.
+
+    **Scoring Pipeline** (executed in < 50ms):
+    1. IP velocity check (Redis)
+    2. Device fingerprint velocity check
+    3. Dynamic blacklist check (self-learned)
+    4. Behavioral analysis (mouse, scroll, time-on-page)
+    5. ML anomaly detection (Isolation Forest model)
+    6. Bot signature detection (User-Agent)
+
+    Returns a `fraud_score` (0-100), an `action` (ALLOW/FLAG/BLOCK), and detailed `reasons`.
+    Called by the Click Shield JS Pixel or the marketing tool's backend.
     """
     # 1. Initialize Scorer
     scorer = ClickScorerService(redis)
@@ -62,13 +70,16 @@ async def track_click(
         request_id=str(uuid.uuid4())
     )
 
-@router.get("/report", response_model=dict)
+@router.get("/report", response_model=dict, summary="Get Fraud Report")
 async def get_click_report(
     db: AsyncSession = Depends(get_db),
     tenant = Depends(get_current_tenant)
 ):
     """
-    Generate a fraud analysis report for the current tenant.
+    Generate an aggregated fraud analysis report for the current tenant.
+
+    Returns total clicks, blocked clicks, fraud percentage, and current status.
+    Use the Click Shield agent (`POST /agents/click_shield/run`) for AI-powered natural language insights.
     """
     from sqlalchemy import select, func
     from app.models.click_log import ClickLog
@@ -105,7 +116,7 @@ class FeedbackRequest(BaseModel):
     reason: str | None = None
     comment: str | None = None
 
-@router.post("/{click_id}/feedback", response_model=dict)
+@router.post("/{click_id}/feedback", response_model=dict, summary="Submit Human Feedback")
 async def submit_click_feedback(
     click_id: int,
     payload: FeedbackRequest,
@@ -113,7 +124,14 @@ async def submit_click_feedback(
     tenant = Depends(get_current_tenant)
 ):
     """
-    Submit human feedback for a click event to improve the self-learning model.
+    Submit human-verified feedback for a click event.
+
+    This feedback is used by the self-learning pipeline to:
+    - Retrain the Isolation Forest anomaly detection model
+    - Adjust IP blacklist thresholds
+    - Improve future fraud scoring accuracy
+
+    Set `is_fraud: true` to confirm fraud, or `is_fraud: false` to mark as a false positive.
     """
     # 1. Verify click belongs to tenant
     stmt = select(ClickLog).where(ClickLog.id == click_id, ClickLog.tenant_id == tenant.id)

@@ -1,4 +1,7 @@
-"""Agent API routes — listing + execution."""
+"""Agent API routes — listing + execution.
+
+Each registered agent gets its own explicit Swagger entry via dynamic route generation.
+"""
 
 from fastapi import APIRouter, Depends
 
@@ -11,16 +14,25 @@ from app.services.agents.hub import get_agent_hub
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
-@router.get("", response_model=list[AgentInfo])
+@router.get("", response_model=list[AgentInfo], summary="List All AI Agents")
 async def list_agents(tenant: CurrentTenant):
-    """List all available agents with their capabilities."""
+    """
+    Returns metadata for all 23 registered agents.
+
+    Each agent entry includes:
+    - **identifier**: The agent_type slug to use in `/agents/{type}/run`
+    - **domain**: What the agent specializes in
+    - **capabilities**: List of things the agent can do
+    - **response_schema**: Expected output fields
+    """
     hub = get_agent_hub()
     return hub.agent_info()
 
 
-@router.post("/{agent_type}/run", response_model=ChatResponse)
-async def run_agent(agent_type: str, body: AgentRunRequest, tenant: CurrentTenant, db: DbSession):
-    """Run a single agent task."""
+# ─── Core agent execution logic (shared by all routes) ──────────
+
+async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
+    """Shared agent execution logic used by all agent-specific routes."""
     hub = get_agent_hub()
 
     context = body.metadata or {}
@@ -64,9 +76,65 @@ async def run_agent(agent_type: str, body: AgentRunRequest, tenant: CurrentTenan
         raise
 
 
-@router.post("/batch")
+# ─── Dynamic per-agent route generation ─────────────────────────
+# Each agent gets its own explicit endpoint in Swagger, auto-generated
+# from the hub registry. This follows the Software Factory pattern:
+# add a YAML config + Python class → route appears automatically.
+
+def _register_agent_routes():
+    """Generate explicit Swagger endpoints for each registered agent."""
+    hub = get_agent_hub()
+
+    for agent_info in hub.agent_info():
+        agent_type = agent_info["type"]
+        agent_name = agent_info.get("name", agent_type.replace("_", " ").title())
+        agent_desc = agent_info.get("description", "")
+        capabilities = agent_info.get("capabilities", [])
+
+        # Build a rich docstring from the YAML config
+        caps_list = "\n    ".join(f"- {c}" for c in capabilities) if capabilities else "- General AI assistance"
+        docstring = f"""
+    Run the **{agent_name}** agent.
+
+    *{agent_desc}*
+
+    **Capabilities:**
+    {caps_list}
+
+    Send a prompt and receive AI-generated content tailored to this agent's specialization.
+    """
+
+        # Create a closure to capture agent_type
+        def make_handler(at: str):
+            async def handler(body: AgentRunRequest, tenant: CurrentTenant, db: DbSession):
+                return await _execute_agent(at, body, tenant, db)
+            handler.__doc__ = docstring
+            handler.__name__ = f"run_{at}"
+            return handler
+
+        router.post(
+            f"/{agent_type}/run",
+            response_model=ChatResponse,
+            summary=f"Run {agent_name}",
+        )(make_handler(agent_type))
+
+
+# Register all agent routes at import time
+_register_agent_routes()
+
+
+# ─── Batch endpoint ──────────────────────────────────────────────
+
+@router.post("/batch", summary="Batch Run Multiple Agents")
 async def batch_run(body: BatchRunRequest, tenant: CurrentTenant, db: DbSession):
-    """Run multiple agents in parallel on the same prompt."""
+    """
+    Run multiple agents in parallel on the same prompt.
+
+    Example: Send `{"prompt": "Launch our new feature", "agent_types": ["copywriter", "social", "email_campaign"]}`
+    to get headline copy, a social post, AND an email draft — all in one request.
+
+    Returns results keyed by agent type.
+    """
     hub = get_agent_hub()
 
     context = {}
@@ -96,3 +164,4 @@ async def batch_run(body: BatchRunRequest, tenant: CurrentTenant, db: DbSession)
         }
 
     return {"results": output, "agents_run": list(output.keys())}
+
