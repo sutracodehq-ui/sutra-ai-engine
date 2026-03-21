@@ -180,3 +180,70 @@ distillation:
       - "Generate a detailed report on {topic}"
       - "Write a comprehensive strategy for {topic}"
       - "Provide expert advice on {topic}"
+
+# ─── Evolution Engine ──────────────────────────────────────
+evolution_engine:
+  # Model families to check for updates in Ollama
+  tracked_model_families:
+    - "qwen2.5:3b"
+    - "qwen2.5:7b"
+    - "llama3.2:3b"
+    - "llama3.1:8b"
+    - "mistral:7b"
+    - "gemma2:2b"
+    - "gemma2:9b"
+    - "phi3:mini"
+    - "deepseek-r1:7b"
+
+  # Specific models to benchmark against current
+  candidate_models:
+    - "qwen2.5:3b"
+    - "qwen2.5:7b"
+    - "llama3.2:3b"
+    - "gemma2:2b"
+
+  # Upgrade thresholds
+  min_quality_improvement: 0.5   # Minimum quality score improvement to upgrade
+  max_latency_increase_pct: 50   # Max % latency increase allowed for upgrade
+
+  # Benchmark test prompts
+  benchmark_prompts:
+    - prompt: "Explain photosynthesis in 3 sentences."
+      expected_keywords: [sunlight, carbon dioxide, oxygen, chlorophyll]
+      max_tokens: 200
+    - prompt: "Write a JSON object with keys: name, age, city for a fictional person."
+      expected_keywords: [name, age, city]
+      max_tokens: 100
+      format_check: json
+    - prompt: "List 5 marketing strategies for a SaaS startup. Return as JSON array."
+      expected_keywords: [content, social, email, seo]
+      max_tokens: 500
+      format_check: json
+    - prompt: "Calculate the ROI if I invest $10,000 and get back $15,000 after 2 years."
+      expected_keywords: ["50%", ROI, return]
+      max_tokens: 200
+    - prompt: "Write a professional product description for a wireless noise-cancelling headphone."
+      expected_keywords: [noise, battery, comfort, sound, wireless]
+      max_tokens: 300
+    - prompt: "Create a SWOT analysis for a food delivery startup in JSON format."
+      expected_keywords: [strengths, weaknesses, opportunities, threats]
+      max_tokens: 400
+      format_check: json
+
+  # Self-teaching prompts (diverse domains for broad learning)
+  self_teaching_prompts:
+    - "Explain the concept of supply and demand in economics"
+    - "Write a professional email asking for a meeting next week"
+    - "Create a Python function that validates email addresses"
+    - "Generate a SWOT analysis template for a tech startup"
+    - "Describe the process of machine learning model training"
+    - "Write a product description for a smart water bottle"
+    - "Explain blockchain technology to a 10-year-old"
+    - "Create a weekly meal plan for a vegetarian diet"
+    - "Analyze the pros and cons of remote work"
+    - "Write a cover letter for a software engineering position"
+    - "Generate 5 social media post ideas for a coffee brand"
+    - "Explain the difference between SQL and NoSQL databases"
+    - "Write a press release for a new AI product launch"
+    - "Create a risk assessment for a cryptocurrency investment"
+    - "Summarize the key principles of agile project management"

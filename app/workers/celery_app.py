@@ -32,6 +32,11 @@ celery_app.conf.update(
 # ─── Beat Schedule (Software Factory: declarative cron) ──────────
 
 celery_app.conf.beat_schedule = {
+    # Daily 1 AM — Evolution: Discover, benchmark, upgrade, self-teach
+    "evolve-ai": {
+        "task": "evolve_ai",
+        "schedule": crontab(hour=1, minute=0),
+    },
     # Daily 2 AM — Meta-Prompt: Analyze failures → generate improved prompts
     "meta-prompt-optimize": {
         "task": "optimize_prompts",
