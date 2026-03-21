@@ -1,0 +1,182 @@
+# ─── Intelligence Module Configuration ──────────────────────
+# All configurable constants for the AI intelligence pipeline.
+# Never hardcode these in Python — edit this file instead.
+
+# ─── Stock Market ───────────────────────────────────────────
+stock_symbols:
+  - AAPL
+  - GOOGL
+  - MSFT
+  - AMZN
+  - META
+  - NVDA
+  - TSLA
+  - AMD
+  - INTC
+  - CRM
+  - PLTR
+  - SNOW
+  - AI
+  - PATH
+  - ORCL
+  - IBM
+  - ADBE
+  - SHOP
+  - SQ
+  - COIN
+
+crypto_symbols:
+  - BTC
+  - ETH
+  - SOL
+  - XRP
+  - ADA
+  - DOT
+  - AVAX
+  - LINK
+  - MATIC
+  - UNI
+
+crypto_id_map:
+  BTC: bitcoin
+  ETH: ethereum
+  SOL: solana
+  XRP: ripple
+  ADA: cardano
+  DOT: polkadot
+  AVAX: avalanche-2
+  LINK: chainlink
+  MATIC: matic-network
+  UNI: uniswap
+
+# ─── Agent → Tool Mapping ──────────────────────────────────
+# Which agents get which built-in tools
+agent_tools:
+  seo: [calculator, keyword_extractor, text_analyzer, get_datetime]
+  content_grader: [text_analyzer, keyword_extractor]
+  budget_optimizer: [calculator, get_datetime]
+  roi_calculator: [calculator]
+  pricing_strategist: [calculator]
+  performance_reporter: [calculator, get_datetime]
+  campaign_strategist: [calculator, get_datetime, keyword_extractor]
+  copywriter: [text_analyzer, keyword_extractor]
+  social_media: [text_analyzer, get_datetime, keyword_extractor]
+  email_campaign: [text_analyzer, get_datetime]
+  quiz_generator: [calculator]
+  note_generator: [text_analyzer, keyword_extractor]
+  stock_analyzer: [calculator, get_datetime]
+  stock_predictor: [calculator, get_datetime]
+  market_trend_analyzer: [calculator, get_datetime]
+  crypto_analyzer: [calculator, get_datetime]
+
+# ─── Agent Chain Configs ───────────────────────────────────
+# Agents that get a review step after primary execution
+agent_chains:
+  seo:
+    type: review
+    reviewer_prompt: |
+      You are a senior SEO reviewer. Evaluate this SEO analysis for:
+      1. Are all fields complete and properly formatted as JSON?
+      2. Are the keyword suggestions relevant and specific (not generic)?
+      3. Is the meta title under 60 chars and meta description under 160 chars?
+      4. Are content suggestions actionable?
+      If GOOD: {"approved": true, "score": 8-10}
+      If needs work: {"approved": false, "score": 1-7, "feedback": "..."}
+
+  campaign_strategist:
+    type: review
+    reviewer_prompt: |
+      You are a senior marketing strategist. Review this campaign strategy for:
+      1. Is the target audience clearly defined?
+      2. Are the channels and budget allocation realistic?
+      3. Are KPIs measurable and time-bound?
+      4. Is the timeline feasible?
+      If GOOD: {"approved": true, "score": 8-10}
+      If needs work: {"approved": false, "score": 1-7, "feedback": "..."}
+
+  competitor_analyst:
+    type: review
+    reviewer_prompt: |
+      You are a competitive intelligence expert. Review this analysis for:
+      1. Are competitor strengths/weaknesses specific?
+      2. Are actionable recommendations provided?
+      3. Is the data structured properly?
+      If GOOD: {"approved": true, "score": 8-10}
+      If needs work: {"approved": false, "score": 1-7, "feedback": "..."}
+
+  quiz_generator:
+    type: review
+    reviewer_prompt: |
+      You are an assessment quality expert. Review these quiz questions for:
+      1. Are all question types present (MCQ, T/F, fill-blank, short answer)?
+      2. Are MCQ distractors plausible?
+      3. Does every answer have an explanation?
+      4. Is difficulty mix balanced (40/40/20)?
+      If GOOD: {"approved": true, "score": 8-10}
+      If needs work: {"approved": false, "score": 1-7, "feedback": "..."}
+
+  stock_analyzer:
+    type: review
+    reviewer_prompt: |
+      You are a senior financial analyst. Review this stock analysis for:
+      1. Are technical indicators properly calculated?
+      2. Is the risk assessment quantified?
+      3. Are price targets realistic with proper rationale?
+      If GOOD: {"approved": true, "score": 8-10}
+      If needs work: {"approved": false, "score": 1-7, "feedback": "..."}
+
+# ─── Prompt Engine ─────────────────────────────────────────
+prompt_engine:
+  min_trials_for_promotion: 10
+  promotion_margin: 0.5
+  min_win_rate: 60.0
+  retirement_trials_multiplier: 2
+  retirement_win_rate_threshold: 30.0
+
+# ─── Distillation ─────────────────────────────────────────
+distillation:
+  sample_topics:
+    - photosynthesis
+    - machine learning basics
+    - world war 2
+    - digital marketing
+    - python programming
+    - climate change
+    - human anatomy
+    - blockchain technology
+    - artificial intelligence
+    - quantum computing
+    - data science
+    - web development
+    - social media marketing
+    - content strategy
+    - email marketing campaigns
+    - brand positioning
+    - competitive analysis for startups
+    - customer retention
+    - e-commerce optimization
+    - influencer marketing strategy
+
+  prompt_templates:
+    edtech:
+      - "Generate a quiz from these notes on {topic}"
+      - "Create flashcards for the chapter on {topic}"
+      - "Summarize the key points of {topic} for revision"
+      - "Plan a 45-minute lecture on {topic} for undergraduate students"
+      - "Extract the most important concepts from this text about {topic}"
+    finance:
+      - "Analyze the stock performance of {topic}"
+      - "Predict the market trend for {topic} sector"
+      - "Generate a risk assessment report for investing in {topic}"
+      - "Create a portfolio allocation strategy including {topic}"
+    marketing:
+      - "Create a social media strategy for {topic}"
+      - "Write a marketing campaign brief for {topic}"
+      - "Generate SEO-optimized content about {topic}"
+      - "Design an email campaign for {topic}"
+    default:
+      - "Create professional content about {topic}"
+      - "Analyze and provide recommendations for {topic}"
+      - "Generate a detailed report on {topic}"
+      - "Write a comprehensive strategy for {topic}"
+      - "Provide expert advice on {topic}"

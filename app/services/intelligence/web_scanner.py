@@ -38,13 +38,20 @@ def _load_feeds() -> dict[str, list[dict]]:
     with open(feeds_path) as f:
         return yaml.safe_load(f) or {}
 
-# Free stock APIs
-STOCK_SYMBOLS = [
-    "AAPL", "GOOGL", "MSFT", "AMZN", "META", "NVDA", "TSLA",
-    "AMD", "INTC", "CRM", "PLTR", "SNOW", "AI", "PATH",
-]
+# ─── Intelligence Config (loaded from intelligence_config.yaml) ─
 
-CRYPTO_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "ADA", "DOT", "AVAX"]
+def _load_intelligence_config() -> dict:
+    """Load intelligence module config from YAML."""
+    import yaml
+    from pathlib import Path
+
+    config_path = Path("intelligence_config.yaml")
+    if not config_path.exists():
+        logger.warning("intelligence_config.yaml not found, using defaults")
+        return {}
+
+    with open(config_path) as f:
+        return yaml.safe_load(f) or {}
 
 
 class WebScanner:
@@ -122,7 +129,8 @@ class WebScanner:
         """
         Fetch stock prices from Yahoo Finance API (free, no key needed).
         """
-        symbols = symbols or STOCK_SYMBOLS
+        config = _load_intelligence_config()
+        symbols = symbols or config.get("stock_symbols", ["AAPL", "GOOGL", "MSFT"])
         quotes = []
 
         try:
@@ -161,15 +169,15 @@ class WebScanner:
 
     async def scan_crypto(self, symbols: list[str] | None = None) -> list[dict]:
         """Fetch crypto prices from CoinGecko API (free, no key)."""
-        symbols = symbols or CRYPTO_SYMBOLS
+        config = _load_intelligence_config()
+        symbols = symbols or config.get("crypto_symbols", ["BTC", "ETH"])
         coins = []
 
         try:
-            # Map common symbols to CoinGecko IDs
-            symbol_map = {
+            # Map common symbols to CoinGecko IDs (from YAML)
+            symbol_map = config.get("crypto_id_map", {
                 "BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana",
-                "XRP": "ripple", "ADA": "cardano", "DOT": "polkadot", "AVAX": "avalanche-2",
-            }
+            })
             ids = ",".join(symbol_map.get(s, s.lower()) for s in symbols)
             url = f"https://api.coingecko.com/api/v3/simple/price?ids={ids}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true"
 

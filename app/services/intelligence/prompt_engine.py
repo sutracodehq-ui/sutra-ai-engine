@@ -35,12 +35,21 @@ from app.models.agent_optimization import AgentOptimization
 
 logger = logging.getLogger(__name__)
 
-# Minimum trials before a candidate can be promoted
-MIN_TRIALS_FOR_PROMOTION = 10
-# Minimum score advantage for promotion (candidate must beat champion by this margin)
-PROMOTION_MARGIN = 0.5
-# Minimum win rate for promotion
-MIN_WIN_RATE = 60.0
+
+def _load_prompt_config() -> dict:
+    """Load prompt engine config from intelligence_config.yaml."""
+    import yaml
+    from pathlib import Path
+
+    config_path = Path("intelligence_config.yaml")
+    if not config_path.exists():
+        return {}
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+
+    return config.get("prompt_engine", {})
+
 
 
 class PromptEngine:
@@ -162,7 +171,9 @@ class PromptEngine:
             )
 
             # Check for auto-promotion after recording
-            if opt.status == "candidate" and opt.trial_count >= MIN_TRIALS_FOR_PROMOTION:
+            pe_config = _load_prompt_config()
+            min_trials = pe_config.get("min_trials_for_promotion", 10)
+            if opt.status == "candidate" and opt.trial_count >= min_trials:
                 await self._check_promotion(opt)
 
         except Exception as e:
@@ -175,10 +186,17 @@ class PromptEngine:
         Check if a candidate should be promoted to champion.
 
         Criteria:
-        1. Candidate has >= MIN_TRIALS_FOR_PROMOTION trials
-        2. Candidate avg_score > champion avg_score + PROMOTION_MARGIN
-        3. Candidate win_rate >= MIN_WIN_RATE
+        1. Candidate has >= min_trials_for_promotion trials
+        2. Candidate avg_score > champion avg_score + promotion_margin
+        3. Candidate win_rate >= min_win_rate
         """
+        pe_config = _load_prompt_config()
+        min_trials = pe_config.get("min_trials_for_promotion", 10)
+        promotion_margin = pe_config.get("promotion_margin", 0.5)
+        min_win_rate = pe_config.get("min_win_rate", 60.0)
+        retire_multiplier = pe_config.get("retirement_trials_multiplier", 2)
+        retire_threshold = pe_config.get("retirement_win_rate_threshold", 30.0)
+
         champion = await self._get_champion(candidate.agent_type)
 
         # No champion exists — auto-promote
@@ -187,8 +205,8 @@ class PromptEngine:
             return
 
         # Check promotion criteria
-        score_beats = candidate.avg_score > (champion.avg_score + PROMOTION_MARGIN)
-        win_rate_ok = candidate.win_rate >= MIN_WIN_RATE
+        score_beats = candidate.avg_score > (champion.avg_score + promotion_margin)
+        win_rate_ok = candidate.win_rate >= min_win_rate
 
         if score_beats and win_rate_ok:
             logger.info(
@@ -201,7 +219,7 @@ class PromptEngine:
             await self._promote(candidate)
         else:
             # Check if candidate is so bad it should be retired
-            if candidate.trial_count >= MIN_TRIALS_FOR_PROMOTION * 2 and candidate.win_rate < 30.0:
+            if candidate.trial_count >= min_trials * retire_multiplier and candidate.win_rate < retire_threshold:
                 logger.info(
                     f"PromptEngine: ❌ RETIRING weak candidate {candidate.agent_type} "
                     f"v{candidate.version} (avg={candidate.avg_score}, win={candidate.win_rate}%)"
@@ -230,7 +248,7 @@ class PromptEngine:
             select(AgentOptimization)
             .where(and_(
                 AgentOptimization.status == "candidate",
-                AgentOptimization.trial_count >= MIN_TRIALS_FOR_PROMOTION,
+                AgentOptimization.trial_count >= _load_prompt_config().get("min_trials_for_promotion", 10),
             ))
         )
         candidates_result = await self._db.execute(stmt)

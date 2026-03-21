@@ -218,22 +218,21 @@ BUILT_IN_TOOLS: dict[str, Tool] = {
     ),
 }
 
-# ─── Agent → Tool Mapping ──────────────────────────────────
-# Which agents get which tools by default
-AGENT_TOOLS: dict[str, list[str]] = {
-    "seo": ["calculator", "keyword_extractor", "text_analyzer", "get_datetime"],
-    "content_grader": ["text_analyzer", "keyword_extractor"],
-    "budget_optimizer": ["calculator", "get_datetime"],
-    "roi_calculator": ["calculator"],
-    "pricing_strategist": ["calculator"],
-    "performance_reporter": ["calculator", "get_datetime"],
-    "campaign_strategist": ["calculator", "get_datetime", "keyword_extractor"],
-    "copywriter": ["text_analyzer", "keyword_extractor"],
-    "social_media": ["text_analyzer", "get_datetime", "keyword_extractor"],
-    "email_campaign": ["text_analyzer", "get_datetime"],
-    "quiz_generator": ["calculator"],
-    "note_generator": ["text_analyzer", "keyword_extractor"],
-}
+# ─── Agent → Tool Mapping (from intelligence_config.yaml) ──
+
+def _load_agent_tools() -> dict[str, list[str]]:
+    """Load agent-tool mappings from YAML config."""
+    import yaml
+    from pathlib import Path
+
+    config_path = Path("intelligence_config.yaml")
+    if not config_path.exists():
+        return {}
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+
+    return config.get("agent_tools", {})
 
 
 class ToolRegistry:
@@ -244,7 +243,8 @@ class ToolRegistry:
 
     def get_tools_for_agent(self, agent_type: str) -> list[Tool]:
         """Get the tools available to a specific agent."""
-        tool_names = AGENT_TOOLS.get(agent_type, [])
+        agent_tools = _load_agent_tools()
+        tool_names = agent_tools.get(agent_type, [])
         return [self._tools[name] for name in tool_names if name in self._tools]
 
     def get_tool_schemas(self, agent_type: str) -> list[dict]:

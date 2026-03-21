@@ -25,39 +25,18 @@ logger = logging.getLogger(__name__)
 AGENT_CONFIG_DIR = Path("agent_config")
 OUTPUT_DIR = Path("training/data")
 
-# Synthetic prompt templates per domain
-PROMPT_TEMPLATES: dict[str, list[str]] = {
-    "edtech": [
-        "Generate a quiz from these notes on {topic}",
-        "Create flashcards for the chapter on {topic}",
-        "Summarize the key points of {topic} for revision",
-        "Plan a 45-minute lecture on {topic} for undergraduate students",
-        "Extract the most important concepts from this text about {topic}",
-    ],
-    "SEO, meta tags, keywords, content structure, technical SEO, and page performance": [
-        "Optimize SEO for a blog post about {topic}",
-        "Generate meta tags and keywords for a landing page on {topic}",
-        "Create a content outline optimized for search ranking on {topic}",
-        "Audit this page content for SEO improvements: {topic}",
-        "Generate schema markup for a {topic} page",
-    ],
-    "default": [
-        "Create professional content about {topic}",
-        "Analyze and provide recommendations for {topic}",
-        "Generate a detailed report on {topic}",
-        "Write a comprehensive strategy for {topic}",
-        "Provide expert advice on {topic}",
-    ],
-}
 
-SAMPLE_TOPICS = [
-    "photosynthesis", "machine learning basics", "world war 2", "digital marketing",
-    "python programming", "climate change", "human anatomy", "blockchain technology",
-    "artificial intelligence", "quantum computing", "data science", "web development",
-    "social media marketing", "content strategy", "email marketing campaigns",
-    "brand positioning", "competitive analysis for startups", "customer retention",
-    "e-commerce optimization", "influencer marketing strategy",
-]
+def _load_distillation_config() -> dict:
+    """Load distillation config from intelligence_config.yaml."""
+    config_path = Path("intelligence_config.yaml")
+    if not config_path.exists():
+        return {}
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+
+    return config.get("distillation", {})
+
 
 
 def load_agent_configs(agent_types: list[str] | None = None) -> list[dict]:
@@ -75,13 +54,18 @@ def load_agent_configs(agent_types: list[str] | None = None) -> list[dict]:
 
 def generate_prompts(config: dict, n_samples: int = 10) -> list[str]:
     """Generate synthetic prompts for an agent based on its domain."""
+    distill_config = _load_distillation_config()
+    prompt_templates = distill_config.get("prompt_templates", {})
+    sample_topics = distill_config.get("sample_topics", ["machine learning", "data science"])
+
     domain = config.get("domain", "default")
-    templates = PROMPT_TEMPLATES.get(domain, PROMPT_TEMPLATES["default"])
+    templates = prompt_templates.get(domain, prompt_templates.get("default", ["Explain {topic}"]))
+
 
     prompts = []
     for i in range(n_samples):
         template = templates[i % len(templates)]
-        topic = SAMPLE_TOPICS[i % len(SAMPLE_TOPICS)]
+        topic = sample_topics[i % len(sample_topics)]
         prompts.append(template.format(topic=topic))
 
     return prompts

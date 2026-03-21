@@ -20,60 +20,21 @@ from app.services.drivers.base import LlmResponse
 
 logger = logging.getLogger(__name__)
 
+# ─── Chain Config (from intelligence_config.yaml) ───────────
 
-# ─── Chain Definitions ──────────────────────────────────────
+def _load_chain_configs() -> dict[str, dict]:
+    """Load agent chain configurations from YAML."""
+    import yaml
+    from pathlib import Path
 
-# Maps agent types to their optimal chain configuration
-CHAIN_CONFIGS: dict[str, dict] = {
-    # Complex analysis agents get plan → execute → review
-    "seo": {
-        "type": "review",
-        "reviewer_prompt": (
-            "You are a senior SEO reviewer. Evaluate this SEO analysis for:\n"
-            "1. Are all fields complete and properly formatted as JSON?\n"
-            "2. Are the keyword suggestions relevant and specific (not generic)?\n"
-            "3. Is the meta title under 60 chars and meta description under 160 chars?\n"
-            "4. Are content suggestions actionable?\n\n"
-            "If the analysis is GOOD, respond with: {\"approved\": true, \"score\": 8-10}\n"
-            "If it needs improvement, respond with: {\"approved\": false, \"score\": 1-7, \"feedback\": \"specific improvements needed\"}"
-        ),
-    },
-    "campaign_strategist": {
-        "type": "review",
-        "reviewer_prompt": (
-            "You are a senior marketing strategist. Review this campaign strategy for:\n"
-            "1. Is the target audience clearly defined?\n"
-            "2. Are the channels and budget allocation realistic?\n"
-            "3. Are KPIs measurable and time-bound?\n"
-            "4. Is the timeline feasible?\n\n"
-            "If GOOD: {\"approved\": true, \"score\": 8-10}\n"
-            "If needs work: {\"approved\": false, \"score\": 1-7, \"feedback\": \"...\"}"
-        ),
-    },
-    "competitor_analyst": {
-        "type": "review",
-        "reviewer_prompt": (
-            "You are a competitive intelligence expert. Review this analysis for:\n"
-            "1. Are competitor strengths and weaknesses specific (not vague)?\n"
-            "2. Are actionable recommendations provided?\n"
-            "3. Is the data structured properly?\n\n"
-            "If GOOD: {\"approved\": true, \"score\": 8-10}\n"
-            "If needs work: {\"approved\": false, \"score\": 1-7, \"feedback\": \"...\"}"
-        ),
-    },
-    "quiz_generator": {
-        "type": "review",
-        "reviewer_prompt": (
-            "You are an assessment quality expert. Review these quiz questions for:\n"
-            "1. Are all question types present (MCQ, T/F, fill-blank, short answer)?\n"
-            "2. Are MCQ distractors plausible (not obviously wrong)?\n"
-            "3. Does every answer have an explanation?\n"
-            "4. Is difficulty mix balanced (40/40/20)?\n\n"
-            "If GOOD: {\"approved\": true, \"score\": 8-10}\n"
-            "If needs work: {\"approved\": false, \"score\": 1-7, \"feedback\": \"...\"}"
-        ),
-    },
-}
+    config_path = Path("intelligence_config.yaml")
+    if not config_path.exists():
+        return {}
+
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+
+    return config.get("agent_chains", {})
 
 
 class AgentChain:
@@ -96,7 +57,7 @@ class AgentChain:
         """
         Execute with chain if configured, otherwise direct execution.
         """
-        chain_config = CHAIN_CONFIGS.get(agent_type)
+        chain_config = _load_chain_configs().get(agent_type)
 
         if not chain_config:
             # No chain configured — direct execution
