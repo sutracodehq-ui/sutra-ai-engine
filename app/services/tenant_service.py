@@ -1,7 +1,9 @@
 """
-Tenant Service — API key generation, validation, and tenant CRUD.
+Tenant Service — dual API key generation, validation, and tenant CRUD.
 
-Follows Software Factory pattern: standardized, repeatable tenant provisioning.
+Each tenant gets two keys:
+  - sk_live_* → production (real LLM calls, billed)
+  - sk_test_* → sandbox (mock driver, no billing)
 """
 
 import secrets
@@ -36,57 +38,66 @@ class TenantService:
 
     @staticmethod
     def key_prefix(raw_key: str) -> str:
-        """Extract a displayable prefix from an API key (e.g., 'sk_live_abc...')."""
+        """Extract a displayable prefix from an API key (e.g., 'sk_live_abc12345...')."""
         parts = raw_key.split("_", 2)
         if len(parts) >= 3:
             return f"{parts[0]}_{parts[1]}_{parts[2][:8]}..."
         return raw_key[:16] + "..."
 
+    @staticmethod
+    def key_environment(raw_key: str) -> str:
+        """Detect if a key is live or test from its prefix."""
+        if raw_key.startswith("sk_test_"):
+            return "test"
+        return "live"
+
     # ─── CRUD ───────────────────────────────────────────────
 
     @classmethod
-    async def create(cls, db: AsyncSession, *, name: str, slug: str, **kwargs) -> tuple[Tenant, str]:
+    async def create(cls, db: AsyncSession, *, name: str, slug: str, **kwargs) -> tuple[Tenant, str, str]:
         """
-        Create a new tenant and generate its API key.
+        Create a new tenant and generate both API keys.
 
-        Returns (tenant, raw_api_key). The raw key is only available at creation time.
+        Returns (tenant, raw_live_key, raw_test_key).
+        Raw keys are only available at creation time — save them.
         """
-        raw_key = cls.generate_api_key()
+        raw_live_key = cls.generate_api_key("sk_live")
+        raw_test_key = cls.generate_api_key("sk_test")
+
         tenant = Tenant(
             name=name,
             slug=slug,
-            api_key_hash=cls.hash_api_key(raw_key),
-            api_key_prefix=cls.key_prefix(raw_key),
+            live_key_hash=cls.hash_api_key(raw_live_key),
+            live_key_prefix=cls.key_prefix(raw_live_key),
+            test_key_hash=cls.hash_api_key(raw_test_key),
+            test_key_prefix=cls.key_prefix(raw_test_key),
             **kwargs,
         )
         db.add(tenant)
         await db.flush()
-        return tenant, raw_key
+        return tenant, raw_live_key, raw_test_key
 
     @classmethod
-    async def resolve_by_api_key(cls, db: AsyncSession, raw_key: str) -> Tenant | None:
+    async def resolve_by_api_key(cls, db: AsyncSession, raw_key: str) -> tuple[Tenant | None, str]:
         """
         Look up a tenant by API key.
 
-        Since API keys are hashed, we can't do a direct DB lookup.
-        We use the prefix to narrow candidates, then verify.
+        Returns (tenant, environment) where environment is 'live' or 'test'.
+        Checks the correct hash column based on the key prefix.
         """
-        # Extract prefix for narrowing (e.g., "sk_live")
-        prefix_type = "_".join(raw_key.split("_")[:2])
+        env = cls.key_environment(raw_key)
 
         result = await db.execute(
-            select(Tenant).where(
-                Tenant.api_key_prefix.startswith(prefix_type),
-                Tenant.is_active.is_(True),
-            )
+            select(Tenant).where(Tenant.is_active.is_(True))
         )
         candidates = result.scalars().all()
 
         for tenant in candidates:
-            if cls.verify_api_key(raw_key, tenant.api_key_hash):
-                return tenant
+            hash_to_check = tenant.test_key_hash if env == "test" else tenant.live_key_hash
+            if cls.verify_api_key(raw_key, hash_to_check):
+                return tenant, env
 
-        return None
+        return None, env
 
     @classmethod
     async def get_by_id(cls, db: AsyncSession, tenant_id: int) -> Tenant | None:
@@ -101,10 +112,19 @@ class TenantService:
         return result.scalar_one_or_none()
 
     @classmethod
-    async def rotate_api_key(cls, db: AsyncSession, tenant: Tenant) -> str:
-        """Generate a new API key for a tenant, invalidating the old one."""
-        raw_key = cls.generate_api_key()
-        tenant.api_key_hash = cls.hash_api_key(raw_key)
-        tenant.api_key_prefix = cls.key_prefix(raw_key)
+    async def rotate_live_key(cls, db: AsyncSession, tenant: Tenant) -> str:
+        """Generate a new production API key, invalidating the old one."""
+        raw_key = cls.generate_api_key("sk_live")
+        tenant.live_key_hash = cls.hash_api_key(raw_key)
+        tenant.live_key_prefix = cls.key_prefix(raw_key)
+        await db.flush()
+        return raw_key
+
+    @classmethod
+    async def rotate_test_key(cls, db: AsyncSession, tenant: Tenant) -> str:
+        """Generate a new sandbox API key, invalidating the old one."""
+        raw_key = cls.generate_api_key("sk_test")
+        tenant.test_key_hash = cls.hash_api_key(raw_key)
+        tenant.test_key_prefix = cls.key_prefix(raw_key)
         await db.flush()
         return raw_key

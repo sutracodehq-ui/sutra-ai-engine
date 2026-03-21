@@ -65,9 +65,9 @@ async def get_current_tenant(
 ):
     """
     Extract and validate API key from Authorization header.
-    Returns the resolved Tenant model.
+    Returns the resolved Tenant model with `_api_environment` set to 'live' or 'test'.
 
-    Header format: `Authorization: Bearer sk_live_xxxxxxxx`
+    Header format: `Authorization: Bearer sk_live_xxxxxxxx` or `Authorization: Bearer sk_test_xxxxxxxx`
     """
     from app.services.tenant_service import TenantService
 
@@ -78,13 +78,15 @@ async def get_current_tenant(
     if not api_key:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API key is required")
 
-    tenant = await TenantService.resolve_by_api_key(db, api_key)
+    tenant, environment = await TenantService.resolve_by_api_key(db, api_key)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
 
     if not tenant.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is suspended")
 
+    # Attach environment so downstream can check (e.g., force mock driver for test keys)
+    tenant._api_environment = environment
     return tenant
 
 

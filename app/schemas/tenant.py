@@ -24,13 +24,26 @@ class TenantResponse(BaseModel):
     contact_email: str | None = None
     description: str | None = None
     config: dict | None = None
+    live_key_prefix: str = Field(..., description="Production key prefix (e.g., sk_live_abc12345...)")
+    test_key_prefix: str = Field(..., description="Sandbox key prefix (e.g., sk_test_def67890...)")
     created_at: str
 
 
-class TenantCreated(TenantResponse):
-    """Response after creating a tenant — includes the raw API key (shown only once)."""
+class TenantCreated(BaseModel):
+    """Response after creating a tenant — includes BOTH raw API keys (shown only once)."""
 
-    api_key: str = Field(..., description="The raw API key — save it, it cannot be retrieved again")
+    id: int
+    name: str
+    slug: str
+    is_active: bool
+    contact_email: str | None = None
+    description: str | None = None
+    config: dict | None = None
+    live_api_key: str = Field(..., description="Production API key (sk_live_*) — save it, cannot be retrieved again")
+    test_api_key: str = Field(..., description="Sandbox API key (sk_test_*) — save it, cannot be retrieved again")
+    live_key_prefix: str
+    test_key_prefix: str
+    created_at: str
 
 
 class TenantUsage(BaseModel):
@@ -46,5 +59,6 @@ class TenantUsage(BaseModel):
 class ApiKeyRotated(BaseModel):
     """Response after rotating an API key."""
 
-    api_key: str
+    environment: str = Field(..., description="'live' or 'test'")
+    api_key: str = Field(..., description="New raw API key — save it, cannot be retrieved again")
     api_key_prefix: str

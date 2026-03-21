@@ -12,8 +12,15 @@ class Tenant(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
-    api_key_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    api_key_prefix: Mapped[str] = mapped_column(String(20), nullable=False)  # e.g. "sk_live_abc..."
+
+    # ─── Dual API Keys (sandbox + production) ────────────
+    # Production key (sk_live_*)
+    live_key_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    live_key_prefix: Mapped[str] = mapped_column(String(30), nullable=False)
+    # Sandbox key (sk_test_*) — same tenant, isolated data in future
+    test_key_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    test_key_prefix: Mapped[str] = mapped_column(String(30), nullable=False)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Tenant-level config overrides
