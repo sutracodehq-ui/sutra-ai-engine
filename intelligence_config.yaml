@@ -181,6 +181,37 @@ distillation:
       - "Write a comprehensive strategy for {topic}"
       - "Provide expert advice on {topic}"
 
+# ─── Response Cache ────────────────────────────────────────
+response_cache:
+  enabled: true
+  default_ttl: 3600               # 1 hour default
+  min_response_length: 50         # Don't cache very short responses
+
+  # Per-agent TTL overrides (seconds)
+  agent_ttl:
+    stock_analyzer: 300           # 5 min — stock data changes fast
+    stock_predictor: 300
+    crypto_analyzer: 300
+    market_trend_analyzer: 600    # 10 min
+    ai_trend_tracker: 7200        # 2 hours — trends don't change fast
+    seo: 3600                     # 1 hour
+    copywriter: 1800              # 30 min — creative content varies
+    quiz_generator: 7200          # 2 hours
+    note_generator: 7200
+
+# ─── LoRA Training ─────────────────────────────────────────
+lora_training:
+  min_examples_for_training: 20   # Skip training if fewer examples
+  min_response_length: 50         # Min chars for valid training example
+  max_examples_in_modelfile: 20   # Max examples baked into Modelfile
+  error_patterns:                 # Filter out error responses
+    - "error"
+    - "failed"
+    - "sorry, i can't"
+    - "i'm unable to"
+    - "as an ai"
+    - "i cannot"
+
 # ─── Evolution Engine ──────────────────────────────────────
 evolution_engine:
   # Model families to check for updates in Ollama

@@ -176,13 +176,27 @@ class BaseAgent:
         **options
     ) -> LlmResponse:
         """Execute a single-shot task via HybridRouter or direct LLM."""
+
+        settings = get_settings()
+
+        # ─── Response Cache: check before calling LLM ─────────
+        try:
+            from app.services.intelligence.response_cache import get_response_cache
+            cache = get_response_cache()
+            cached = await cache.get(self.identifier, prompt)
+            if cached:
+                return LlmResponse(
+                    content=cached["content"],
+                    metadata={**(cached.get("metadata", {})), "cache_hit": True},
+                )
+        except Exception as e:
+            logger.debug(f"Cache check skipped: {e}")
+
         messages, opt_id = await self.build_messages(prompt, None, db, context)
         
         # Split system from others for completion
         system_msg = next((m for m in messages if m["role"] == "system"), None)
         system_prompt = system_msg["content"] if system_msg else None
-
-        settings = get_settings()
 
         # ─── Hybrid Routing: local-first → quality gate → cloud ─────
         if settings.ai_hybrid_routing:
@@ -223,12 +237,22 @@ class BaseAgent:
                 except Exception as e:
                     logger.warning(f"AgentMemory store skipped: {e}")
 
+        # ─── Response Cache: store successful response ────────
+        if response.content:
+            try:
+                from app.services.intelligence.response_cache import get_response_cache
+                cache = get_response_cache()
+                await cache.put(self.identifier, prompt, response.content)
+            except Exception as e:
+                logger.debug(f"Cache store skipped: {e}")
+
         # Attach the opt_id to response metadata for tracking
         if opt_id:
             response.metadata = response.metadata or {}
             response.metadata["agent_optimization_id"] = opt_id
 
         return response
+
 
 
     async def execute_in_conversation(

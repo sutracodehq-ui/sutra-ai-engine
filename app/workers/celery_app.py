@@ -63,6 +63,11 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(hour=4, minute=0, day_of_week=0),
         "kwargs": {"days_back": 7},
     },
+    # Weekly Sunday 5 AM — LoRA fine-tune: export feedback + retrain model
+    "lora-fine-tune": {
+        "task": "fine_tune_model",
+        "schedule": crontab(hour=5, minute=0, day_of_week=0),
+    },
     # Weekly Monday 5 AM — Regenerate fine-tuned Ollama Modelfiles
     "ollama-fine-tune": {
         "task": "app.workers.ollama_finetune_job.ollama_fine_tune",
