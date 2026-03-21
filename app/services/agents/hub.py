@@ -204,6 +204,45 @@ class AiAgentHub:
         from app.services.agents.daily_briefing import DailyBriefingAgent
         from app.services.agents.reminder_agent import ReminderAgent
 
+        # ─── Phase 26: Creator Economy ─────────────────────
+        from app.services.agents.youtube_revenue_optimizer import YoutubeRevenueOptimizerAgent
+        from app.services.agents.reel_script_writer import ReelScriptWriterAgent
+        from app.services.agents.sponsorship_matcher import SponsorshipMatcherAgent
+        from app.services.agents.audience_growth_strategist import AudienceGrowthStrategistAgent
+        from app.services.agents.content_monetizer import ContentMonetizerAgent
+
+        # ─── Phase 27: Cybersecurity ───────────────────────
+        from app.services.agents.phishing_detector import PhishingDetectorAgent
+        from app.services.agents.password_auditor import PasswordAuditorAgent
+        from app.services.agents.incident_reporter import IncidentReporterAgent
+        from app.services.agents.compliance_checker import ComplianceCheckerAgent
+        from app.services.agents.threat_briefing import ThreatBriefingAgent
+
+        # ─── Phase 28: Startup & Funding ───────────────────
+        from app.services.agents.pitch_deck_analyzer import PitchDeckAnalyzerAgent
+        from app.services.agents.funding_tracker import FundingTrackerAgent
+        from app.services.agents.startup_valuation import StartupValuationAgent
+        from app.services.agents.cap_table_manager import CapTableManagerAgent
+        from app.services.agents.market_sizing import MarketSizingAgent
+
+        # ─── Phase 29: Climate & Sustainability ────────────
+        from app.services.agents.carbon_footprint import CarbonFootprintAgent
+        from app.services.agents.esg_report_writer import EsgReportWriterAgent
+        from app.services.agents.solar_roi_calculator import SolarRoiCalculatorAgent
+        from app.services.agents.green_certification import GreenCertificationAgent
+
+        # ─── Phase 30: Sports & Fantasy ────────────────────
+        from app.services.agents.cricket_analyst import CricketAnalystAgent
+        from app.services.agents.fantasy_team_builder import FantasyTeamBuilderAgent
+        from app.services.agents.sports_nutrition import SportsNutritionAgent
+        from app.services.agents.fitness_coach import FitnessCoachAgent
+
+        # ─── Phase 31: EV & Green Energy ───────────────────
+        from app.services.agents.ev_comparator import EvComparatorAgent
+        from app.services.agents.charging_station_planner import ChargingStationPlannerAgent
+        from app.services.agents.battery_health import BatteryHealthAgent
+        from app.services.agents.solar_planner import SolarPlannerAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -280,9 +319,28 @@ class AiAgentHub:
             # Phase 25: Daily Productivity
             EmailSummarizerAgent, MeetingNotesAgent, InvoiceGeneratorAgent,
             ExpenseTrackerAgent, DailyBriefingAgent, ReminderAgent,
+            # Phase 26: Creator Economy
+            YoutubeRevenueOptimizerAgent, ReelScriptWriterAgent, SponsorshipMatcherAgent,
+            AudienceGrowthStrategistAgent, ContentMonetizerAgent,
+            # Phase 27: Cybersecurity
+            PhishingDetectorAgent, PasswordAuditorAgent, IncidentReporterAgent,
+            ComplianceCheckerAgent, ThreatBriefingAgent,
+            # Phase 28: Startup & Funding
+            PitchDeckAnalyzerAgent, FundingTrackerAgent, StartupValuationAgent,
+            CapTableManagerAgent, MarketSizingAgent,
+            # Phase 29: Climate & Sustainability
+            CarbonFootprintAgent, EsgReportWriterAgent,
+            SolarRoiCalculatorAgent, GreenCertificationAgent,
+            # Phase 30: Sports & Fantasy
+            CricketAnalystAgent, FantasyTeamBuilderAgent,
+            SportsNutritionAgent, FitnessCoachAgent,
+            # Phase 31: EV & Green Energy
+            EvComparatorAgent, ChargingStationPlannerAgent,
+            BatteryHealthAgent, SolarPlannerAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
+
 
     def register(self, agent: BaseAgent) -> None:
         """Register an agent in the hub."""
