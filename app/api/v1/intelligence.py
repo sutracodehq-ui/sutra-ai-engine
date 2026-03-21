@@ -11,6 +11,7 @@ from app.services.intelligence.sentiment import SentimentService
 from app.services.intelligence.language import LanguageService
 from app.services.rag.brand_extractor import BrandExtractor
 from app.services.intelligence.web_scraper import WebScraperService
+from app.services.intelligence.multilingual import list_languages_summary, get_supported_languages
 from app.services.agents.hub import get_agent_hub
 
 router = APIRouter(prefix="/intelligence", tags=["intelligence"])
@@ -252,4 +253,25 @@ Respond in JSON with keys: positioning, content_strategy, social_presence, stren
             "seo_score": scraped_data.get("overall_seo_health", {}).get("score", 0),
         }},
         meta={"competitor_url": body.url}
+    )
+
+
+# ─── Language Support Endpoint ───────────────────────────────
+
+@router.get("/languages", summary="List Supported Languages")
+async def list_languages():
+    """
+    List all supported languages for the SutraAI Engine.
+
+    All 22 Indian Scheduled Languages + regional languages (Bhojpuri, Maithili, Magahi, etc.)
+    are supported. Pass the `language` code in any agent/chat request context to force
+    a specific language response. When no language is specified, the engine auto-detects
+    and responds in the same language.
+
+    **Usage:** Include `"language": "hi"` or `"language": "mai"` in the request context.
+    """
+    languages = list_languages_summary()
+    return ApiResponse.ok(
+        data=languages,
+        meta={"total": len(languages), "auto_detect": True}
     )

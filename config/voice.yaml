@@ -1,0 +1,38 @@
+# ─── SutraAI Engine — Voice Configuration ───────────────────
+# Config-driven voice pipeline settings.
+
+# Transcription (Speech-to-Text)
+stt:
+  provider: "openai"    # openai (Whisper API) | google | deepgram
+  model: "whisper-1"    # OpenAI Whisper model
+  # Supported audio formats
+  supported_formats:
+    - "audio/webm"
+    - "audio/mp3"
+    - "audio/mpeg"
+    - "audio/wav"
+    - "audio/ogg"
+    - "audio/flac"
+    - "audio/m4a"
+    - "audio/mp4"
+  max_file_size_mb: 25  # OpenAI Whisper limit
+
+# Text-to-Speech (Response Voice)
+tts:
+  provider: "openai"    # openai | google | elevenlabs
+  model: "tts-1"        # tts-1 (fast) | tts-1-hd (quality)
+  default_voice: "alloy" # alloy, echo, fable, onyx, nova, shimmer
+  response_format: "mp3"
+  speed: 1.0
+
+# R2 Storage for voice recordings
+storage:
+  bucket_prefix: "voice"  # Files stored under voice/{tenant}/{date}/
+  retention_days: 90      # Auto-delete after 90 days (0 = keep forever)
+  save_transcriptions: true  # Also save transcription text as .json
+
+# Language Detection
+language_detection:
+  auto_detect: true           # Let Whisper detect language
+  hint_from_context: true     # Use tenant's locale as a hint
+  fallback_language: "hi"     # Default to Hindi if detection fails

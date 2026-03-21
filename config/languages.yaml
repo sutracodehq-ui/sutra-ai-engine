@@ -1,0 +1,202 @@
+# ─── SutraAI Engine — Supported Languages ───────────────────
+# Config-driven multilingual support.
+# The engine detects input language and responds in the same language.
+# Add new languages by adding entries here — zero code changes.
+
+default_language: "en"
+auto_detect: true  # Auto-detect user's language and respond in it
+
+# System instruction injected into every agent when a language is specified
+language_instruction: |
+  CRITICAL LANGUAGE RULE: The user is communicating in {language_name} ({language_code}).
+  You MUST respond entirely in {language_name} using the {script_name} script.
+  Maintain all formatting (JSON keys stay in English, but values/content must be in {language_name}).
+  If the user mixes languages (code-switching), follow their pattern naturally.
+  Use culturally appropriate expressions and idioms for {language_name} speakers.
+
+# Auto-detect instruction (when no language is explicitly set)
+auto_detect_instruction: |
+  LANGUAGE AWARENESS: Detect the language of the user's message and respond in the SAME language.
+  If the user writes in Hindi, respond in Hindi. If Maithili, respond in Maithili.
+  If mixing languages (e.g., Hinglish), mirror their style naturally.
+  Keep JSON keys in English but provide content/values in the detected language.
+
+# ─── Indian Languages (22 Scheduled + Regional) ──────────────
+languages:
+  # Hindi Belt
+  hi:
+    name: "Hindi"
+    native_name: "हिन्दी"
+    script: "Devanagari"
+    region: "Pan-India"
+
+  en:
+    name: "English"
+    native_name: "English"
+    script: "Latin"
+    region: "Pan-India"
+
+  # Bihar & Jharkhand Regional
+  mai:
+    name: "Maithili"
+    native_name: "मैथिली"
+    script: "Devanagari"
+    region: "Bihar, Jharkhand"
+
+  bho:
+    name: "Bhojpuri"
+    native_name: "भोजपुरी"
+    script: "Devanagari"
+    region: "Bihar, UP, Jharkhand"
+
+  mag:
+    name: "Magahi"
+    native_name: "मगही"
+    script: "Devanagari"
+    region: "Bihar, Jharkhand"
+
+  ang:
+    name: "Angika"
+    native_name: "अंगिका"
+    script: "Devanagari"
+    region: "Bihar, Jharkhand"
+
+  # 22 Official Scheduled Languages
+  bn:
+    name: "Bengali"
+    native_name: "বাংলা"
+    script: "Bengali"
+    region: "West Bengal, Tripura"
+
+  te:
+    name: "Telugu"
+    native_name: "తెలుగు"
+    script: "Telugu"
+    region: "Andhra Pradesh, Telangana"
+
+  mr:
+    name: "Marathi"
+    native_name: "मराठी"
+    script: "Devanagari"
+    region: "Maharashtra"
+
+  ta:
+    name: "Tamil"
+    native_name: "தமிழ்"
+    script: "Tamil"
+    region: "Tamil Nadu, Puducherry"
+
+  ur:
+    name: "Urdu"
+    native_name: "اردو"
+    script: "Nastaliq"
+    region: "Jammu & Kashmir, Telangana"
+
+  gu:
+    name: "Gujarati"
+    native_name: "ગુજરાતી"
+    script: "Gujarati"
+    region: "Gujarat"
+
+  kn:
+    name: "Kannada"
+    native_name: "ಕನ್ನಡ"
+    script: "Kannada"
+    region: "Karnataka"
+
+  ml:
+    name: "Malayalam"
+    native_name: "മലയാളം"
+    script: "Malayalam"
+    region: "Kerala"
+
+  or:
+    name: "Odia"
+    native_name: "ଓଡ଼ିଆ"
+    script: "Odia"
+    region: "Odisha"
+
+  pa:
+    name: "Punjabi"
+    native_name: "ਪੰਜਾਬੀ"
+    script: "Gurmukhi"
+    region: "Punjab"
+
+  as:
+    name: "Assamese"
+    native_name: "অসমীয়া"
+    script: "Bengali"
+    region: "Assam"
+
+  sa:
+    name: "Sanskrit"
+    native_name: "संस्कृतम्"
+    script: "Devanagari"
+    region: "Classical"
+
+  ne:
+    name: "Nepali"
+    native_name: "नेपाली"
+    script: "Devanagari"
+    region: "Sikkim, West Bengal"
+
+  sd:
+    name: "Sindhi"
+    native_name: "سنڌي"
+    script: "Devanagari/Arabic"
+    region: "Gujarat, Maharashtra"
+
+  ks:
+    name: "Kashmiri"
+    native_name: "कॉशुर"
+    script: "Devanagari/Nastaliq"
+    region: "Jammu & Kashmir"
+
+  kok:
+    name: "Konkani"
+    native_name: "कोंकणी"
+    script: "Devanagari"
+    region: "Goa"
+
+  doi:
+    name: "Dogri"
+    native_name: "डोगरी"
+    script: "Devanagari"
+    region: "Jammu"
+
+  mni:
+    name: "Manipuri"
+    native_name: "মৈতৈলোন্"
+    script: "Meitei/Bengali"
+    region: "Manipur"
+
+  sat:
+    name: "Santali"
+    native_name: "ᱥᱟᱱᱛᱟᱲᱤ"
+    script: "Ol Chiki"
+    region: "Jharkhand, West Bengal"
+
+  brx:
+    name: "Bodo"
+    native_name: "बड़ो"
+    script: "Devanagari"
+    region: "Assam"
+
+  # Additional Regional Languages
+  raj:
+    name: "Rajasthani"
+    native_name: "राजस्थानी"
+    script: "Devanagari"
+    region: "Rajasthan"
+
+  chh:
+    name: "Chhattisgarhi"
+    native_name: "छत्तीसगढ़ी"
+    script: "Devanagari"
+    region: "Chhattisgarh"
+
+  tcy:
+    name: "Tulu"
+    native_name: "ತುಳು"
+    script: "Kannada"
+    region: "Karnataka, Kerala"

@@ -76,6 +76,13 @@ tags:
       **Conversational AI** — Multi-turn chat with context-aware, streaming-capable responses.
       Supports conversation history, RAG knowledge retrieval, and voice profiles.
 
+  - name: "voice"
+    description: >
+      **Voice Pipeline** — Accept voice messages in any Indian language, auto-detect the language,
+      transcribe using OpenAI Whisper, process through any agent, and optionally respond with
+      Text-to-Speech. Supports 30+ Indian languages including Maithili, Bhojpuri, Hindi, Tamil,
+      Bengali, and all 22 Scheduled Languages. Audio files stored in R2 for training.
+
   - name: "click-shield"
     description: >
       **Click Fraud Protection** — Real-time ad click scoring, fraud detection,

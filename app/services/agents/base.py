@@ -107,6 +107,14 @@ class BaseAgent:
     ) -> Tuple[List[dict], Optional[int]]:
         """Build the full message array for the LLM."""
         system_prompt, opt_id = await self.get_system_prompt(db, context)
+
+        # ─── Inject Multilingual Support ──────────────────
+        from app.services.intelligence.multilingual import get_language_instruction
+        language_code = (context or {}).get("language")  # e.g. "hi", "mai", "bho"
+        lang_instruction = get_language_instruction(language_code)
+        if lang_instruction:
+            system_prompt = f"{system_prompt}\n\n{lang_instruction}"
+
         messages = [{"role": "system", "content": system_prompt}]
 
         # Add conversation history

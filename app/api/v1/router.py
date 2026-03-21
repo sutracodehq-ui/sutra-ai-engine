@@ -12,7 +12,7 @@ from app.api.v1.intelligence import router as intelligence_router
 from app.api.v1.rag import router as rag_router
 from app.api.v1.billing import router as billing_router
 # from app.api.v1.auth import router as auth_router
-# from app.api.v1.voice import router as voice_router
+from app.api.v1.voice import router as voice_router
 
 from app.api.v1.provision import router as provision_router
 from app.api.v1.url_analyzer import router as url_analyzer_router
@@ -24,7 +24,7 @@ router.include_router(chat_router)
 router.include_router(conversations_router)
 router.include_router(agents_router)
 router.include_router(clicks_router)
-# router.include_router(voice_router)
+router.include_router(voice_router)
 router.include_router(intelligence_router)
 router.include_router(rag_router)
 router.include_router(billing_router)
