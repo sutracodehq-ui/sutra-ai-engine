@@ -6,9 +6,9 @@ Each tenant gets two keys:
   - sk_test_* → sandbox (mock driver, no billing)
 """
 
+import hashlib
 import secrets
 
-from passlib.hash import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,13 +28,13 @@ class TenantService:
 
     @staticmethod
     def hash_api_key(raw_key: str) -> str:
-        """Hash an API key for storage. Uses bcrypt."""
-        return bcrypt.hash(raw_key)
+        """Hash an API key for storage. Uses SHA-256 (keys are already high-entropy)."""
+        return hashlib.sha256(raw_key.encode()).hexdigest()
 
     @staticmethod
     def verify_api_key(raw_key: str, hashed: str) -> bool:
         """Verify a raw API key against its hash."""
-        return bcrypt.verify(raw_key, hashed)
+        return hashlib.sha256(raw_key.encode()).hexdigest() == hashed
 
     @staticmethod
     def key_prefix(raw_key: str) -> str:

@@ -34,7 +34,6 @@ dependencies = [
     # Utilities
     "python-multipart>=0.0.18",
     "pyyaml>=6.0",
-    "passlib[bcrypt]>=1.7",
     "sse-starlette>=2.0",
     "python-dotenv>=1.0",
 ]
