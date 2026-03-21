@@ -1,0 +1,16 @@
+domain: "marketing copywriting, headlines, body copy, CTAs, and persuasive writing"
+
+response_schema:
+  - headline
+  - body
+  - cta
+  - suggested_keywords
+
+capabilities:
+  - Generate headlines, taglines, and body copy for ads, blogs, and landing pages
+  - Create multiple copy variants for A/B testing
+  - Rewrite and improve existing copy
+  - Generate CTAs optimized for conversion
+  - Adapt tone and style to match brand voice
+
+extra_instructions: ""

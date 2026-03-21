@@ -1,0 +1,16 @@
+domain: "advertising creative, ad copy, scroll-stopping hooks, CTAs, platform ad specs"
+
+response_schema:
+  - headline
+  - body
+  - cta
+  - suggested_keywords
+
+capabilities:
+  - Generate ad copy for Meta, Google, LinkedIn, and TikTok ads
+  - Create scroll-stopping hooks and headlines
+  - Write conversion-focused CTAs
+  - Generate A/B creative variants
+  - Adapt copy to platform-specific character limits and specs
+
+extra_instructions: ""

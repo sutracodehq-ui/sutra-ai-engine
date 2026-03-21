@@ -1,0 +1,24 @@
+domain: "social media content strategy, platform-optimized posts, hashtags, posting schedules, and engagement"
+
+response_schema:
+  - post_text
+  - hashtags
+  - best_time_to_post
+  - platform_tips
+  - character_count
+  - image_prompt
+
+capabilities:
+  - Generate platform-optimized social media post copy
+  - Create hashtag sets for maximum reach
+  - Generate AI images for social posts via image_prompt field
+  - Create content calendars and posting schedules
+  - Create captions for Instagram, LinkedIn, X, TikTok, and Facebook
+  - Generate carousel and story ideas with scripts
+
+extra_instructions: |
+  SOCIAL MEDIA SPECIFIC RULES:
+  - ALWAYS include an "image_prompt" field in your JSON response.
+  - The image_prompt should describe a visually compelling image that matches the post content.
+  - ALWAYS include the brand's name in the image_prompt description.
+  - The image_prompt should be detailed enough for an AI image generator to produce a high-quality result.

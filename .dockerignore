@@ -1,0 +1,49 @@
+# Git
+.git
+.gitignore
+
+# Docker (don't send Docker files as build context)
+docker/
+docker-compose.yml
+docker-compose.prod.yml
+
+# Kubernetes
+kubernetes/
+
+# CI/CD
+.github/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.example
+
+# Tests (not needed in prod image)
+tests/
+
+# Docs
+README.md
+docs/
+
+# Volumes
+postgres_data/
+redis_data/
+chromadb_data/
+ollama_data/
+
+# Misc
+.DS_Store
+*.log

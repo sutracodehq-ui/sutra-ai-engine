@@ -1,0 +1,151 @@
+services:
+  # ─── API Server (FastAPI + Uvicorn) ─────────────────────
+  sutra-ai-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: sutra-ai-api
+    ports:
+      - "8090:8000"
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+      - ./agent_config:/app/agent_config
+      - ./alembic:/app/alembic
+    depends_on:
+      sutra-ai-postgres:
+        condition: service_healthy
+      sutra-ai-redis:
+        condition: service_healthy
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+  # ─── Celery Worker (Queue Processing) ──────────────────
+  sutra-ai-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: sutra-ai-worker
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+      - ./agent_config:/app/agent_config
+    depends_on:
+      sutra-ai-postgres:
+        condition: service_healthy
+      sutra-ai-redis:
+        condition: service_healthy
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+  # ─── Celery Beat (Cron Scheduler) ──────────────────────
+  sutra-ai-beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: sutra-ai-beat
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      sutra-ai-redis:
+        condition: service_healthy
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+  # ─── PostgreSQL ────────────────────────────────────────
+  sutra-ai-postgres:
+    image: postgres:16-alpine
+    container_name: sutra-ai-postgres
+    environment:
+      POSTGRES_DB: sutra_ai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+  # ─── Redis ────────────────────────────────────────────
+  sutra-ai-redis:
+    image: redis:7-alpine
+    container_name: sutra-ai-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+  # ─── ChromaDB (Vector Store) ──────────────────────────
+  sutra-ai-chromadb:
+    image: chromadb/chroma:latest
+    container_name: sutra-ai-chromadb
+    ports:
+      - "8100:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      ANONYMIZED_TELEMETRY: "false"
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+  # ─── Ollama (Local LLM — optional) ────────────────────
+  sutra-ai-ollama:
+    image: ollama/ollama:latest
+    container_name: sutra-ai-ollama
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+    profiles:
+      - gpu  # Only starts with: docker compose --profile gpu up
+
+  # ─── Adminer (DB Management UI) ───────────────────────
+  sutra-ai-adminer:
+    image: adminer:latest
+    container_name: sutra-ai-adminer
+    ports:
+      - "8091:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: sutra-ai-postgres
+      ADMINER_DESIGN: nette
+    depends_on:
+      sutra-ai-postgres:
+        condition: service_healthy
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  chromadb_data:
+  ollama_data:
+
+networks:
+  sutra-ai-network:
+    driver: bridge

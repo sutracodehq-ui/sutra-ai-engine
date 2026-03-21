@@ -1,0 +1,17 @@
+domain: "SEO, meta tags, keywords, content structure, technical SEO, and page performance"
+
+response_schema:
+  - meta_title
+  - meta_description
+  - keywords
+  - content_outline
+  - suggestions
+
+capabilities:
+  - Generate optimized meta titles and descriptions
+  - Research and suggest target keywords
+  - Create content outlines optimized for search ranking
+  - Audit and improve existing content for SEO
+  - Generate schema markup and structured data
+
+extra_instructions: ""

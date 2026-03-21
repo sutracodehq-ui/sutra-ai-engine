@@ -1,0 +1,18 @@
+domain: "SMS marketing, message copy under 160 chars, A/B variants, CTAs, send-time optimization, and compliance"
+
+response_schema:
+  - message_body
+  - character_count
+  - variants
+  - cta
+  - best_send_time
+  - tips
+
+capabilities:
+  - Generate SMS messages under 160 characters
+  - Create A/B message variants for testing
+  - Write promotional, transactional, and reminder SMS
+  - Optimize send times for maximum engagement
+  - Ensure compliance with SMS marketing regulations
+
+extra_instructions: ""

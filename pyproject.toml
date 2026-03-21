@@ -1,0 +1,63 @@
+[project]
+name = "sutracode-ai-engine"
+version = "0.1.0"
+description = "Standalone multi-tenant AI microservice — multi-agent orchestration, self-learning, and content generation"
+requires-python = ">=3.12"
+dependencies = [
+    # API Framework
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+
+    # Cache + Queue
+    "redis>=5.0",
+    "celery[redis]>=5.4",
+
+    # LLM SDKs
+    "openai>=1.60",
+    "anthropic>=0.43",
+    "google-generativeai>=0.8",
+    "httpx>=0.28",
+
+    # RAG / Vectors
+    "chromadb>=0.6",
+
+    # Object Storage (R2 / S3)
+    "boto3>=1.35",
+
+    # Utilities
+    "python-multipart>=0.0.18",
+    "pyyaml>=6.0",
+    "passlib[bcrypt]>=1.7",
+    "sse-starlette>=2.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.28",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

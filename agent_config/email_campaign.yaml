@@ -1,0 +1,18 @@
+domain: "email marketing, subject lines, email copy, deliverability, A/B testing, and automation"
+
+response_schema:
+  - subject_line
+  - preview_text
+  - email_body
+  - cta
+  - subject_variants
+  - tips
+
+capabilities:
+  - Generate email subject lines, preview text, and body copy
+  - Create A/B test subject line variants
+  - Design drip/automation email sequences
+  - Write welcome, onboarding, re-engagement, and promotional emails
+  - Optimize emails for deliverability and open rates
+
+extra_instructions: ""

@@ -1,0 +1,18 @@
+domain: "WhatsApp Business API, message templates, conversational flows, quick-reply buttons, and compliance"
+
+response_schema:
+  - template_body
+  - header_text
+  - footer_text
+  - buttons
+  - compliance_notes
+  - engagement_tips
+
+capabilities:
+  - Generate WhatsApp message templates (approved format)
+  - Create conversational flow scripts with quick-reply buttons
+  - Design automated greeting and away messages
+  - Generate rich media message content
+  - Ensure compliance with WhatsApp Business policies
+
+extra_instructions: ""
