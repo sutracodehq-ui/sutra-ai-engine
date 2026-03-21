@@ -130,6 +130,72 @@ class AiAgentHub:
         from app.services.agents.patient_followup import PatientFollowupAgent
         from app.services.agents.ayurveda_advisor import AyurvedaAdvisorAgent
 
+        # ─── Phase 15: Legal & Compliance ──────────────────
+        from app.services.agents.contract_analyzer import ContractAnalyzerAgent
+        from app.services.agents.rti_drafter import RtiDrafterAgent
+        from app.services.agents.gst_compliance import GstComplianceAgent
+        from app.services.agents.legal_document_writer import LegalDocumentWriterAgent
+
+        # ─── Phase 16: HR & Recruitment ────────────────────
+        from app.services.agents.resume_screener import ResumeScreenerAgent
+        from app.services.agents.interview_q_generator import InterviewQGeneratorAgent
+        from app.services.agents.jd_writer import JdWriterAgent
+        from app.services.agents.salary_benchmarker import SalaryBenchmarkerAgent
+        from app.services.agents.onboarding_guide import OnboardingGuideAgent
+
+        # ─── Phase 17: E-Commerce ──────────────────────────
+        from app.services.agents.product_description_writer import ProductDescriptionWriterAgent
+        from app.services.agents.review_analyzer import ReviewAnalyzerAgent
+        from app.services.agents.dynamic_pricing import DynamicPricingAgent
+        from app.services.agents.returns_predictor import ReturnsPredictorAgent
+        from app.services.agents.catalog_enricher import CatalogEnricherAgent
+
+        # ─── Phase 18: Real Estate ─────────────────────────
+        from app.services.agents.property_valuator import PropertyValuatorAgent
+        from app.services.agents.rental_yield_calculator import RentalYieldCalculatorAgent
+        from app.services.agents.rera_compliance import ReraComplianceAgent
+        from app.services.agents.area_comparator import AreaComparatorAgent
+
+        # ─── Phase 19: Agriculture ─────────────────────────
+        from app.services.agents.crop_advisor import CropAdvisorAgent
+        from app.services.agents.soil_report_interpreter import SoilReportInterpreterAgent
+        from app.services.agents.weather_planting import WeatherPlantingAgent
+        from app.services.agents.msp_tracker import MspTrackerAgent
+        from app.services.agents.subsidy_finder import SubsidyFinderAgent
+
+        # ─── Phase 20: Personal Finance ────────────────────
+        from app.services.agents.tax_planner import TaxPlannerAgent
+        from app.services.agents.loan_comparator import LoanComparatorAgent
+        from app.services.agents.insurance_advisor import InsuranceAdvisorAgent
+        from app.services.agents.sip_calculator import SipCalculatorAgent
+        from app.services.agents.retirement_planner import RetirementPlannerAgent
+
+        # ─── Phase 21: Travel & Tourism ────────────────────
+        from app.services.agents.trip_planner import TripPlannerAgent
+        from app.services.agents.visa_guide import VisaGuideAgent
+        from app.services.agents.travel_budget_optimizer import TravelBudgetOptimizerAgent
+        from app.services.agents.cultural_advisor import CulturalAdvisorAgent
+        from app.services.agents.itinerary_generator import ItineraryGeneratorAgent
+
+        # ─── Phase 22: Logistics ───────────────────────────
+        from app.services.agents.route_optimizer import RouteOptimizerAgent
+        from app.services.agents.shipment_tracker import ShipmentTrackerAgent
+        from app.services.agents.warehouse_planner import WarehousePlannerAgent
+        from app.services.agents.last_mile_optimizer import LastMileOptimizerAgent
+
+        # ─── Phase 23: Government Services ─────────────────
+        from app.services.agents.scheme_eligibility import SchemeEligibilityAgent
+        from app.services.agents.complaint_drafter import ComplaintDrafterAgent
+        from app.services.agents.document_translator import DocumentTranslatorAgent
+        from app.services.agents.form_filler import FormFillerAgent
+
+        # ─── Phase 24: Customer Success ────────────────────
+        from app.services.agents.nps_analyzer import NpsAnalyzerAgent
+        from app.services.agents.retention_strategist import RetentionStrategistAgent
+        from app.services.agents.feedback_synthesizer import FeedbackSynthesizerAgent
+        from app.services.agents.churn_reversal import ChurnReversalAgent
+        from app.services.agents.upsell_advisor import UpsellAdvisorAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -173,6 +239,36 @@ class AiAgentHub:
             LabReportInterpreterAgent, SymptomTriageAgent, DietPlannerAgent,
             MentalHealthCompanionAgent, MedicineInfoAgent, PatientFollowupAgent,
             AyurvedaAdvisorAgent,
+            # Phase 15: Legal & Compliance
+            ContractAnalyzerAgent, RtiDrafterAgent, GstComplianceAgent,
+            LegalDocumentWriterAgent,
+            # Phase 16: HR & Recruitment
+            ResumeScreenerAgent, InterviewQGeneratorAgent, JdWriterAgent,
+            SalaryBenchmarkerAgent, OnboardingGuideAgent,
+            # Phase 17: E-Commerce
+            ProductDescriptionWriterAgent, ReviewAnalyzerAgent, DynamicPricingAgent,
+            ReturnsPredictorAgent, CatalogEnricherAgent,
+            # Phase 18: Real Estate
+            PropertyValuatorAgent, RentalYieldCalculatorAgent,
+            ReraComplianceAgent, AreaComparatorAgent,
+            # Phase 19: Agriculture
+            CropAdvisorAgent, SoilReportInterpreterAgent, WeatherPlantingAgent,
+            MspTrackerAgent, SubsidyFinderAgent,
+            # Phase 20: Personal Finance
+            TaxPlannerAgent, LoanComparatorAgent, InsuranceAdvisorAgent,
+            SipCalculatorAgent, RetirementPlannerAgent,
+            # Phase 21: Travel & Tourism
+            TripPlannerAgent, VisaGuideAgent, TravelBudgetOptimizerAgent,
+            CulturalAdvisorAgent, ItineraryGeneratorAgent,
+            # Phase 22: Logistics
+            RouteOptimizerAgent, ShipmentTrackerAgent,
+            WarehousePlannerAgent, LastMileOptimizerAgent,
+            # Phase 23: Government Services
+            SchemeEligibilityAgent, ComplaintDrafterAgent,
+            DocumentTranslatorAgent, FormFillerAgent,
+            # Phase 24: Customer Success
+            NpsAnalyzerAgent, RetentionStrategistAgent, FeedbackSynthesizerAgent,
+            ChurnReversalAgent, UpsellAdvisorAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
