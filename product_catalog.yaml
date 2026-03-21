@@ -1,0 +1,403 @@
+# ─── SutraCode AI Engine — Product Catalog ──────────────────
+# 
+# 149 agents divided into 12 separate products.
+# Each product can be deployed independently or as part of the full engine.
+# 
+# Usage: 
+#   product_registry.get_product("tryambaka_marketing").agents → list of agent IDs
+#   product_registry.get_product("kisan_ai").agents → agriculture agents
+#
+# Why separate products?
+# 1. Each product gets its own panel/dashboard
+# 2. Billing per product (not per agent)
+# 3. Customers buy what they need (a farmer doesn't need e-commerce agents)
+# 4. Scale independently — deploy only the products you need
+
+products:
+
+  # ─── Product 1: Tryambaka Marketing Suite ──────────────
+  tryambaka_marketing:
+    name: "Tryambaka Marketing Suite"
+    tagline: "AI-powered digital marketing for Indian businesses"
+    icon: "📢"
+    price_inr: 2999
+    agents:
+      - copywriter
+      - seo
+      - social
+      - email_campaign
+      - whatsapp
+      - sms
+      - ad_creative
+      - brand_auditor
+      - content_repurposer
+      - click_shield
+      - persona_builder
+      - campaign_strategist
+      - ab_test_advisor
+      - competitor_analyst
+      - url_analyzer
+      - performance_reporter
+      - budget_optimizer
+      - anomaly_alerter
+      - visual_designer
+      - video_scriptwriter
+      - landing_page_builder
+      - auto_publisher
+      - lead_scorer
+      - chatbot_trainer
+      - review_reputation
+      - trend_spotter
+      - funnel_analyzer
+      - influencer_matcher
+      - journey_mapper
+      - auto_scheduler
+      - audience_segmenter
+      - churn_predictor
+      - roi_calculator
+      - content_grader
+      - attribution_analyst
+      - pricing_strategist
+      - google_ads_optimizer
+      - meta_ads_optimizer
+      - linkedin_growth
+    target_audience: "Agencies, D2C brands, startups"
+
+  # ─── Product 2: VoiceFlow — Call & Voice Intelligence ──
+  voiceflow:
+    name: "VoiceFlow"
+    tagline: "AI agents for voice, calls, and conversational intelligence"
+    icon: "📞"
+    price_inr: 1999
+    agents:
+      - cold_call_scripter
+      - call_sentiment_analyzer
+      - whatsapp_bot_builder
+      - call_summarizer
+      - ivr_designer
+    target_audience: "Call centers, sales teams, customer support"
+
+  # ─── Product 3: VideoMind — Video Intelligence ────────
+  videomind:
+    name: "VideoMind"
+    tagline: "AI-powered video analysis, scripting, and content creation"
+    icon: "🎬"
+    price_inr: 1499
+    agents:
+      - youtube_analyzer
+      - video_summarizer
+      - caption_generator
+      - audio_dubber
+      - social_clip_maker
+    target_audience: "YouTubers, content agencies, media houses"
+
+  # ─── Product 4: EdBrain — Education Intelligence ──────
+  edbrain:
+    name: "EdBrain"
+    tagline: "AI tutoring, notes, quizzes, and learning tools"
+    icon: "📚"
+    price_inr: 999
+    agents:
+      - note_generator
+      - key_points_extractor
+      - quiz_generator
+      - flashcard_creator
+      - lecture_planner
+    target_audience: "Students, teachers, coaching institutes"
+
+  # ─── Product 5: FinWise — Finance & Market Intelligence
+  finwise:
+    name: "FinWise"
+    tagline: "Stock analysis, tax planning, and personal finance for India"
+    icon: "💹"
+    price_inr: 2499
+    agents:
+      - stock_analyzer
+      - stock_predictor
+      - market_trend_analyzer
+      - ai_trend_tracker
+      - crypto_analyzer
+      - tax_planner
+      - loan_comparator
+      - insurance_advisor
+      - sip_calculator
+      - retirement_planner
+    target_audience: "Retail investors, CAs, financial planners"
+
+  # ─── Product 6: HealthMate — Health & Wellness ────────
+  healthmate:
+    name: "HealthMate"
+    tagline: "AI health assistant: lab reports, diet, Ayurveda, fitness"
+    icon: "🏥"
+    price_inr: 1499
+    agents:
+      - lab_report_interpreter
+      - symptom_triage
+      - diet_planner
+      - mental_health_companion
+      - medicine_info
+      - patient_followup
+      - ayurveda_advisor
+      - sports_nutrition
+      - fitness_coach
+    target_audience: "Individuals, clinics, wellness centers"
+
+  # ─── Product 7: LegalEase — Legal & Compliance ────────
+  legalease:
+    name: "LegalEase"
+    tagline: "Indian legal docs, contracts, GST, and compliance"
+    icon: "⚖️"
+    price_inr: 1999
+    agents:
+      - contract_analyzer
+      - rti_drafter
+      - gst_compliance
+      - legal_document_writer
+    target_audience: "Lawyers, CAs, small businesses"
+
+  # ─── Product 8: HireGenius — HR & Recruitment ─────────
+  hiregenius:
+    name: "HireGenius"
+    tagline: "AI-powered hiring, JDs, resume screening, and onboarding"
+    icon: "👔"
+    price_inr: 1999
+    agents:
+      - resume_screener
+      - interview_q_generator
+      - jd_writer
+      - salary_benchmarker
+      - onboarding_guide
+    target_audience: "HR teams, recruitment agencies, startups"
+
+  # ─── Product 9: ShopBrain — E-Commerce Intelligence ───
+  shopbrain:
+    name: "ShopBrain"
+    tagline: "Product listings, pricing, reviews, and catalog management"
+    icon: "🛒"
+    price_inr: 1999
+    agents:
+      - product_description_writer
+      - review_analyzer
+      - dynamic_pricing
+      - returns_predictor
+      - catalog_enricher
+    target_audience: "Amazon/Flipkart sellers, D2C brands"
+
+  # ─── Product 10: KisanAI — Agriculture Intelligence ───
+  kisan_ai:
+    name: "KisanAI"
+    tagline: "Crop advisory, soil reports, MSP tracking for Indian farmers"
+    icon: "🌾"
+    price_inr: 499
+    agents:
+      - crop_advisor
+      - soil_report_interpreter
+      - weather_planting
+      - msp_tracker
+      - subsidy_finder
+    target_audience: "Farmers, agri-businesses, FPOs"
+
+  # ─── Product 11: PropertyGuru — Real Estate ───────────
+  propertyguru:
+    name: "PropertyGuru"
+    tagline: "Property valuation, RERA check, rental yields for India"
+    icon: "🏠"
+    price_inr: 1499
+    agents:
+      - property_valuator
+      - rental_yield_calculator
+      - rera_compliance
+      - area_comparator
+    target_audience: "Home buyers, brokers, real estate agents"
+
+  # ─── Product 12: TravelBuddy — Travel Intelligence ────
+  travelbuddy:
+    name: "TravelBuddy"
+    tagline: "Trip planning, visa guide, and budget optimization"
+    icon: "✈️"
+    price_inr: 999
+    agents:
+      - trip_planner
+      - visa_guide
+      - travel_budget_optimizer
+      - cultural_advisor
+      - itinerary_generator
+    target_audience: "Travelers, travel agencies"
+
+  # ─── Product 13: LogiSmart — Logistics Intelligence ───
+  logismart:
+    name: "LogiSmart"
+    tagline: "Route optimization, shipment tracking, warehouse planning"
+    icon: "🚛"
+    price_inr: 2999
+    agents:
+      - route_optimizer
+      - shipment_tracker
+      - warehouse_planner
+      - last_mile_optimizer
+    target_audience: "Logistics companies, e-commerce fulfillment"
+
+  # ─── Product 14: JanSeva — Government Services ────────
+  janseva:
+    name: "JanSeva"
+    tagline: "Scheme eligibility, complaint drafting, form filling"
+    icon: "🏛️"
+    price_inr: 299
+    agents:
+      - scheme_eligibility
+      - complaint_drafter
+      - document_translator
+      - form_filler
+    target_audience: "Citizens, NGOs, CSCs"
+
+  # ─── Product 15: SuccessIQ — Customer Success ─────────
+  successiq:
+    name: "SuccessIQ"
+    tagline: "NPS, retention, churn prevention, and upsell intelligence"
+    icon: "🎯"
+    price_inr: 2499
+    agents:
+      - nps_analyzer
+      - retention_strategist
+      - feedback_synthesizer
+      - churn_reversal
+      - upsell_advisor
+    target_audience: "SaaS companies, subscription businesses"
+
+  # ─── Product 16: WorkPilot — Daily Productivity ────────
+  workpilot:
+    name: "WorkPilot"
+    tagline: "Email summaries, meeting notes, invoices, reminders"
+    icon: "⚡"
+    price_inr: 999
+    agents:
+      - email_summarizer
+      - meeting_notes
+      - invoice_generator
+      - expense_tracker
+      - daily_briefing
+      - reminder_agent
+    target_audience: "Freelancers, small businesses, professionals"
+
+  # ─── Product 17: CreatorStudio — Creator Economy ───────
+  creatorstudio:
+    name: "CreatorStudio"
+    tagline: "YouTube optimization, reels, sponsorships, monetization"
+    icon: "🎙️"
+    price_inr: 1499
+    agents:
+      - youtube_revenue_optimizer
+      - reel_script_writer
+      - sponsorship_matcher
+      - audience_growth_strategist
+      - content_monetizer
+    target_audience: "YouTubers, Instagram creators, podcasters"
+
+  # ─── Product 18: CyberShield — Cybersecurity ──────────
+  cybershield:
+    name: "CyberShield"
+    tagline: "Phishing detection, compliance, threat briefings"
+    icon: "🛡️"
+    price_inr: 2999
+    agents:
+      - phishing_detector
+      - password_auditor
+      - incident_reporter
+      - compliance_checker
+      - threat_briefing
+    target_audience: "IT teams, CISO offices, MSMEs"
+
+  # ─── Product 19: LaunchPad — Startup Intelligence ─────
+  launchpad:
+    name: "LaunchPad"
+    tagline: "Pitch decks, valuation, funding, cap tables"
+    icon: "🚀"
+    price_inr: 1999
+    agents:
+      - pitch_deck_analyzer
+      - funding_tracker
+      - startup_valuation
+      - cap_table_manager
+      - market_sizing
+    target_audience: "Founders, VCs, accelerators"
+
+  # ─── Product 20: GreenIQ — Climate & Sustainability ───
+  greeniq:
+    name: "GreenIQ"
+    tagline: "Carbon footprint, ESG reports, solar ROI, green buildings"
+    icon: "🌱"
+    price_inr: 1999
+    agents:
+      - carbon_footprint
+      - esg_report_writer
+      - solar_roi_calculator
+      - green_certification
+    target_audience: "Listed companies, real estate, manufacturers"
+
+  # ─── Product 21: SportsIQ — Sports & Fantasy ──────────
+  sportsiq:
+    name: "SportsIQ"
+    tagline: "Cricket analytics, fantasy teams, sports nutrition"
+    icon: "🏏"
+    price_inr: 999
+    agents:
+      - cricket_analyst
+      - fantasy_team_builder
+      - sports_nutrition
+      - fitness_coach
+    target_audience: "Sports fans, fantasy players, athletes"
+
+  # ─── Product 22: EcoMotion — EV & Green Energy ────────
+  ecomotion:
+    name: "EcoMotion"
+    tagline: "EV comparison, charging planning, solar systems"
+    icon: "⚡🚗"
+    price_inr: 999
+    agents:
+      - ev_comparator
+      - charging_station_planner
+      - battery_health
+      - solar_planner
+      - solar_roi_calculator
+    target_audience: "EV buyers, solar installers, green businesses"
+
+  # ─── Product 23: DataForge — Data & ML Intelligence ───
+  dataforge:
+    name: "DataForge"
+    tagline: "Data curation, ML pipelines, dataset optimization"
+    icon: "🔬"
+    price_inr: 2499
+    agents:
+      - data_curator
+      - dataset_optimizer
+      - ml_pipeline
+    target_audience: "Data scientists, ML engineers, AI startups"
+
+# ─── Bundle: SutraCode FULL ENGINE ──────────────────────────
+bundles:
+  full_engine:
+    name: "SutraCode Full Engine"
+    tagline: "All 149 agents, all 23 products — one platform"
+    price_inr: 9999
+    includes_all_products: true
+
+  business_suite:
+    name: "Business Suite"
+    tagline: "Marketing + HR + Legal + Finance + Productivity"
+    price_inr: 4999
+    products:
+      - tryambaka_marketing
+      - hiregenius
+      - legalease
+      - finwise
+      - workpilot
+
+  consumer_suite:
+    name: "Consumer Suite"
+    tagline: "Health + Travel + Sports + Productivity"
+    price_inr: 2999
+    products:
+      - healthmate
+      - travelbuddy
+      - sportsiq
+      - workpilot
