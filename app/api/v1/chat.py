@@ -1,101 +1,78 @@
-"""Chat API routes — single completion + streaming."""
+"""Chat routes — primary entry point for AI interactions."""
 
 import json
-import logging
+from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from sse_starlette.sse import EventSourceResponse
+from fastapi import APIRouter, Depends, Header
+from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import CurrentTenant, DbSession
-from app.models.ai_task import AiTask
-from app.models.voice_profile import VoiceProfile
+from app.dependencies import DbSession, get_current_tenant
+from app.models.tenant import Tenant
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.services.agents.hub import get_agent_hub
-from sqlalchemy import select
-
-logger = logging.getLogger(__name__)
+from app.services.chat.engine import ChatEngine
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(body: ChatRequest, tenant: CurrentTenant, db: DbSession):
-    """Single-turn agent completion (synchronous)."""
-    hub = get_agent_hub()
-
-    # Resolve voice profile if provided
-    voice = None
-    if body.voice_profile_id:
-        result = await db.execute(
-            select(VoiceProfile).where(
-                VoiceProfile.id == body.voice_profile_id,
-                VoiceProfile.tenant_id == tenant.id,
-            )
-        )
-        voice = result.scalar_one_or_none()
-
-    # Build context
-    context = body.metadata or {}
-    context["tenant_slug"] = tenant.slug
-
-    # Create task record
-    task = AiTask(
-        tenant_id=tenant.id,
-        agent_type=body.agent_type,
-        status="processing",
+async def chat_completion(
+    body: ChatRequest,
+    db: DbSession,
+    tenant: Annotated[Tenant, Depends(get_current_tenant)],
+):
+    """
+    Synchronous chat completion.
+    Uses the high-performance pipeline (Parallel Context + Caching + Smart Routing).
+    """
+    result = await ChatEngine.execute(
+        db,
+        tenant,
         prompt=body.prompt,
-        external_user_id=body.external_user_id,
-        options=body.options,
+        conversation_id=body.conversation_id,
+        voice_profile_id=body.voice_profile_id,
+        voice_profile_name=body.voice_profile_name,
+        stream=False,
+        **body.options or {}
     )
-    db.add(task)
-    await db.flush()
 
-    try:
-        # Execute agent
-        response = await hub.run(body.agent_type, body.prompt, context, **body.options or {})
-
-        # Update task with results
-        task.status = "completed"
-        task.result = {"content": response.content}
-        task.tokens_used = response.total_tokens
-        task.driver_used = response.driver
-        task.model_used = response.model
-
-        return ChatResponse(
-            task_id=task.id,
-            status="completed",
-            agent_type=body.agent_type,
-            result={"content": response.content},
-            tokens_used=response.total_tokens,
-            driver_used=response.driver,
-            model_used=response.model,
-        )
-    except Exception as e:
-        task.status = "failed"
-        task.error = str(e)
-        logger.error(f"Chat failed: {e}")
-        raise
+    return ChatResponse(
+        id=result.get("id", "unknown"),
+        content=result.get("content", ""),
+        driver=result.get("driver"),
+        model=result.get("model"),
+        usage=result.get("usage", {}),
+        metadata=result.get("metadata", {})
+    )
 
 
 @router.post("/stream")
-async def chat_stream(body: ChatRequest, tenant: CurrentTenant, db: DbSession):
-    """SSE streaming agent completion."""
-    hub = get_agent_hub()
-    agent = hub.get(body.agent_type)
-    context = body.metadata or {}
-    context["tenant_slug"] = tenant.slug
-
-    messages = agent.build_messages(body.prompt, context=context)
-
-    from app.services.llm_service import get_llm_service
-    llm = get_llm_service()
-
+async def chat_stream(
+    body: ChatRequest,
+    db: DbSession,
+    tenant: Annotated[Tenant, Depends(get_current_tenant)],
+):
+    """
+    Streaming chat completion (SSE).
+    Uses the high-performance pipeline with Zero-buffer passthrough.
+    """
+    
     async def event_generator():
-        try:
-            async for chunk in llm.stream(messages):
-                yield {"event": "message", "data": json.dumps({"content": chunk})}
-            yield {"event": "done", "data": json.dumps({"status": "completed"})}
-        except Exception as e:
-            yield {"event": "error", "data": json.dumps({"error": str(e)})}
+        stream = await ChatEngine.execute(
+            db,
+            tenant,
+            prompt=body.prompt,
+            conversation_id=body.conversation_id,
+            voice_profile_id=body.voice_profile_id,
+            voice_profile_name=body.voice_profile_name,
+            stream=True,
+            **body.options or {}
+        )
+        
+        async for chunk in stream:
+            # Yield as SSE data
+            yield f"data: {json.dumps({'content': chunk})}\n\n"
+        
+        yield "data: [DONE]\n\n"
 
-    return EventSourceResponse(event_generator())
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

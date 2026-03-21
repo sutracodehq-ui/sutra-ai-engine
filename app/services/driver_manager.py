@@ -70,22 +70,78 @@ class DriverManager:
             chain.append(s.ai_fallback_driver)
         return chain
 
-    async def complete(self, system_prompt: str, user_prompt: str, **options) -> LlmResponse:
-        """Run completion through the fallback chain."""
+    async def complete(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        driver_override: str | None = None,
+        model_override: str | None = None,
+        **options
+    ) -> LlmResponse:
+        """Run completion through the override or fallback chain."""
+        if model_override:
+            options["model"] = model_override
+
+        if driver_override:
+            return await self._run_targeted(
+                driver_override,
+                lambda d: d.complete(system_prompt, user_prompt, **options),
+                "complete"
+            )
+
         return await self._run_with_fallback(
             lambda d: d.complete(system_prompt, user_prompt, **options),
             "complete",
         )
 
-    async def chat(self, messages: list[dict], **options) -> LlmResponse:
-        """Run chat through the fallback chain."""
+    async def chat(
+        self,
+        messages: list[dict],
+        driver_override: str | None = None,
+        model_override: str | None = None,
+        **options
+    ) -> LlmResponse:
+        """Run chat through the override or fallback chain."""
+        if model_override:
+            options["model"] = model_override
+
+        if driver_override:
+            return await self._run_targeted(
+                driver_override,
+                lambda d: d.chat(messages, **options),
+                "chat"
+            )
+
         return await self._run_with_fallback(
             lambda d: d.chat(messages, **options),
             "chat",
         )
 
-    async def stream(self, messages: list[dict], **options):
-        """Stream through the fallback chain (tries next driver on failure)."""
+    async def stream(
+        self,
+        system_prompt: str | None = None,
+        user_prompt: str | None = None,
+        messages: list[dict] | None = None,
+        driver_override: str | None = None,
+        model_override: str | None = None,
+        **options
+    ) -> AsyncGenerator[str, None]:
+        """Stream through the override or fallback chain."""
+        if model_override:
+            options["model"] = model_override
+
+        # Support both (system, user) and (messages) formats
+        if messages is None:
+            messages = [
+                {"role": "system", "content": system_prompt or "You are a helpful assistant."},
+                {"role": "user", "content": user_prompt or ""}
+            ]
+
+        if driver_override:
+            async for chunk in self._run_targeted_stream(driver_override, messages, **options):
+                yield chunk
+            return
+
         chain = self.driver_chain()
         last_error = None
 
@@ -108,6 +164,30 @@ class DriverManager:
                 logger.warning(f"DriverManager: {driver_name} stream failed: {e}")
 
         raise last_error or RuntimeError("All AI drivers failed")
+
+    async def _run_targeted(self, driver_name: str, callback, operation: str) -> LlmResponse:
+        """Run a specific driver with retry, bypasses fallback."""
+        try:
+            driver = self.driver(driver_name)
+            result = await self._retry.execute(callback, driver)
+            self._circuit.record_success(driver_name)
+            return result
+        except Exception as e:
+            self._circuit.record_failure(driver_name)
+            logger.warning(f"DriverManager: targeted {driver_name} failed: {e}")
+            raise
+
+    async def _run_targeted_stream(self, driver_name: str, messages: list[dict], **options) -> AsyncGenerator[str, None]:
+        """Run a specific driver for streaming, bypasses fallback."""
+        try:
+            driver = self.driver(driver_name)
+            async for chunk in driver.stream(messages, **options):
+                yield chunk
+            self._circuit.record_success(driver_name)
+        except Exception as e:
+            self._circuit.record_failure(driver_name)
+            logger.warning(f"DriverManager: targeted {driver_name} stream failed: {e}")
+            raise
 
     async def _run_with_fallback(self, callback, operation: str) -> LlmResponse:
         """Execute callback across the driver fallback chain with circuit breaker + retry."""
