@@ -6,6 +6,7 @@ New agents = new YAML config + one-line class. Zero hub changes.
 """
 
 import logging
+from typing import Any
 
 from app.services.agents.base import BaseAgent
 from app.services.drivers.base import LlmResponse
@@ -37,9 +38,21 @@ class AiAgentHub:
         from app.services.agents.whatsapp import WhatsappAgent
         from app.services.agents.sms import SmsAgent
         from app.services.agents.ad_creative import AdCreativeAgent
+        from app.services.agents.brand_auditor import BrandAuditorAgent
+        from app.services.agents.content_repurpose import ContentRepurposerAgent
 
         llm = get_llm_service()
-        for agent_cls in [CopywriterAgent, SeoAgent, SocialAgent, EmailCampaignAgent, WhatsappAgent, SmsAgent, AdCreativeAgent]:
+        for agent_cls in [
+            CopywriterAgent, 
+            SeoAgent, 
+            SocialAgent, 
+            EmailCampaignAgent, 
+            WhatsappAgent, 
+            SmsAgent, 
+            AdCreativeAgent,
+            BrandAuditorAgent,
+            ContentRepurposerAgent
+        ]:
             agent = agent_cls(llm)
             self.register(agent)
 

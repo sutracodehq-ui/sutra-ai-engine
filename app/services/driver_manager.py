@@ -8,6 +8,7 @@ Integrates CircuitBreaker (skip dead drivers) and RetryStrategy (transient fault
 """
 
 import logging
+from typing import Any, AsyncGenerator
 
 from app.config import get_settings
 from app.services.drivers.base import LlmDriver, LlmResponse

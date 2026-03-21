@@ -6,7 +6,7 @@ Software Factory: consumers use LlmService, never drivers directly.
 """
 
 import logging
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from app.services.driver_manager import get_driver_manager
 from app.services.drivers.base import LlmResponse

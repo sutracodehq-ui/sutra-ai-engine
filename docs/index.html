@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SutraAI | Developer Documentation</title>
+    <title>SutraAI Engine | Developer Documentation</title>
     <!-- Marked.js for MD rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Mermaid.js for Diagrams -->
@@ -13,68 +13,344 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0d1117;
+            --bg: #0a0e17;
+            --bg-alt: #111827;
             --text: #c9d1d9;
-            --accent: #2f81f7;
-            --border: #30363d;
+            --text-bright: #e6edf3;
+            --accent: #58a6ff;
+            --accent-dim: rgba(88, 166, 255, 0.15);
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-red: #f85149;
+            --border: #21262d;
+            --border-light: #30363d;
             --pre-bg: #161b22;
+            --sidebar-width: 280px;
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text);
-            line-height: 1.6;
-            margin: 0;
-            padding: 40px;
+            line-height: 1.7;
             display: flex;
-            justify-content: center;
+            min-height: 100vh;
         }
-        #content {
-            max-width: 900px;
-            width: 100%;
+
+        /* ── Sidebar / Table of Contents ── */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            overflow-y: auto;
+            background: var(--bg-alt);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            z-index: 100;
         }
-        h1, h2, h3 { border-bottom: 1px solid var(--border); padding-bottom: 10px; color: #fff; }
+        #sidebar .logo {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--accent);
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+        #sidebar .subtitle {
+            font-size: 11px;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 24px;
+        }
+        #sidebar nav a {
+            display: block;
+            padding: 6px 12px;
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.15s;
+            margin-bottom: 2px;
+        }
+        #sidebar nav a:hover {
+            color: var(--text-bright);
+            background: rgba(255,255,255,0.04);
+        }
+        #sidebar nav a.active {
+            color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        /* ── Main Content ── */
+        #main {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 48px 64px;
+            max-width: 960px;
+        }
+
+        /* ── Typography ── */
+        h1 {
+            font-size: 36px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+            border: none;
+        }
+        h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 56px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-bright);
+            margin-top: 32px;
+            margin-bottom: 12px;
+            border: none;
+        }
+        h4 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: 24px;
+            margin-bottom: 8px;
+        }
+        p {
+            margin-bottom: 16px;
+            font-size: 15px;
+        }
+        ul, ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+        li { margin-bottom: 6px; font-size: 15px; }
+
         a { color: var(--accent); text-decoration: none; }
-        pre { background: var(--pre-bg); padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid var(--border); }
-        code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 85%; }
-        .mermaid { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        hr { border: 0; border-top: 1px solid var(--border); margin: 40px 0; }
-        blockquote { border-left: 4px solid var(--accent); padding-left: 20px; color: #8b949e; margin: 0; }
+        a:hover { text-decoration: underline; }
+
+        hr {
+            border: 0;
+            border-top: 1px solid var(--border);
+            margin: 48px 0;
+        }
+
+        strong { color: var(--text-bright); }
+
+        /* ── Code Blocks ── */
+        pre {
+            background: var(--pre-bg) !important;
+            padding: 16px 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        code {
+            font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 13px;
+        }
+        :not(pre) > code {
+            background: rgba(110,118,129,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 85%;
+        }
+
+        /* ── Tables ── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+        thead th {
+            background: var(--bg-alt);
+            color: var(--text-bright);
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tbody td {
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            vertical-align: top;
+        }
+        tbody tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* ── Mermaid Diagrams ── */
+        .mermaid {
+            background: #fff;
+            padding: 24px;
+            border-radius: 12px;
+            margin: 24px 0;
+            text-align: center;
+        }
+
+        /* ── Blockquotes ── */
+        blockquote {
+            border-left: 4px solid var(--accent);
+            padding: 12px 20px;
+            margin: 16px 0 24px;
+            color: #8b949e;
+            background: rgba(88,166,255,0.04);
+            border-radius: 0 8px 8px 0;
+        }
+        blockquote strong { color: var(--accent); }
+
+        /* ── Loading ── */
+        #loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 60vh;
+            gap: 16px;
+        }
+        .spinner {
+            width: 32px; height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            #sidebar { display: none; }
+            #main { margin-left: 0; padding: 24px; }
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
     </style>
 </head>
 <body>
-    <div id="content">Loading documentation...</div>
+    <aside id="sidebar">
+        <div class="logo">⚡ SutraAI</div>
+        <div class="subtitle">Developer Docs</div>
+        <nav id="toc"></nav>
+    </aside>
+
+    <main id="main">
+        <div id="content">
+            <div id="loading">
+                <div class="spinner"></div>
+                <span style="color:#8b949e;font-size:14px;">Loading documentation...</span>
+            </div>
+        </div>
+    </main>
 
     <script>
         // Init Mermaid
-        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: { useMaxWidth: true, htmlLabels: true },
+        });
 
         async function loadDocs() {
-            const response = await fetch('/docs/static/developer_docs.md');
-            const markdown = await response.text();
-            
-            // Render MD
-            document.getElementById('content').innerHTML = marked.parse(markdown);
-            
-            // Highlight Code
-            Prism.highlightAll();
+            try {
+                const response = await fetch('/docs/static/developer_docs.md');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const markdown = await response.text();
 
-            // Render Mermaid
-            const mermaidDivs = document.querySelectorAll('.language-mermaid');
-            mermaidDivs.forEach((div, i) => {
-                const id = 'mermaid-' + i;
-                const content = div.textContent;
-                const parent = div.parentElement;
-                
+                // Render Markdown
+                document.getElementById('content').innerHTML = marked.parse(markdown);
+
+                // Build TOC from h2 elements
+                buildTOC();
+
+                // Highlight Code
+                Prism.highlightAll();
+
+                // Render Mermaid diagrams
+                await renderMermaid();
+
+            } catch (err) {
+                document.getElementById('content').innerHTML = `
+                    <div style="text-align:center;padding:60px 0;">
+                        <h2 style="border:none;color:var(--accent-red);">Failed to load documentation</h2>
+                        <p style="color:#8b949e;">${err.message}</p>
+                        <p style="color:#8b949e;font-size:13px;">Ensure the server is running and <code>developer_docs.md</code> exists in the <code>docs/</code> directory.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function buildTOC() {
+            const toc = document.getElementById('toc');
+            const headings = document.querySelectorAll('#content h2');
+
+            headings.forEach((h, i) => {
+                const id = `section-${i}`;
+                h.id = id;
+
+                const link = document.createElement('a');
+                link.href = `#${id}`;
+                link.textContent = h.textContent.replace(/^\d+\.\s*/, '');
+                link.addEventListener('click', () => {
+                    document.querySelectorAll('#toc a').forEach(a => a.classList.remove('active'));
+                    link.classList.add('active');
+                });
+                toc.appendChild(link);
+            });
+
+            // Highlight active section on scroll
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const idx = Array.from(headings).indexOf(entry.target);
+                        document.querySelectorAll('#toc a').forEach(a => a.classList.remove('active'));
+                        const tocLinks = document.querySelectorAll('#toc a');
+                        if (tocLinks[idx]) tocLinks[idx].classList.add('active');
+                    }
+                });
+            }, { rootMargin: '-20% 0px -70% 0px' });
+
+            headings.forEach(h => observer.observe(h));
+        }
+
+        async function renderMermaid() {
+            const mermaidBlocks = document.querySelectorAll('code.language-mermaid');
+            for (let i = 0; i < mermaidBlocks.length; i++) {
+                const codeEl = mermaidBlocks[i];
+                const content = codeEl.textContent;
+                const preEl = codeEl.parentElement;
+
                 const mDiv = document.createElement('div');
                 mDiv.className = 'mermaid';
                 mDiv.textContent = content;
-                
-                parent.replaceWith(mDiv);
-            });
-            
+
+                preEl.replaceWith(mDiv);
+            }
             await mermaid.run();
         }
 

@@ -25,9 +25,11 @@ logger = logging.getLogger(__name__)
 class BaseAgent:
     """Base class for all agents."""
 
-    def __init__(self, identifier: str, config_path: Path):
-        self.identifier = identifier
-        self.config_path = config_path
+    def __init__(self, llm=None):
+        self._llm = llm or get_llm_service()
+        # Software Factory: resolve config from identifier
+        config_name = f"{self.identifier}.yaml"
+        self.config_path = Path("agent_config") / config_name
         self._config = self._load_config()
 
     def _load_config(self) -> dict:

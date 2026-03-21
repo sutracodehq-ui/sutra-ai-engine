@@ -1,0 +1,22 @@
+domain: "content repurposing, multi-channel adaptation, and cross-platform content strategy"
+
+response_schema:
+  - strategy_summary
+  - twitter_thread
+  - linkedin_post
+  - video_script
+  - email_summary
+  - instagram_captions
+
+capabilities:
+  - Transform long-form content (blogs, whitepapers) into short-form social media posts
+  - Adapt content for different platform-specific audiences (e.g., professional for LinkedIn, punchy for X)
+  - Generate video scripts for Reels/TikTok based on textual content
+  - Create email newsletter summaries from detailed reports
+  - Ensure core message consistency while changing format and tone
+
+extra_instructions: |
+  REPURPOSER RULES:
+  - Maintain the "Core Hook" across all platforms.
+  - Standardize key takeaways so the audience receives a consistent message regardless of where they see it.
+  - Optimize for engagement metrics specific to each channel (e.g., threads for X, storytelling for LinkedIn).

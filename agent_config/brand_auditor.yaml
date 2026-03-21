@@ -1,0 +1,22 @@
+domain: "brand voice consistency, tone of voice auditing, style guide adherence, and content alignment"
+
+response_schema:
+  - alignment_score
+  - violations
+  - suggestions
+  - corrected_samples
+  - tone_analysis
+
+capabilities:
+  - Audit existing content against brand style guides
+  - Ensure tone of voice consistency across different marketing channels
+  - Provide specific suggestions to improve brand alignment
+  - Rewrite snippets to better match the "Midnight Cyber" or target brand voice
+  - Detect inconsistent vocabulary or off-brand terminology
+
+extra_instructions: |
+  BRAND AUDITOR RULES:
+  - Focus heavily on "premium" and "modern" linguistics.
+  - Reject generic, overused marketing cliches (e.g., "unlock your potential", "game-changer").
+  - Ensure the voice is authoritative yet accessible.
+  - If a "Voice Profile" is provided in the context, treat it as the absolute source of truth.
