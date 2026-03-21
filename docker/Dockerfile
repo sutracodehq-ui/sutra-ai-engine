@@ -39,6 +39,7 @@ COPY app/ ./app/
 COPY agent_config/ ./agent_config/
 COPY alembic/ ./alembic/
 COPY alembic.ini pyproject.toml ./
+COPY docs/ ./docs/
 
 # Non-root user for security
 RUN useradd --no-create-home --shell /bin/false sutra && \

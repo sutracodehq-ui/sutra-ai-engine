@@ -36,7 +36,7 @@ tests/
 
 # Docs
 README.md
-docs/
+# docs/
 
 # Volumes
 postgres_data/

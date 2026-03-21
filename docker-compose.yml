@@ -12,6 +12,7 @@ services:
       - ./app:/app/app
       - ./agent_config:/app/agent_config
       - ./alembic:/app/alembic
+      - ./docs:/app/docs
     depends_on:
       sutra-ai-postgres:
         condition: service_healthy

@@ -139,7 +139,8 @@ We support two modes of authentication:
 ### Environment Setup
 1. Clone the repository.
 2. `podman compose up -d`
-3. Access Docs: `http://localhost:8000/docs/dev`
+3. Access Docs: `http://localhost:8090/docs/dev`
+
 
 ### Running the CLI
 ```bash
