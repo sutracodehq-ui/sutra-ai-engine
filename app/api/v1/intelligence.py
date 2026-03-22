@@ -6,7 +6,6 @@ from typing import Optional
 
 from app.dependencies import DbSession, get_current_tenant
 from app.models.tenant import Tenant
-from app.middleware.response import ApiResponse
 from app.services.intelligence.sentiment import SentimentService
 from app.services.intelligence.language import LanguageService
 from app.services.rag.brand_extractor import BrandExtractor
@@ -66,7 +65,7 @@ async def analyze_sentiment(
     **Returns:** `score` (-1 to 1), `label` (positive/neutral/negative), `vibe` (excitement/calm/anger/etc.)
     """
     result = await SentimentService.analyze(body.text)
-    return ApiResponse.ok(data=result)
+    return result
 
 
 @router.post("/language", summary="Detect Language")
@@ -80,7 +79,7 @@ async def detect_language(
     **Returns:** `language` (ISO code), `name` (English name), `confidence` (0-1)
     """
     result = await LanguageService.detect(body.text)
-    return ApiResponse.ok(data=result)
+    return result
 
 
 @router.post("/brand-analyze", summary="Analyze Brand from URL")
@@ -95,12 +94,11 @@ async def analyze_brand(
     """
     profile = await BrandExtractor.analyze_url(body.url)
     if not profile:
-        return ApiResponse.error(
-            message=f"Could not analyze brand from {body.url}",
-            code="BRAND_ANALYSIS_FAILED",
-            status=422,
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not analyze brand from {body.url}",
         )
-    return ApiResponse.ok(data=profile)
+    return profile
 
 
 # ─── New Marketing Intelligence Endpoints ────────────────────────
@@ -126,7 +124,7 @@ async def analyze_url(
     scraper = WebScraperService()
     scraped_data = await scraper.analyze_url(body.url, max_pages=body.max_pages)
 
-    return ApiResponse.ok(data=scraped_data, meta={"url": body.url, "pages_crawled": len(scraped_data.get("pages", []))})
+    return {"analysis": scraped_data, "meta": {"url": body.url, "pages_crawled": len(scraped_data.get("pages", []))}}
 
 
 @router.post("/seo-audit", summary="Full SEO Audit")
@@ -178,7 +176,7 @@ Respond in JSON with key: recommendations (array of objects with: priority (high
         response = await hub.run("seo", prompt, context, db=db)
         audit_result["ai_recommendations"] = response.content
 
-    return ApiResponse.ok(data=audit_result, meta={"pages_audited": len(audit_result["pages"])})
+    return audit_result
 
 
 @router.post("/hashtag-suggest", summary="Suggest Hashtags")
@@ -205,7 +203,7 @@ Respond in JSON with keys: trending, niche, branded (each an array of objects wi
 
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("social", prompt, context, db=db)
-    return ApiResponse.ok(data={"content": response.content, "platform": body.platform, "topic": body.topic})
+    return {"content": response.content, "platform": body.platform, "topic": body.topic}
 
 
 @router.post("/competitor-analyze", summary="Analyze Competitor")
@@ -245,15 +243,16 @@ Respond in JSON with keys: positioning, content_strategy, social_presence, stren
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("competitor_analyst", prompt, context, db=db)
 
-    return ApiResponse.ok(
-        data={"content": response.content, "scraped_summary": {
+    return {
+        "content": response.content,
+        "scraped_summary": {
             "domain": scraped_data.get("domain", ""),
             "tech_stack": scraped_data.get("tech_stack", []),
             "social_profiles": scraped_data.get("social_profiles", {}),
             "seo_score": scraped_data.get("overall_seo_health", {}).get("score", 0),
-        }},
-        meta={"competitor_url": body.url}
-    )
+        },
+        "competitor_url": body.url,
+    }
 
 
 # ─── Language Support Endpoint ───────────────────────────────
@@ -271,7 +270,4 @@ async def list_languages():
     **Usage:** Include `"language": "hi"` or `"language": "mai"` in the request context.
     """
     languages = list_languages_summary()
-    return ApiResponse.ok(
-        data=languages,
-        meta={"total": len(languages), "auto_detect": True}
-    )
+    return {"languages": languages, "total": len(languages), "auto_detect": True}

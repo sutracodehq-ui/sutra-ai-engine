@@ -11,7 +11,6 @@ from typing import Optional
 
 from app.dependencies import DbSession, get_current_tenant
 from app.models.tenant import Tenant
-from app.middleware.response import ApiResponse
 from app.services.voice.voice_service import (
     process_voice_input,
     transcribe_audio,
@@ -60,10 +59,9 @@ async def process_voice(
         "audio/x-m4a", "video/webm",  # Some browsers send webm as video
     ]
     if file.content_type and file.content_type not in allowed_types:
-        return ApiResponse.error(
-            message=f"Unsupported audio format: {file.content_type}. Use webm, mp3, wav, ogg, flac, or m4a.",
-            code="UNSUPPORTED_FORMAT",
-            status=400,
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format: {file.content_type}. Use webm, mp3, wav, ogg, flac, or m4a.",
         )
 
     # Read file bytes
@@ -72,10 +70,9 @@ async def process_voice(
     # Validate file size (25MB max for Whisper)
     max_size = 25 * 1024 * 1024
     if len(file_bytes) > max_size:
-        return ApiResponse.error(
-            message=f"Audio file too large ({len(file_bytes) / 1024 / 1024:.1f}MB). Maximum is 25MB.",
-            code="FILE_TOO_LARGE",
-            status=400,
+        raise HTTPException(
+            status_code=400,
+            detail=f"Audio file too large ({len(file_bytes) / 1024 / 1024:.1f}MB). Maximum is 25MB.",
         )
 
     result = await process_voice_input(
@@ -90,16 +87,14 @@ async def process_voice(
     )
 
     if "error" in result:
-        return ApiResponse.error(message=result["error"], code="VOICE_PROCESSING_FAILED", status=422)
+        raise HTTPException(status_code=422, detail=result["error"])
 
-    return ApiResponse.ok(
-        data=result,
-        meta={
-            "detected_language": result.get("detected_language", "unknown"),
-            "agent_type": agent_type,
-            "voice_reply_generated": generate_voice_reply,
-        },
-    )
+    return {
+        **result,
+        "detected_language": result.get("detected_language", "unknown"),
+        "agent_type": agent_type,
+        "voice_reply_generated": generate_voice_reply,
+    }
 
 
 @router.post("/transcribe", summary="Transcribe Audio Only")
@@ -129,14 +124,12 @@ async def transcribe_only(
 
     transcription = await transcribe_audio(file_bytes, file.filename or "audio.webm")
 
-    return ApiResponse.ok(
-        data={
-            "text": transcription["text"],
-            "language": transcription["language"],
-            "duration": transcription["duration"],
-            "r2_key": r2_key,
-        },
-    )
+    return {
+        "text": transcription["text"],
+        "language": transcription["language"],
+        "duration": transcription["duration"],
+        "r2_key": r2_key,
+    }
 
 
 @router.post("/speak", summary="Text-to-Speech")
@@ -158,10 +151,8 @@ async def speak(
     filename = f"tts_{uuid.uuid4().hex[:8]}.mp3"
     r2_key = await upload_to_r2(audio_bytes, filename, tenant.slug, "audio/mpeg")
 
-    return ApiResponse.ok(
-        data={
-            "r2_key": r2_key,
-            "voice": voice,
-            "text_length": len(text),
-        },
-    )
+    return {
+        "r2_key": r2_key,
+        "voice": voice,
+        "text_length": len(text),
+    }

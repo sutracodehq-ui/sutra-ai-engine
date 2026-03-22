@@ -6,8 +6,11 @@ Every API response is wrapped in a consistent envelope:
 
 All unhandled exceptions are caught and returned as structured JSON
 instead of raw 500 HTML errors.
+
+Routes simply return their payload; the middleware wraps it automatically.
 """
 
+import json
 import time
 import uuid
 import logging
@@ -16,15 +19,25 @@ import traceback
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import StreamingResponse
 from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
+# Paths that should NOT be wrapped (infrastructure, docs, static)
+_SKIP_PATHS = frozenset({"/health", "/ready", "/docs", "/redoc", "/openapi.json"})
+
 
 class ResponseEnvelopeMiddleware(BaseHTTPMiddleware):
     """
-    Wraps all JSON responses in a unified envelope format.
-    Catches all exceptions and returns structured error JSON.
+    Wraps ALL JSON responses in a unified envelope format.
+
+    Routes just return data:
+        return {"name": "John"}          → {"success": true, "data": {"name": "John"}, ...}
+        return [item1, item2]            → {"success": true, "data": [item1, item2], ...}
+        return ApiResponse.ok(data=...)  → already wrapped, pass through
+
+    Errors, validation failures, and exceptions are also wrapped via exception handlers.
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
@@ -36,18 +49,52 @@ class ResponseEnvelopeMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
+            duration_ms = round((time.time() - start_time) * 1000, 2)
 
-            # Skip wrapping for non-JSON responses (docs, static files, SSE)
+            # Skip wrapping for non-JSON, SSE, static, docs, health
             content_type = response.headers.get("content-type", "")
             if "application/json" not in content_type:
                 return response
+            if request.url.path in _SKIP_PATHS or request.url.path.startswith("/docs/"):
+                response.headers["X-Request-Id"] = request_id
+                return response
 
-            # For successful JSON responses, we let them through as-is
-            # The envelope wrapping happens at the route level via ApiResponse
-            duration_ms = round((time.time() - start_time) * 1000, 2)
-            response.headers["X-Request-Id"] = request_id
-            response.headers["X-Response-Time"] = f"{duration_ms}ms"
-            return response
+            # Read the response body
+            body_bytes = b""
+            async for chunk in response.body_iterator:
+                if isinstance(chunk, str):
+                    body_bytes += chunk.encode("utf-8")
+                else:
+                    body_bytes += chunk
+
+            try:
+                body = json.loads(body_bytes)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # Not valid JSON — return as-is
+                return _rebuild_response(response, body_bytes, request_id, duration_ms)
+
+            # Already wrapped? (from ApiResponse.ok() or exception handlers)
+            if isinstance(body, dict) and "success" in body and "data" in body and "error" in body:
+                # Pass through — just add headers
+                return _rebuild_response(response, body_bytes, request_id, duration_ms)
+
+            # Wrap the raw response in the envelope
+            is_error = response.status_code >= 400
+            wrapped = {
+                "success": not is_error,
+                "data": None if is_error else body,
+                "error": _build_error_from_body(body, response.status_code) if is_error else None,
+                "meta": {"request_id": request_id, "duration_ms": duration_ms},
+            }
+
+            return JSONResponse(
+                status_code=response.status_code,
+                content=wrapped,
+                headers={
+                    "X-Request-Id": request_id,
+                    "X-Response-Time": f"{duration_ms}ms",
+                },
+            )
 
         except Exception as exc:
             # Catch-all: this should never be hit if exception_handlers work,
@@ -75,6 +122,28 @@ class ResponseEnvelopeMiddleware(BaseHTTPMiddleware):
                     "X-Response-Time": f"{duration_ms}ms",
                 },
             )
+
+
+def _rebuild_response(original, body_bytes: bytes, request_id: str, duration_ms: float):
+    """Rebuild a response from raw bytes, preserving status and adding headers."""
+    return JSONResponse(
+        status_code=original.status_code,
+        content=json.loads(body_bytes),
+        headers={
+            "X-Request-Id": request_id,
+            "X-Response-Time": f"{duration_ms}ms",
+        },
+    )
+
+
+def _build_error_from_body(body, status_code: int) -> dict | None:
+    """Extract error info from a raw error response body."""
+    if isinstance(body, dict):
+        return {
+            "code": body.get("code", _status_to_code(status_code)),
+            "message": body.get("detail", body.get("message", "Request failed")),
+        }
+    return {"code": _status_to_code(status_code), "message": str(body)}
 
 
 # ─── Exception Handlers (registered on the app) ─────────────────

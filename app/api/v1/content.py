@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from app.dependencies import CurrentTenant, DbSession
-from app.middleware.response import ApiResponse
 from app.services.agents.hub import get_agent_hub
 
 router = APIRouter(prefix="/content", tags=["content"])
@@ -97,7 +96,7 @@ Respond in JSON with keys: caption, hashtags, cta, image_prompt, optimal_posting
 
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("social", prompt, context, db=db)
-    return ApiResponse.ok(data={"content": response.content, "agent": "social", "platform": body.platform})
+    return {"content": response.content, "agent": "social", "platform": body.platform}
 
 
 @router.post("/email-template", summary="Generate Email Template")
@@ -124,7 +123,7 @@ Respond in JSON with keys: subject_variants, preheader, body_html, cta_text, cta
 
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("email_campaign", prompt, context, db=db)
-    return ApiResponse.ok(data={"content": response.content, "agent": "email_campaign", "purpose": body.purpose})
+    return {"content": response.content, "agent": "email_campaign", "purpose": body.purpose}
 
 
 @router.post("/ad-copy", summary="Generate Ad Copy")
@@ -152,7 +151,7 @@ Respond in JSON with key: variants (array)"""
 
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("ad_creative", prompt, context, db=db)
-    return ApiResponse.ok(data={"content": response.content, "agent": "ad_creative", "platform": body.platform, "variants_requested": body.num_variants})
+    return {"content": response.content, "agent": "ad_creative", "platform": body.platform, "variants_requested": body.num_variants}
 
 
 @router.post("/repurpose", summary="Repurpose Content")
@@ -178,7 +177,7 @@ Respond in JSON with a key for each target format."""
 
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("content_repurpose", prompt, context, db=db)
-    return ApiResponse.ok(data={"content": response.content, "agent": "content_repurpose", "source": body.source_format, "targets": body.target_formats})
+    return {"content": response.content, "agent": "content_repurpose", "source": body.source_format, "targets": body.target_formats}
 
 
 @router.post("/calendar-suggest", summary="Suggest Content Calendar")
@@ -207,7 +206,7 @@ Respond in JSON with key: calendar (array)"""
 
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("campaign_strategist", prompt, context, db=db)
-    return ApiResponse.ok(data={"content": response.content, "agent": "campaign_strategist", "timeframe": body.timeframe})
+    return {"content": response.content, "agent": "campaign_strategist", "timeframe": body.timeframe}
 
 
 @router.post("/landing-page", summary="Generate Landing Page Copy")
@@ -237,4 +236,4 @@ Respond in JSON with a key for each section."""
 
     context = {"tenant_slug": tenant.slug}
     response = await hub.run("landing_page_builder", prompt, context, db=db)
-    return ApiResponse.ok(data={"content": response.content, "agent": "landing_page_builder", "product": body.product})
+    return {"content": response.content, "agent": "landing_page_builder", "product": body.product}
