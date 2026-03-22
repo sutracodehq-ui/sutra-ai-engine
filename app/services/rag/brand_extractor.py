@@ -10,7 +10,6 @@ from typing import TypedDict, List
 
 from app.services.llm_service import get_llm_service
 from app.services.rag.web_crawler import WebCrawler
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +38,9 @@ class BrandExtractor:
         # 2. Clean
         raw_text = WebCrawler.clean_html(html)
         
-        # 3. Analyze with LLM
-        settings = get_settings()
+        # 3. Analyze with LLM — use default driver chain (no model override)
         service = get_llm_service()
-        
-        # Use a high-quality model for extraction if possible
-        model = settings.ai_meta_prompt_model
-        
+
         prompt = f"""
 Analyze the following text from the website of {url}.
 Your goal is to extract the brand identity of this company.
@@ -69,13 +64,12 @@ Return ONLY a JSON object with this schema:
             result = await service.complete(
                 prompt=prompt,
                 system_prompt="You are a Brand Strategist. Extract key identity markers from web content.",
-                model=model,
                 temperature=0.0,
                 json_mode=True
             )
             
             import json
-            data = json.loads(result.get("content", "{}"))
+            data = json.loads(result.content or "{}")
             return data
         except Exception as e:
             logger.error(f"Brand Extraction failed for {url}: {e}")

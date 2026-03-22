@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db, get_redis
-from app.schemas.common import HealthResponse, ReadyResponse
+from app.schemas.common import HealthResponse
 
 router = APIRouter(tags=["health"])
 
@@ -16,23 +16,66 @@ async def liveness():
     return HealthResponse()
 
 
-@router.get("/ready", response_model=ReadyResponse)
+@router.get("/ready")
 async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
-    """Kubernetes readiness probe — checks DB + Redis connectivity."""
-    db_status = "connected"
-    redis_status = "connected"
-    chromadb_status = "unknown"
+    """
+    Kubernetes readiness probe — checks DB, Redis, migrations, and tenants.
 
+    Returns 200 if all checks pass, 503 if any critical check fails.
+    """
+    checks = {
+        "database": "connected",
+        "redis": "connected",
+        "migrations": "unknown",
+        "tenants": 0,
+    }
+    is_healthy = True
+
+    # ─── Database ────────────────────────────────────────
     try:
         await db.execute(text("SELECT 1"))
     except Exception:
-        db_status = "disconnected"
+        checks["database"] = "disconnected"
+        is_healthy = False
 
+    # ─── Redis ───────────────────────────────────────────
     try:
         await redis.ping()
     except Exception:
-        redis_status = "disconnected"
+        checks["redis"] = "disconnected"
+        is_healthy = False
 
-    status = "ok" if db_status == "connected" and redis_status == "connected" else "degraded"
+    # ─── Migrations ──────────────────────────────────────
+    try:
+        result = await db.execute(
+            text("SELECT version_num FROM alembic_version LIMIT 1")
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            checks["migrations"] = f"current ({row})"
+        else:
+            checks["migrations"] = "no version found"
+            is_healthy = False
+    except Exception:
+        checks["migrations"] = "alembic_version table missing — run migrations"
+        is_healthy = False
 
-    return ReadyResponse(status=status, database=db_status, redis=redis_status, chromadb=chromadb_status)
+    # ─── Tenants ─────────────────────────────────────────
+    try:
+        result = await db.execute(
+            text("SELECT COUNT(*) FROM tenants WHERE is_active = true")
+        )
+        count = result.scalar_one()
+        checks["tenants"] = count
+        if count == 0:
+            is_healthy = False
+    except Exception:
+        checks["tenants"] = "table missing"
+        is_healthy = False
+
+    status_code = 200 if is_healthy else 503
+    return {
+        "status": "ok" if is_healthy else "degraded",
+        **checks,
+    } | ({"_http_status": status_code} if not is_healthy else {})
+

@@ -9,7 +9,6 @@ import logging
 from typing import TypedDict
 
 from app.services.llm_service import get_llm_service
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,6 @@ class LanguageService:
         if not text or len(text) < 10:
             return {"code": "en", "name": "English", "confidence": 1.0}
 
-        settings = get_settings()
         service = get_llm_service()
         
         prompt = f"""
@@ -48,13 +46,12 @@ TEXT: "{text[:500]}"
             result = await service.complete(
                 prompt=prompt,
                 system_prompt="You are a language detector. Output raw JSON ONLY.",
-                model=settings.ai_meta_prompt_model,
                 temperature=0.0,
                 json_mode=True
             )
             
             import json
-            data = json.loads(result.get("content", "{}"))
+            data = json.loads(result.content or "{}")
             return {
                 "code": data.get("code", "en"),
                 "name": data.get("name", "English"),
@@ -75,4 +72,4 @@ TEXT: "{text[:500]}"
             system_prompt="You are a professional translator. Only return the translated text.",
             temperature=0.3
         )
-        return result.get("content", text)
+        return result.content or text

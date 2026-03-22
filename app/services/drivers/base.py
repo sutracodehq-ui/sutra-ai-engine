@@ -34,6 +34,22 @@ class LlmResponse:
             "driver": self.driver,
         }
 
+    # ── Dict-compatibility layer (safety net for callers using .get()) ──
+
+    def get(self, key: str, default=None):
+        """Dict-like access — prevents crashes if callers treat LlmResponse as dict."""
+        import logging
+        logging.getLogger(__name__).warning(
+            f"LlmResponse.get('{key}') called — use attribute access instead"
+        )
+        return getattr(self, key, default)
+
+    def __getitem__(self, key: str):
+        return getattr(self, key)
+
+    def __setitem__(self, key: str, value):
+        setattr(self, key, value)
+
 
 class LlmDriver(ABC):
     """

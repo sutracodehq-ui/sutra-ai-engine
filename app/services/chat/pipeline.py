@@ -98,7 +98,9 @@ class ChatPipeline:
                 return cached_result
 
         # Step 4: Smart Routing
-        route = SmartRouter.route(safe_prompt, context=context)
+        router = SmartRouter()
+        agent_type = context.get("agent_type", "general") if context else "general"
+        route = router.route(safe_prompt, agent_type=agent_type)
         driver = route["driver"]
         model = route["model"]
 
@@ -128,20 +130,20 @@ class ChatPipeline:
             from app.services.intelligence.competitor_lock import CompetitorLock
             
             # 6.1 Check output moderation
-            out_mod = await ModerationService.check(result.get("content", ""))
+            out_mod = await ModerationService.check(result.content or "")
             if out_mod["flagged"]:
                 logger.error(f"🚨 Output Safety Violation: {out_mod['categories']}")
-                result["content"] = "I apologize, but I cannot generate that content as it violates my safety policy."
+                result.content = "I apologize, but I cannot generate that content as it violates my safety policy."
             
             # 6.2 Competitor Lock (if profile exists)
             if voice_profile and hasattr(voice_profile, 'metadata'):
                 competitors = voice_profile.metadata.get("competitors", [])
                 if competitors:
-                    result["content"] = CompetitorLock.apply_guardrail(result["content"], competitors)
+                    result.content = CompetitorLock.apply_guardrail(result.content, competitors)
 
             # Save to cache if enabled
             if cache_key:
-                await cache.set(cache_key, result)
+                await cache.set(cache_key, result.to_dict())
             
             return result
 

@@ -15,7 +15,6 @@ from sqlalchemy.orm import selectinload
 from app.models.ai_task import AiTask
 from app.models.agent_feedback import AgentFeedback
 from app.services.llm_service import get_llm_service
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +37,9 @@ class MetaPromptService:
         meta_prompt = cls._build_meta_prompt(agent_type, samples)
 
         # 3. Call Meta-LLM to generate a better version
-        settings = get_settings()
         service = get_llm_service()
         
-        logger.info(f"Learn Loop: Optimizing '{agent_type}' using {settings.ai_meta_prompt_model}")
+        logger.info(f"Learn Loop: Optimizing '{agent_type}' via default driver chain")
         
         result = await service.complete(
             prompt=meta_prompt,
@@ -49,11 +47,10 @@ class MetaPromptService:
                 "You are an expert Prompt Engineer. Your goal is to analyze user feedback "
                 "on AI responses and improve the system prompt to maximize quality scores."
             ),
-            model=settings.ai_meta_prompt_model,
             temperature=0.2  # Low temperature for stable optimization
         )
 
-        new_prompt = result.get("content")
+        new_prompt = result.content
         return new_prompt
 
     @staticmethod

@@ -37,12 +37,12 @@ async def chat_completion(
     )
 
     return ChatResponse(
-        id=result.get("id", "unknown"),
-        content=result.get("content", ""),
-        driver=result.get("driver"),
-        model=result.get("model"),
-        usage=result.get("usage", {}),
-        metadata=result.get("metadata", {})
+        id=getattr(result, "id", "unknown"),
+        content=result.content if hasattr(result, "content") else result.get("content", ""),
+        driver=result.driver if hasattr(result, "driver") else result.get("driver"),
+        model=result.model if hasattr(result, "model") else result.get("model"),
+        usage=result.metadata if hasattr(result, "metadata") else result.get("usage", {}),
+        metadata=result.metadata if hasattr(result, "metadata") else result.get("metadata", {})
     )
 
 

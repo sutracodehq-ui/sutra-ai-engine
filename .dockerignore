@@ -4,6 +4,7 @@
 
 # Docker (don't send Docker files as build context)
 docker/
+!docker/entrypoint.sh
 docker-compose.yml
 docker-compose.prod.yml
 

@@ -9,7 +9,6 @@ import logging
 from typing import List
 
 from app.services.llm_service import get_llm_service
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +47,12 @@ Your task is to reverse-engineer WHY they made these changes.
 
 RULES:
 """
-        settings = get_settings()
         service = get_llm_service()
         
         result = await service.complete(
             prompt=meta_prompt,
             system_prompt="You are a linguistic analyst. You detect subtle shifts in tone and style between two versions of text.",
-            model=settings.ai_meta_prompt_model,
             temperature=0.0
         )
 
-        return result.get("content")
+        return result.content

@@ -40,6 +40,9 @@ dependencies = [
     # Web Scraping
     "beautifulsoup4>=4.12",
     "lxml>=5.0",
+
+    # Sync DB (entrypoint scripts — seed tenant, healthchecks)
+    "psycopg2-binary>=2.9",
 ]
 
 [project.optional-dependencies]

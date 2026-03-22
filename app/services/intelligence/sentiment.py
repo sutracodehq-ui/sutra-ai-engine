@@ -10,7 +10,6 @@ import logging
 from typing import TypedDict
 
 from app.services.llm_service import get_llm_service
-from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +29,7 @@ class SentimentService:
         if not text or len(text) < 5:
             return {"score": 0.0, "label": "neutral", "vibe": "neutral"}
 
-        settings = get_settings()
         service = get_llm_service()
-        
-        # We use a fast model for 'reflexive' intelligence like sentiment
-        model = settings.ai_meta_prompt_model  # Default to Flash
         
         prompt = f"""
 Analyze the sentiment and tone of the following user message.
@@ -52,13 +47,12 @@ USER MESSAGE: "{text}"
             result = await service.complete(
                 prompt=prompt,
                 system_prompt="You are a sentiment analyzer. Be fast, accurate, and output raw JSON only.",
-                model=model,
                 temperature=0.0,
                 json_mode=True
             )
             
             import json
-            data = json.loads(result.get("content", "{}"))
+            data = json.loads(result.content or "{}")
             return {
                 "score": data.get("score", 0.0),
                 "label": data.get("label", "neutral"),

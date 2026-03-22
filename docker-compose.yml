@@ -5,6 +5,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     container_name: sutra-ai-api
+    entrypoint: ["./docker/entrypoint.sh"]
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8090:8000"
@@ -14,6 +15,8 @@ services:
       - ./agent_config:/app/agent_config
       - ./config:/app/config
       - ./alembic:/app/alembic
+      - ./scripts:/app/scripts
+      - ./docker/entrypoint.sh:/app/docker/entrypoint.sh
       - ./docs:/app/docs
     depends_on:
       sutra-ai-postgres:
