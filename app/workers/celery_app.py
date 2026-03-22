@@ -88,6 +88,11 @@ celery_app.conf.beat_schedule = {
         "task": "voip_analytics",
         "schedule": crontab(hour=6, minute=0),
     },
+    # Daily 4 AM — Agent Collective Intelligence: cross-teach + domain evolve + skill transfer
+    "collective-intelligence": {
+        "task": "app.workers.tasks.cross_teach_job.run_collective_intelligence",
+        "schedule": crontab(hour=4, minute=0),
+    },
 }
 
 # Auto-discover tasks

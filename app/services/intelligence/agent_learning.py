@@ -172,10 +172,18 @@ class AgentLearningSystem:
                 if any(word in cor["prompt"].lower() for word in prompt_lower.split()[:5]):
                     learnings.append(f"Correction from past mistake:\nQ: {cor['prompt'][:200]}\n❌ Bad: {cor['bad_response'][:150]}\n✅ Correct: {cor['correction'][:300]}")
 
+        # ── Also include cross-teachings ──
+        cross_teachings = [
+            ex for ex in self._learnings.get(agent_id, [])
+            if ex.get("prompt", "").startswith("[teaching:")
+        ]
+        for ct in cross_teachings[-5:]:
+            learnings.append(ct.get("good_response", ""))
+
         if not learnings:
             return ""
 
-        header = "\n--- LEARNINGS FROM PAST FEEDBACK (improve your response using these) ---\n"
+        header = "\n--- LEARNINGS FROM PAST FEEDBACK & CROSS-TEACHINGS (improve your response using these) ---\n"
         return header + "\n\n".join(learnings[:max_examples]) + "\n--- END LEARNINGS ---\n"
 
     def get_quality(self, agent_id: str) -> dict:
@@ -268,6 +276,31 @@ class AgentLearningSystem:
         except Exception as e:
             logger.debug(f"AgentLearning: vector search failed: {e}")
             return []
+
+
+    def get_teaching_effectiveness(self, agent_id: str) -> dict:
+        """Measure quality improvement after receiving cross-teachings."""
+        quality = self.get_quality(agent_id)
+        cross_teachings = [
+            ex for ex in self._learnings.get(agent_id, [])
+            if ex.get("prompt", "").startswith("[teaching:")
+        ]
+
+        return {
+            "agent_id": agent_id,
+            "teachings_received": len(cross_teachings),
+            "current_avg_rating": quality.get("avg_rating", 0),
+            "quality_trend": quality.get("trend", "unknown"),
+            "status": quality.get("status", "no_data"),
+        }
+
+    def get_alliance_learnings_summary(self) -> list[dict]:
+        """Get teaching effectiveness for all agents that received teachings."""
+        agents_with_teachings = [
+            agent_id for agent_id, examples in self._learnings.items()
+            if any(ex.get("prompt", "").startswith("[teaching:") for ex in examples)
+        ]
+        return [self.get_teaching_effectiveness(aid) for aid in agents_with_teachings]
 
 
 # ─── Singleton ──────────────────────────────────────────────

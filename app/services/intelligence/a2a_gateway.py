@@ -236,6 +236,122 @@ class A2AGateway:
         logger.info(f"A2A: broadcast from {source_agent} → {successful}/{len(target_agents)} succeeded")
         return responses
 
+    # ─── Teach (push insight to peer) ───────────────────────
+
+    async def teach(
+        self,
+        source_agent: str,
+        target_agent: str,
+        insight: str,
+        topic: str = "general",
+    ) -> dict:
+        """
+        One agent teaches another by pushing a learned insight.
+
+        Uses the CrossTeacher engine to store the insight in
+        the target agent's memory for future prompt enrichment.
+        """
+        try:
+            from app.services.intelligence.cross_teacher import (
+                TeachingInsight,
+                get_cross_teacher,
+            )
+
+            teacher = get_cross_teacher()
+            teaching = TeachingInsight(
+                teacher_agent=source_agent,
+                student_agent=target_agent,
+                topic=topic,
+                insight=insight,
+                confidence=0.8,
+            )
+
+            taught = await teacher.teach(teaching, target_agent)
+            status = "success" if taught else "duplicate"
+
+            logger.info(f"A2A: {source_agent} → teach → {target_agent} ({status})")
+            return {
+                "status": status,
+                "source": source_agent,
+                "target": target_agent,
+                "topic": topic,
+            }
+        except Exception as e:
+            logger.error(f"A2A: teach failed: {e}")
+            return {"status": "error", "reason": str(e)}
+
+    # ─── Request Learning (pull knowledge from peers) ───────
+
+    async def request_learning(
+        self,
+        agent_id: str,
+        topic: str,
+        db=None,
+    ) -> dict:
+        """
+        An agent requests knowledge from its alliance peers on a topic.
+
+        Discovers the agent's alliance, broadcasts the topic to peers,
+        and collects relevant insights.
+        """
+        routes = _load_a2a_routes()
+
+        # Find the agent's alliance from cross_teaching config
+        alliance_members = self._get_alliance_members(agent_id)
+
+        if not alliance_members:
+            return {
+                "status": "no_alliance",
+                "reason": f"{agent_id} has no teaching alliance configured",
+            }
+
+        # Filter to only peers (not self)
+        peers = [m for m in alliance_members if m != agent_id]
+        if not peers:
+            return {"status": "no_peers"}
+
+        # Broadcast the topic to peers
+        prompt = (
+            f"Share your expertise on: {topic}. "
+            f"Provide one concise, actionable insight that would help a peer agent."
+        )
+        responses = await self.broadcast(agent_id, peers, prompt, db=db)
+
+        # Collect successful insights
+        insights = []
+        for r in responses:
+            if r.get("status") == "success" and r.get("response"):
+                insights.append({
+                    "from": r["target"],
+                    "insight": r["response"][:500],
+                })
+
+        logger.info(
+            f"A2A: {agent_id} requested learning on '{topic}' "
+            f"→ {len(insights)}/{len(peers)} peers responded"
+        )
+        return {
+            "status": "success",
+            "agent": agent_id,
+            "topic": topic,
+            "insights_received": len(insights),
+            "insights": insights,
+        }
+
+    def _get_alliance_members(self, agent_id: str) -> list[str]:
+        """Find the alliance members for a given agent."""
+        if not CONFIG_PATH.exists():
+            return []
+        with open(CONFIG_PATH) as f:
+            config = yaml.safe_load(f) or {}
+        alliances = config.get("cross_teaching", {}).get("alliances", {})
+
+        for _alliance_name, alliance_config in alliances.items():
+            members = alliance_config.get("members", [])
+            if agent_id in members:
+                return members
+        return []
+
 
 # ─── Singleton ──────────────────────────────────────────────
 _gateway: A2AGateway | None = None
@@ -246,3 +362,4 @@ def get_a2a_gateway() -> A2AGateway:
     if _gateway is None:
         _gateway = A2AGateway()
     return _gateway
+

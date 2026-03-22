@@ -514,3 +514,90 @@ billing:
       websocket: true
       custom_agents: true
       priority_queue: true
+
+# ─── Cross-Teaching (Agent Collective Intelligence) ────────
+cross_teaching:
+  enabled: true
+  min_quality_to_teach: 4.0           # Only teach from agents with avg rating ≥ 4
+  max_teachings_per_cycle: 5           # Max insights shared per alliance per cycle
+  teaching_retention_days: 90          # How long to keep teaching records
+  min_feedback_count: 10               # Agent needs ≥ N ratings before it can teach
+  effectiveness_check_after: 20        # Measure student quality after N interactions
+
+  # Teaching Alliances — which agents share knowledge
+  alliances:
+    marketing:
+      members: [seo, copywriter, social_media, email_campaign, content_grader, brand_auditor, landing_page_builder]
+      shared_topics: [conversion, engagement, tone, audience_targeting, cta_writing, keyword_usage]
+    finance:
+      members: [stock_analyzer, stock_predictor, market_trend_analyzer, crypto_analyzer, roi_calculator, budget_optimizer]
+      shared_topics: [risk_assessment, market_signals, technical_indicators, data_formatting, disclaimer_placement]
+    health:
+      members: [symptom_triage, diet_planner, lab_report_interpreter, ayurveda_advisor, medicine_info, fitness_coach]
+      shared_topics: [safety_disclaimers, patient_communication, medical_accuracy, emergency_escalation]
+    edtech:
+      members: [quiz_generator, note_generator, flashcard_creator, lecture_planner, key_points_extractor]
+      shared_topics: [pedagogy, difficulty_calibration, student_engagement, content_structuring]
+    sales:
+      members: [cold_call_scripter, lead_scorer, campaign_strategist, persona_builder, funnel_analyzer]
+      shared_topics: [objection_handling, qualification, closing_techniques, lead_nurturing]
+    content_creation:
+      members: [video_scriptwriter, reel_script_writer, caption_generator, youtube_analyzer, social_clip_maker]
+      shared_topics: [hook_writing, pacing, platform_optimization, thumbnail_appeal, retention]
+    legal_compliance:
+      members: [contract_analyzer, gst_compliance, rti_drafter, legal_document_writer, rera_compliance]
+      shared_topics: [legal_accuracy, clause_structure, compliance_checks, jurisdiction_awareness]
+    ecommerce:
+      members: [product_description_writer, review_analyzer, dynamic_pricing, catalog_enricher, zomato_listing_optimizer]
+      shared_topics: [conversion_copy, seo_for_listings, pricing_psychology, review_response]
+
+# ─── Domain Benchmarks (Domain-Specific Evolution) ─────────
+domain_benchmarks:
+  marketing:
+    - prompt: "Write a meta title and description for a SaaS project management tool"
+      expected_keywords: [project, management, tool, team, productivity]
+      max_tokens: 150
+    - prompt: "Create 3 email subject lines for a product launch campaign"
+      expected_keywords: [launch, new, introducing, discover]
+      max_tokens: 200
+    - prompt: "Write a social media caption for an AI analytics platform"
+      expected_keywords: [ai, analytics, data, insights]
+      max_tokens: 200
+  finance:
+    - prompt: "Analyze the risk factors for investing in Indian IT sector in 2025"
+      expected_keywords: [risk, volatility, growth, IT, sector, rupee]
+      max_tokens: 400
+    - prompt: "Calculate ROI for a mutual fund SIP of ₹10,000/month for 5 years at 12% CAGR"
+      expected_keywords: [roi, return, invested, corpus, compound]
+      max_tokens: 300
+      format_check: json
+  health:
+    - prompt: "A patient has fever 102°F, sore throat, body pain for 2 days. Triage this."
+      expected_keywords: [fever, clinic, rest, hydration, paracetamol]
+      max_tokens: 300
+    - prompt: "Interpret a CBC report with Hemoglobin 9.5, WBC 12000, Platelets 150000"
+      expected_keywords: [anemia, hemoglobin, low, normal, consult]
+      max_tokens: 400
+  edtech:
+    - prompt: "Generate 5 MCQ questions on photosynthesis for Class 10 students"
+      expected_keywords: [chlorophyll, sunlight, carbon, oxygen, glucose]
+      max_tokens: 500
+      format_check: json
+    - prompt: "Create revision notes on Newton's Laws of Motion"
+      expected_keywords: [inertia, force, mass, acceleration, reaction]
+      max_tokens: 400
+  legal:
+    - prompt: "Draft a basic service agreement clause for a freelance designer"
+      expected_keywords: [services, payment, termination, deliverables, confidential]
+      max_tokens: 400
+    - prompt: "Check GST compliance for an inter-state B2B transaction of ₹5,00,000"
+      expected_keywords: [IGST, GST, invoice, input, credit, B2B]
+      max_tokens: 300
+
+# ─── Skill Transfer Protocol ──────────────────────────────
+skill_transfer:
+  enabled: true
+  min_examples_for_pack: 15            # Need ≥ N good examples to create a skill pack
+  pack_refresh_days: 30                # Regenerate skill packs every N days
+  max_patterns_per_pack: 10            # Max pattern rules per skill pack
+  max_guardrails_per_pack: 5           # Max guardrail rules per skill pack
