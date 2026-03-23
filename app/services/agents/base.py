@@ -306,6 +306,28 @@ class BaseAgent:
             response.metadata = response.metadata or {}
             response.metadata["agent_optimization_id"] = opt_id
 
+        # ─── Response Filtration: normalize LLM output ────────
+        response = self._filter_response(response)
+
+        return response
+
+    def _filter_response(self, response: LlmResponse) -> LlmResponse:
+        """
+        Run raw LLM output through the Response Filtration Engine.
+
+        Attaches a clean AgentResult to response.metadata["filtered_result"]
+        so the API layer can directly use the structured data.
+        """
+        try:
+            from app.services.intelligence.response_filter import get_response_filter
+            engine = get_response_filter()
+            result = engine.filter(response.content or "", self._config)
+
+            response.metadata = response.metadata or {}
+            response.metadata["filtered_result"] = result.model_dump()
+        except Exception as e:
+            logger.warning(f"ResponseFilter skipped: {e}")
+
         return response
 
 

@@ -72,23 +72,18 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
         if response.metadata and "agent_optimization_id" in response.metadata:
             task.agent_optimization_id = response.metadata["agent_optimization_id"]
 
-        # Extract suggestions if response is JSON
-        suggestions = []
-        try:
-            content_json = json.loads(response.content)
-            if isinstance(content_json, dict) and "suggestions" in content_json:
-                suggestions = content_json.pop("suggestions", [])
-                # Update task result without suggestions to avoid duplication if needed, 
-                # but usually keep it in result as well for completeness
-                task.result = content_json
-        except (json.JSONDecodeError, TypeError):
-            pass
+        # Use Response Filtration Engine output (attached by BaseAgent._filter_response)
+        filtered = (response.metadata or {}).get("filtered_result", {})
+        result_data = filtered.get("data", {"content": response.content})
+        suggestions = filtered.get("suggestions", [])
+
+        task.result = result_data
 
         return ChatResponse(
             task_id=task.id,
             status="completed",
             agent_type=agent_type,
-            result={"content": response.content},
+            result=result_data,
             suggestions=suggestions,
             tokens_used=response.total_tokens,
             driver_used=response.driver,
@@ -136,23 +131,25 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
                 full_response.append(token)
                 yield f"data: {json.dumps({'token': token, 'agent': agent_type})}\n\n"
 
-            # Stream complete — parse for suggestions
+            # Stream complete — run through Response Filtration Engine
             complete_text = "".join(full_response)
-            suggestions = []
             try:
-                content_json = json.loads(complete_text)
-                if isinstance(content_json, dict) and "suggestions" in content_json:
-                    suggestions = content_json.pop("suggestions", [])
-            except (json.JSONDecodeError, TypeError):
-                pass
+                from app.services.intelligence.response_filter import get_response_filter
+                engine = get_response_filter()
+                filtered = engine.filter(complete_text)
+                result_data = filtered.data
+                suggestions = filtered.suggestions
+            except Exception:
+                result_data = {"content": complete_text}
+                suggestions = []
 
-            # Final event with suggestions and task info
+            # Final event with filtered data and suggestions
             yield f"data: {json.dumps({'token': '', 'done': True, 'task_id': task_id, 'suggestions': suggestions, 'total_length': len(complete_text)})}\n\n"
             yield "data: [DONE]\n\n"
 
-            # Update task record
+            # Update task record with filtered result
             task.status = "completed"
-            task.result = {"content": complete_text}
+            task.result = result_data
             await db.commit()
 
         except Exception as e:
