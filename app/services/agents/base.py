@@ -401,35 +401,76 @@ class BaseAgent:
 
         messages, opt_id = await self.build_messages(prompt, None, db, context)
 
-        # Determine the best driver/model for streaming
+        # Auto-detect language + complexity → pick best driver + model
         settings = get_settings()
-        driver_name = settings.ai_driver  # Use primary driver (ollama) for streaming too
+        driver_name = settings.ai_driver
         model_override = None
 
         if settings.ai_smart_router_enabled:
             try:
                 from app.services.intelligence.smart_router import SmartRouter
                 smart = SmartRouter(enabled=True)
-                model_override = smart.select_model(prompt, self.identifier, driver_name)
-            except Exception:
-                pass
 
-        # Stream via DriverManager
+                # Get circuit breaker for driver availability checks
+                from app.services.driver_manager import get_driver_manager
+                cb = get_driver_manager().circuit_breaker
+
+                decision = smart.route(prompt, self.identifier, circuit_breaker=cb)
+                driver_name = decision["driver"]
+                model_override = decision.get("model")
+
+                logger.info(
+                    f"Agent stream: {decision['reason']} "
+                    f"(lang={decision['language']}, complexity={decision['complexity']})"
+                )
+            except Exception as e:
+                logger.debug(f"SmartRouter fallback: {e}")
+
+        # Stream via DriverManager — with fallback chain
         manager = get_driver_manager()
         full_response = []
 
-        try:
-            async for token in manager.stream(
-                messages=messages,
-                driver_override=driver_name,
-                model_override=model_override,
-                **{k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
-            ):
-                full_response.append(token)
-                yield token
-        except Exception as e:
-            logger.error(f"Agent stream failed for {self.identifier}: {e}")
-            yield f"\n[Error: {str(e)}]"
+        # Build fallback chain: SmartRouter pick → ai_driver → ai_fallback → ollama
+        drivers_to_try = []
+        if driver_name:
+            drivers_to_try.append((driver_name, model_override))
+        if settings.ai_driver != driver_name:
+            drivers_to_try.append((settings.ai_driver, None))
+        if settings.ai_fallback_driver and settings.ai_fallback_driver not in {d[0] for d in drivers_to_try}:
+            drivers_to_try.append((settings.ai_fallback_driver, None))
+        if "ollama" not in {d[0] for d in drivers_to_try}:
+            drivers_to_try.append(("ollama", None))
+
+        clean_opts = {k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
+        last_error = None
+
+        for drv, mdl in drivers_to_try:
+            # Skip if circuit breaker says driver is down
+            if not manager.circuit_breaker.is_available(drv):
+                logger.info(f"Agent stream: {drv} circuit OPEN, skipping")
+                continue
+
+            try:
+                logger.info(f"Agent stream: trying {drv}" + (f" ({mdl})" if mdl else ""))
+                async for token in manager.stream(
+                    messages=messages,
+                    driver_override=drv,
+                    model_override=mdl,
+                    **clean_opts,
+                ):
+                    full_response.append(token)
+                    yield token
+                last_error = None
+                break  # Success — stop trying
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Agent stream: {drv} failed, trying next: {e}")
+                full_response.clear()  # Reset for retry
+                continue
+
+        if last_error:
+            logger.error(f"Agent stream: all drivers failed for {self.identifier}: {last_error}")
+            yield f"\n[Error: {str(last_error)}]"
             return
 
         # Post-stream: store in memory for self-learning
