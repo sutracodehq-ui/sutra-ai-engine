@@ -11,7 +11,7 @@ Software Factory:
 import logging
 import random
 import yaml
-from typing import Any, List, Optional, Tuple
+from typing import Any, AsyncGenerator, List, Optional, Tuple
 from pathlib import Path
 
 from sqlalchemy import select
@@ -287,6 +287,67 @@ class BaseAgent:
 
         return response
 
+
+    async def execute_stream(
+        self,
+        prompt: str,
+        db: AsyncSession | None = None,
+        context: dict | None = None,
+        **options
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream agent response token-by-token (SSE-ready).
+        
+        Builds the same system prompt + messages as execute(), but yields
+        tokens as they arrive from the LLM instead of waiting for full response.
+        
+        Skips HybridRouter + QualityGate (can't gate mid-stream).
+        After stream ends, stores full response in memory for self-learning.
+        """
+        from app.services.driver_manager import get_driver_manager
+
+        messages, opt_id = await self.build_messages(prompt, None, db, context)
+
+        # Determine the best driver/model for streaming
+        settings = get_settings()
+        driver_name = settings.ai_fallback_driver or settings.ai_driver  # Prefer cloud for streaming
+        model_override = None
+
+        if settings.ai_smart_router_enabled:
+            try:
+                from app.services.intelligence.smart_router import SmartRouter
+                smart = SmartRouter(enabled=True)
+                model_override = smart.select_model(prompt, self.identifier, driver_name)
+            except Exception:
+                pass
+
+        # Stream via DriverManager
+        manager = get_driver_manager()
+        full_response = []
+
+        try:
+            async for token in manager.stream(
+                messages=messages,
+                driver_override=driver_name,
+                model_override=model_override,
+                **{k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
+            ):
+                full_response.append(token)
+                yield token
+        except Exception as e:
+            logger.error(f"Agent stream failed for {self.identifier}: {e}")
+            yield f"\n[Error: {str(e)}]"
+            return
+
+        # Post-stream: store in memory for self-learning
+        complete_text = "".join(full_response)
+        if settings.ai_agent_memory_enabled and complete_text:
+            try:
+                from app.services.intelligence.agent_memory import get_agent_memory
+                memory = get_agent_memory()
+                await memory.remember(self.identifier, prompt, complete_text)
+            except Exception as e:
+                logger.debug(f"Post-stream memory store skipped: {e}")
 
 
     async def execute_in_conversation(

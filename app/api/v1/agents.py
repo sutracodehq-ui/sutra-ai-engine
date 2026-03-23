@@ -1,9 +1,13 @@
-"""Agent API routes — listing + execution.
+"""Agent API routes — listing + execution + streaming.
 
 Each registered agent gets its own explicit Swagger entry via dynamic route generation.
+Streaming endpoints provide SSE (Server-Sent Events) for ChatGPT-style token-by-token responses.
 """
 
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
 from app.dependencies import CurrentTenant, DbSession
 from app.models.ai_task import AiTask
@@ -83,6 +87,70 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
         raise
 
 
+# ─── SSE Streaming execution logic ──────────────────────────────
+
+async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
+    """SSE streaming agent execution — yields tokens as they arrive."""
+    hub = get_agent_hub()
+
+    context = body.metadata or {}
+    context["tenant_slug"] = tenant.slug
+
+    # Create task record for tracking
+    task = AiTask(
+        tenant_id=tenant.id,
+        agent_type=agent_type,
+        status="streaming",
+        prompt=body.prompt,
+        external_user_id=body.external_user_id,
+        options=body.options,
+    )
+    db.add(task)
+    await db.flush()
+    task_id = task.id
+
+    # Prevent keyword argument conflict for 'context'
+    options = (body.options or {}).copy()
+    if "context" in options:
+        extra_context = options.pop("context")
+        if isinstance(extra_context, dict):
+            context.update(extra_context)
+
+    async def event_generator():
+        full_response = []
+        try:
+            async for token in hub.run_stream(agent_type, body.prompt, db=db, context=context, **options):
+                full_response.append(token)
+                yield f"data: {json.dumps({'token': token, 'agent': agent_type})}\n\n"
+
+            # Stream complete — send final event with task info
+            complete_text = "".join(full_response)
+            yield f"data: {json.dumps({'token': '', 'done': True, 'task_id': task_id, 'total_length': len(complete_text)})}\n\n"
+            yield "data: [DONE]\n\n"
+
+            # Update task record
+            task.status = "completed"
+            task.result = {"content": complete_text}
+            await db.commit()
+
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+            yield "data: [DONE]\n\n"
+            task.status = "failed"
+            task.error = str(e)
+            await db.commit()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable Nginx buffering
+        },
+    )
+
+
 # ─── Dynamic per-agent route generation ─────────────────────────
 # Each agent gets its own explicit endpoint in Swagger, auto-generated
 # from the hub registry. This follows the Software Factory pattern:
@@ -111,7 +179,17 @@ def _register_agent_routes():
     Send a prompt and receive AI-generated content tailored to this agent's specialization.
     """
 
-        # Create a closure to capture agent_type
+        stream_docstring = f"""
+    Stream the **{agent_name}** agent (SSE).
+
+    *{agent_desc}*
+
+    Returns Server-Sent Events with tokens as they are generated.
+    Format: `data: {{"token": "...", "agent": "{agent_type}"}}`
+    Final event: `data: [DONE]`
+    """
+
+        # Create closures to capture agent_type
         def make_handler(at: str):
             async def handler(body: AgentRunRequest, tenant: CurrentTenant, db: DbSession):
                 return await _execute_agent(at, body, tenant, db)
@@ -119,11 +197,25 @@ def _register_agent_routes():
             handler.__name__ = f"run_{at}"
             return handler
 
+        def make_stream_handler(at: str):
+            async def handler(body: AgentRunRequest, tenant: CurrentTenant, db: DbSession):
+                return await _stream_agent(at, body, tenant, db)
+            handler.__doc__ = stream_docstring
+            handler.__name__ = f"stream_{at}"
+            return handler
+
+        # REST endpoint (existing)
         router.post(
             f"/{agent_type}/run",
             response_model=ChatResponse,
             summary=f"Run {agent_name}",
         )(make_handler(agent_type))
+
+        # SSE streaming endpoint (new)
+        router.post(
+            f"/{agent_type}/stream",
+            summary=f"Stream {agent_name} (SSE)",
+        )(make_stream_handler(agent_type))
 
 
 # Register all agent routes at import time

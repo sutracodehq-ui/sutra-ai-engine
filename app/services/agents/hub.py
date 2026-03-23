@@ -6,7 +6,7 @@ New agents = new YAML config + one-line class. Zero hub changes.
 """
 
 import logging
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from app.services.agents.base import BaseAgent
 from app.services.drivers.base import LlmResponse
@@ -524,6 +524,20 @@ class AiAgentHub:
         except (json.JSONDecodeError, ValueError):
             pass
         return None
+
+    async def run_stream(
+        self,
+        agent_type: str,
+        prompt: str,
+        db: Any | None = None,
+        context: dict | None = None,
+        **options
+    ) -> AsyncGenerator[str, None]:
+        """Stream a task response token-by-token (SSE-ready)."""
+        agent = self.get(agent_type)
+        logger.info(f"AiAgentHub: streaming agent '{agent_type}'")
+        async for token in agent.execute_stream(prompt, db=db, context=context, **options):
+            yield token
 
     async def run_in_conversation(
         self,
