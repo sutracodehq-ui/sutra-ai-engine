@@ -299,6 +299,13 @@ class AiAgentHub:
         from app.services.agents.will_drafter import WillDrafterAgent
         from app.services.agents.caregiver_guide import CaregiverGuideAgent
 
+        # ─── Phase 41: UDISE+ Education Compliance ─────────
+        from app.services.agents.udise_compliance_advisor import UdiseComplianceAdvisorAgent
+        from app.services.agents.document_ocr_extractor import DocumentOcrExtractorAgent
+        from app.services.agents.student_data_validator import StudentDataValidatorAgent
+        from app.services.agents.infrastructure_auditor import InfrastructureAuditorAgent
+        from app.services.agents.udise_report_generator import UdiseReportGeneratorAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -419,6 +426,10 @@ class AiAgentHub:
             # Phase 40: Elder Care (SeniorSafe)
             ElderHealthMonitorAgent, PensionAdvisorAgent,
             WillDrafterAgent, CaregiverGuideAgent,
+            # Phase 41: UDISE+ Education Compliance
+            UdiseComplianceAdvisorAgent, DocumentOcrExtractorAgent,
+            StudentDataValidatorAgent, InfrastructureAuditorAgent,
+            UdiseReportGeneratorAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)

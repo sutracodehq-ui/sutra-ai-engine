@@ -205,8 +205,8 @@ class BaseAgent:
 
             # Extract expected fields from agent config for quality scoring
             expected_fields = None
-            if self.config and "response_schema" in self.config:
-                schema = self.config["response_schema"]
+            if self._config and "response_schema" in self._config:
+                schema = self._config["response_schema"]
                 if isinstance(schema, dict) and "fields" in schema:
                     expected_fields = schema["fields"]
                 elif isinstance(schema, list):
