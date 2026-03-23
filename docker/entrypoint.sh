@@ -45,15 +45,19 @@ except Exception as e:
 done
 echo "✅ PostgreSQL is ready"
 
-# ─── 2. Run Alembic Migrations ──────────────────────────────
-echo "📦 Running database migrations..."
-alembic upgrade head
-echo "✅ Migrations complete"
+# ─── 2. Run Alembic Migrations (Skip if SKIP_READY_CHECK is true) ──
+if [ "$SKIP_READY_CHECK" = "true" ]; then
+    echo "⏭️ Skipping Migrations & Seeding (SKIP_READY_CHECK=true)"
+else
+    echo "📦 Running database migrations..."
+    alembic upgrade head
+    echo "✅ Migrations complete"
 
-# ─── 3. Seed Default Tenant ─────────────────────────────────
-echo "🌱 Checking tenant seed..."
-python scripts/seed_tenant.py ${SEED_API_KEY:+--key "$SEED_API_KEY"}
-echo "✅ Tenant check complete"
+    # ─── 3. Seed Default Tenant ─────────────────────────────────
+    echo "🌱 Checking tenant seed..."
+    python scripts/seed_tenant.py ${SEED_API_KEY:+--key "$SEED_API_KEY"}
+    echo "✅ Tenant check complete"
+fi
 
 # ─── 4. Start Application ───────────────────────────────────
 echo "🚀 Starting uvicorn..."

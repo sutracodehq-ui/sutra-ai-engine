@@ -1,6 +1,6 @@
 [project]
 name = "sutracode-ai-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Standalone multi-tenant AI microservice — multi-agent orchestration, self-learning, and content generation"
 requires-python = ">=3.12"
 dependencies = [

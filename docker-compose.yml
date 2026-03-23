@@ -32,13 +32,19 @@ services:
   sutra-ai-worker:
     build:
       context: .
-      dockerfile: docker/Dockerfile.worker
+      dockerfile: docker/Dockerfile
     container_name: sutra-ai-worker
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - SKIP_READY_CHECK=true
     env_file: .env
     volumes:
       - ./app:/app/app
       - ./agent_config:/app/agent_config
+      - ./config:/app/config
+      - ./alembic:/app/alembic
+      - ./scripts:/app/scripts
+      - ./docs:/app/docs
     depends_on:
       sutra-ai-postgres:
         condition: service_healthy
@@ -52,12 +58,17 @@ services:
   sutra-ai-beat:
     build:
       context: .
-      dockerfile: docker/Dockerfile.worker
+      dockerfile: docker/Dockerfile
     container_name: sutra-ai-beat
     command: celery -A app.workers.celery_app beat --loglevel=info
+    environment:
+      - SKIP_READY_CHECK=true
     env_file: .env
     volumes:
       - ./app:/app/app
+      - ./agent_config:/app/agent_config
+      - ./config:/app/config
+      - ./scripts:/app/scripts
     depends_on:
       sutra-ai-redis:
         condition: service_healthy
