@@ -19,11 +19,29 @@ logger = logging.getLogger(__name__)
 _engine: "ResponseFilterEngine | None" = None
 
 
+import json
+import logging
+import re
+import threading
+from typing import Any
+
+from app.schemas.agent_result import AgentResult
+
+logger = logging.getLogger(__name__)
+
+# ─── Singleton ───────────────────────────────────────────────────
+
+_engine: "ResponseFilterEngine | None" = None
+_engine_lock = threading.Lock()
+
+
 def get_response_filter() -> "ResponseFilterEngine":
     """Get or create the singleton ResponseFilterEngine."""
     global _engine
     if _engine is None:
-        _engine = ResponseFilterEngine()
+        with _engine_lock:
+            if _engine is None:
+                _engine = ResponseFilterEngine()
     return _engine
 
 

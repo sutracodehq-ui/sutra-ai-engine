@@ -403,7 +403,7 @@ class BaseAgent:
 
         # Determine the best driver/model for streaming
         settings = get_settings()
-        driver_name = settings.ai_fallback_driver or settings.ai_driver  # Prefer cloud for streaming
+        driver_name = settings.ai_driver  # Use primary driver (ollama) for streaming too
         model_override = None
 
         if settings.ai_smart_router_enabled:
