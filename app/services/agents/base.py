@@ -261,6 +261,57 @@ class BaseAgent:
             except Exception as e:
                 logger.warning(f"AgentMemory recall skipped: {e}")
 
+        # ─── Data Source Enrichment: Brand Knowledge + Web Intel ─────
+        context_chunks = []
+
+        # 1. Brand Knowledge (per-tenant ChromaDB — FAQs, product info)
+        tenant_id = (context or {}).get("tenant_id")
+        if tenant_id:
+            try:
+                from app.services.intelligence.brand_knowledge import get_brand_knowledge
+                bk = get_brand_knowledge()
+                result = await bk.search(str(tenant_id), prompt, n_results=3)
+                if result.get("found") and result.get("confidence", 0) > 0.3:
+                    context_chunks.append(
+                        f"[BRAND KNOWLEDGE (confidence: {result['confidence']:.0%})]\n{result['context']}"
+                    )
+            except Exception as e:
+                logger.debug(f"BrandKnowledge search skipped: {e}")
+
+        # 2. Web Intelligence (latest news, trends, market data)
+        try:
+            from app.services.intelligence.web_scanner import get_web_scanner
+            scanner = get_web_scanner()
+
+            # Search across web intelligence collections
+            for collection in ["web_intelligence", "web_ai_trends", "web_stock_market", "web_crypto"]:
+                try:
+                    items = await scanner.get_context(prompt, collection_name=collection, n_results=3)
+                    if items:
+                        snippets = []
+                        for item in items[:3]:
+                            title = item.get("title", item.get("symbol", ""))
+                            desc = item.get("description", item.get("name", ""))
+                            if title:
+                                snippets.append(f"- {title}: {desc}")
+                        if snippets:
+                            context_chunks.append(
+                                f"[LATEST DATA — {collection.replace('web_', '').upper()}]\n" + "\n".join(snippets)
+                            )
+                except Exception:
+                    pass  # Collection may not exist yet
+        except Exception as e:
+            logger.debug(f"WebScanner context skipped: {e}")
+
+        # Inject all collected context as a system message
+        if context_chunks:
+            enrichment = "\n\n".join(context_chunks)
+            messages.insert(1, {
+                "role": "system",
+                "content": f"[RELEVANT CONTEXT FROM DATA SOURCES — use this to give accurate, specific answers]\n\n{enrichment}\n\n[END CONTEXT]"
+            })
+            logger.info(f"Data enrichment: {len(context_chunks)} sources injected for {self.identifier}")
+
         # Add conversation history
         if history:
             for msg in history:
