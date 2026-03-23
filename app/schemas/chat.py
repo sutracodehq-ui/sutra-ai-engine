@@ -21,6 +21,7 @@ class ChatResponse(BaseModel):
     status: str
     agent_type: str
     result: dict | None = None
+    suggestions: list[str] | None = Field(default_factory=list, description="Proactive follow-up suggestions or next steps")
     tokens_used: int = 0
     driver_used: str | None = None
     model_used: str | None = None

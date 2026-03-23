@@ -105,6 +105,27 @@ class BaseAgent:
                 f"\n{peer_info}"
             )
 
+        # ─── Proactive Suggestions ────────────────────────
+        prompt += (
+            "\n\n## Proactive Suggestions"
+            "\nAlways include a \"suggestions\" key in your JSON response. This must be an array of 2-3 specific, actionable "
+            "follow-up questions or next steps the user can take. "
+            "\n- Recommendations should be context-aware and, where possible, brand-aligned."
+            "\n- You can suggest asking for more details, trying a related workflow, or using a specialist peer agent."
+        )
+
+        # ─── Output Format (Re-applied to include suggestions) ─
+        if isinstance(schema, dict) and schema.get("format") == "json":
+            fields = schema.get("fields", []).copy()
+            if "suggestions" not in fields:
+                fields.append("suggestions")
+            fields_str = ", ".join(f'"{f}"' for f in fields)
+            prompt += (
+                f"\n\n## Refined Output Format"
+                f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
+                f"\nRequired top-level keys: {fields_str}"
+            )
+
         return prompt
 
     def _get_peer_summary(self) -> str:

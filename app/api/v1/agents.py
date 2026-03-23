@@ -72,11 +72,24 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
         if response.metadata and "agent_optimization_id" in response.metadata:
             task.agent_optimization_id = response.metadata["agent_optimization_id"]
 
+        # Extract suggestions if response is JSON
+        suggestions = []
+        try:
+            content_json = json.loads(response.content)
+            if isinstance(content_json, dict) and "suggestions" in content_json:
+                suggestions = content_json.pop("suggestions", [])
+                # Update task result without suggestions to avoid duplication if needed, 
+                # but usually keep it in result as well for completeness
+                task.result = content_json
+        except (json.JSONDecodeError, TypeError):
+            pass
+
         return ChatResponse(
             task_id=task.id,
             status="completed",
             agent_type=agent_type,
             result={"content": response.content},
+            suggestions=suggestions,
             tokens_used=response.total_tokens,
             driver_used=response.driver,
             model_used=response.model,
@@ -123,9 +136,18 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
                 full_response.append(token)
                 yield f"data: {json.dumps({'token': token, 'agent': agent_type})}\n\n"
 
-            # Stream complete — send final event with task info
+            # Stream complete — parse for suggestions
             complete_text = "".join(full_response)
-            yield f"data: {json.dumps({'token': '', 'done': True, 'task_id': task_id, 'total_length': len(complete_text)})}\n\n"
+            suggestions = []
+            try:
+                content_json = json.loads(complete_text)
+                if isinstance(content_json, dict) and "suggestions" in content_json:
+                    suggestions = content_json.pop("suggestions", [])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+            # Final event with suggestions and task info
+            yield f"data: {json.dumps({'token': '', 'done': True, 'task_id': task_id, 'suggestions': suggestions, 'total_length': len(complete_text)})}\n\n"
             yield "data: [DONE]\n\n"
 
             # Update task record
