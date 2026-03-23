@@ -65,7 +65,7 @@ class HybridRouter:
 
         if route_hint == "direct_cloud":
             # Local is consistently bad for this agent → skip to cloud
-            response = await self._call_cloud(prompt, system_prompt, **options)
+            response = await self._call_cloud(prompt, system_prompt, _agent_type=agent_type, **options)
             await self._auto_train(agent_type, prompt, response)
             return response
 
@@ -93,7 +93,7 @@ class HybridRouter:
 
         # ─── Step 3: Escalate to Cloud ─────────────────────
         logger.info(f"HybridRouter: ESCALATING {agent_type} to cloud (local_score={local_score})")
-        cloud_response = await self._call_cloud(prompt, system_prompt, **options)
+        cloud_response = await self._call_cloud(prompt, system_prompt, _agent_type=agent_type, **options)
 
         # Quality-check cloud response too
         cloud_quality = self._quality_gate.score(cloud_response, expected_fields)
@@ -140,13 +140,28 @@ class HybridRouter:
 
     async def _call_cloud(self, prompt: str, system_prompt: str, **options) -> LlmResponse:
         """
-        Call cloud with tiered escalation for maximum quality:
+        Call cloud with tiered escalation + SmartRouter model selection:
         Tier 1: Groq (free, fast — Llama 3.3 70B)
-        Tier 2: Gemini (cheap, smart — Gemini 2.0 Flash)
-        Tier 3: Anthropic (premium, smartest — Claude Sonnet)
+        Tier 2: Gemini (cheap, smart — Flash or Pro based on complexity)
+        Tier 3: Anthropic (premium, smartest — Haiku or Sonnet based on complexity)
         """
         from app.services.llm_service import get_llm_service
         service = get_llm_service()
+
+        # SmartRouter: pick optimal model per driver based on complexity
+        agent_type = options.pop("_agent_type", "unknown")
+        model_overrides = {}
+        settings = get_settings()
+        if settings.ai_smart_router_enabled:
+            try:
+                from app.services.intelligence.smart_router import SmartRouter
+                smart = SmartRouter(enabled=True)
+                for driver_name in ["groq", "gemini", "anthropic"]:
+                    model = smart.select_model(prompt, agent_type, driver_name)
+                    if model:
+                        model_overrides[driver_name] = model
+            except Exception as e:
+                logger.debug(f"HybridRouter: SmartRouter skipped: {e}")
 
         # Ordered by cost: free → cheap → premium
         cloud_tiers = [
@@ -157,15 +172,22 @@ class HybridRouter:
 
         for driver, tier_label in cloud_tiers:
             try:
+                model_override = model_overrides.get(driver)
                 response = await service.complete(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     driver=driver,
+                    model=model_override,
                     **options
                 )
                 response.metadata = response.metadata or {}
                 response.metadata["cloud_tier"] = tier_label
-                logger.info(f"HybridRouter: cloud success via {tier_label} ({driver})")
+                if model_override:
+                    response.metadata["smart_model"] = model_override
+                logger.info(
+                    f"HybridRouter: cloud success via {tier_label} ({driver}"
+                    f"{f', model={model_override}' if model_override else ''})"
+                )
                 return response
             except Exception as e:
                 logger.warning(f"HybridRouter: {tier_label} ({driver}) failed: {e}")

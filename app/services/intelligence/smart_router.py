@@ -32,24 +32,51 @@ SIMPLE_KEYWORDS = {
 
 # Agent-level complexity defaults
 AGENT_COMPLEXITY: dict[str, str] = {
-    "sms": "simple",          # Always short content
-    "whatsapp": "simple",     # Template-based
-    "ad_creative": "simple",  # Short copy
-    "copywriter": "moderate", # Can be either
+    # Core Marketing (simple/moderate)
+    "sms": "simple",
+    "whatsapp": "simple",
+    "ad_creative": "simple",
+    "copywriter": "moderate",
     "social_media": "moderate",
     "email_campaign": "moderate",
-    "seo": "complex",         # Requires analysis
-    "edtech": "complex",      # Pedagogical reasoning
+    "content_repurposer": "moderate",
+    # Intelligence (complex)
+    "seo": "complex",
+    "brand_auditor": "complex",
+    "competitor_analyst": "complex",
+    "trend_spotter": "complex",
+    # Personal Advisors (complex — strategic reasoning)
+    "brand_advisor": "complex",
+    "education_guru": "complex",
+    # Education/UDISE+ (complex — compliance reasoning)
+    "edtech": "complex",
+    "udise_compliance_advisor": "complex",
+    "student_data_validator": "moderate",
+    "infrastructure_auditor": "complex",
+    "udise_report_generator": "complex",
+    "document_ocr_extractor": "moderate",
+    # Finance (complex)
+    "tax_advisor": "complex",
+    "mutual_fund_advisor": "complex",
+    "insurance_advisor": "complex",
+    # Health (moderate-complex)
+    "symptom_checker": "complex",
+    "medicine_info": "moderate",
+    "ayurveda_advisor": "moderate",
 }
 
 # Model tiers
-MODEL_TIERS: dict[str, dict[str, str]] = {
-    "openai": {"simple": "gpt-4o-mini", "moderate": "gpt-4o-mini", "complex": "gpt-4o"},
-    "anthropic": {"simple": "claude-haiku-4-20250514", "moderate": "claude-sonnet-4-20250514", "complex": "claude-sonnet-4-20250514"},
-    "gemini": {"simple": "gemini-2.0-flash", "moderate": "gemini-2.0-flash", "complex": "gemini-2.5-pro-preview-06-05"},
-    "groq": {"simple": "llama-3.3-70b-versatile", "moderate": "llama-3.3-70b-versatile", "complex": "llama-3.3-70b-versatile"},
-    "ollama": {"simple": "qwen2.5:3b", "moderate": "qwen2.5:3b", "complex": "qwen2.5:3b"},
-}
+def _get_model_tiers() -> dict[str, dict[str, str]]:
+    """Build model tiers using config values for Ollama."""
+    settings = get_settings()
+    ollama_model = settings.ollama_model
+    return {
+        "openai": {"simple": "gpt-4o-mini", "moderate": "gpt-4o-mini", "complex": "gpt-4o"},
+        "anthropic": {"simple": "claude-haiku-4-20250514", "moderate": "claude-sonnet-4-20250514", "complex": "claude-sonnet-4-20250514"},
+        "gemini": {"simple": "gemini-2.0-flash", "moderate": "gemini-2.0-flash", "complex": "gemini-2.5-pro-preview-06-05"},
+        "groq": {"simple": "llama-3.3-70b-versatile", "moderate": "llama-3.3-70b-versatile", "complex": "llama-3.3-70b-versatile"},
+        "ollama": {"simple": ollama_model, "moderate": ollama_model, "complex": ollama_model},
+    }
 
 # ─── Fallback Rules (Software Factory: Smart Escalation) ──────
 FALLBACK_TO_LOCAL = True  # If true, simple tasks go to Ollama if available
@@ -124,7 +151,7 @@ class SmartRouter:
             return None
 
         complexity = self.assess_complexity(prompt, agent_type)
-        driver_tiers = MODEL_TIERS.get(driver)
+        driver_tiers = _get_model_tiers().get(driver)
 
         if not driver_tiers:
             return None

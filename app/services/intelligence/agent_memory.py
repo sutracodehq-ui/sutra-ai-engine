@@ -104,6 +104,95 @@ class AgentMemoryService:
             logger.warning(f"AgentMemory recall failed for {agent_type}: {e}")
             return []
 
+    # ─── Agent Affinity Groups (shared knowledge pools) ─────
+    AFFINITY_GROUPS = {
+        "education": [
+            "education_guru", "edtech", "udise_compliance_advisor",
+            "student_data_validator", "infrastructure_auditor",
+            "udise_report_generator", "document_ocr_extractor",
+            "school_selector",
+        ],
+        "marketing": [
+            "copywriter", "seo", "social_media", "email_campaign",
+            "ad_creative", "brand_auditor", "brand_advisor",
+            "content_repurposer", "trend_spotter", "influencer_matcher",
+        ],
+        "finance": [
+            "tax_advisor", "mutual_fund_advisor", "sip_calculator",
+            "insurance_advisor", "pension_advisor",
+        ],
+        "health": [
+            "symptom_checker", "medicine_info", "ayurveda_advisor",
+            "elder_health_monitor", "pet_health",
+        ],
+    }
+
+    def _get_affinity_peers(self, agent_type: str) -> list[str]:
+        """Find peer agents in the same affinity group."""
+        for group_agents in self.AFFINITY_GROUPS.values():
+            if agent_type in group_agents:
+                return [a for a in group_agents if a != agent_type]
+        return []
+
+    async def recall_cross_agent(
+        self, agent_type: str, prompt: str, n_results: int = 2
+    ) -> list[dict]:
+        """
+        Cross-agent memory recall: query related agents' memories
+        when the primary agent has no relevant matches.
+
+        Returns results tagged with source agent for transparency.
+        """
+        if not self._enabled:
+            return []
+
+        peers = self._get_affinity_peers(agent_type)
+        if not peers:
+            return []
+
+        all_examples: list[dict] = []
+
+        for peer in peers:
+            try:
+                collection = self._client.get_or_create_collection(
+                    name=self._collection_name(peer),
+                    metadata={"hnsw:space": "cosine"},
+                )
+                if collection.count() == 0:
+                    continue
+
+                results = collection.query(
+                    query_texts=[prompt],
+                    n_results=min(1, collection.count()),  # 1 per peer
+                )
+
+                if results and results["metadatas"] and results["metadatas"][0]:
+                    for i, meta in enumerate(results["metadatas"][0]):
+                        distance = results["distances"][0][i] if results["distances"] else 1.0
+                        similarity = 1 - distance
+                        if similarity >= 0.75:  # Higher bar for cross-agent
+                            all_examples.append({
+                                "prompt": results["documents"][0][i],
+                                "response": meta.get("response", ""),
+                                "similarity": round(similarity, 3),
+                                "source_agent": peer,
+                            })
+            except Exception as e:
+                logger.debug(f"Cross-agent recall from {peer} skipped: {e}")
+
+        # Sort by similarity, take top N
+        all_examples.sort(key=lambda x: x["similarity"], reverse=True)
+        result = all_examples[:n_results]
+
+        if result:
+            sources = [r["source_agent"] for r in result]
+            logger.info(
+                f"AgentMemory: cross-agent recall for {agent_type} "
+                f"→ {len(result)} examples from {sources}"
+            )
+
+        return result
+
     def _decompose_query(self, prompt: str) -> list[str]:
         """
         Decompose a complex prompt into multiple sub-queries for better retrieval.

@@ -308,6 +308,7 @@ class AiAgentHub:
 
         # ─── Phase 42: Brand Strategy ──────────────────────
         from app.services.agents.brand_advisor import BrandAdvisorAgent
+        from app.services.agents.education_guru import EducationGuruAgent
 
         llm = get_llm_service()
         for agent_cls in [
@@ -434,7 +435,7 @@ class AiAgentHub:
             StudentDataValidatorAgent, InfrastructureAuditorAgent,
             UdiseReportGeneratorAgent,
             # Phase 42: Brand Strategy
-            BrandAdvisorAgent,
+            BrandAdvisorAgent, EducationGuruAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)
@@ -468,10 +469,61 @@ class AiAgentHub:
         context: dict | None = None, 
         **options
     ) -> LlmResponse:
-        """Dispatch a task to the appropriate agent."""
+        """Dispatch a task to the appropriate agent, with auto-delegation."""
         agent = self.get(agent_type)
         logger.info(f"AiAgentHub: running agent '{agent_type}'")
-        return await agent.execute(prompt, db=db, context=context, **options)
+        response = await agent.execute(prompt, db=db, context=context, **options)
+
+        # ─── Auto-Delegation: detect delegate_to in response ─────
+        # Skip if already in a delegation chain (prevent infinite loops)
+        if context and context.get("_delegation_chain"):
+            return response
+
+        delegate_target = self._extract_delegation(response.content)
+        if delegate_target and delegate_target != agent_type and delegate_target in self._agents:
+            logger.info(f"AiAgentHub: auto-delegating from {agent_type} → {delegate_target}")
+            delegation_result = await self.delegate(
+                from_agent=agent_type,
+                to_agent=delegate_target,
+                prompt=prompt,
+                context=context,
+                db=db,
+            )
+            if delegation_result.get("status") == "success":
+                # Merge: keep original response metadata but enrich content
+                specialist = delegation_result["response"]
+                response.content = (
+                    f'{response.content}\n\n'
+                    f'--- Specialist Insight from {delegate_target} ---\n'
+                    f'{specialist}'
+                )
+                response.metadata = response.metadata or {}
+                response.metadata["delegated_to"] = delegate_target
+                response.metadata["delegation_chain"] = delegation_result.get("chain", [])
+
+        return response
+
+    @staticmethod
+    def _extract_delegation(content: str) -> str | None:
+        """Extract delegate_to agent identifier from a JSON response."""
+        import json
+        try:
+            # Strip markdown code fences if present
+            clean = content.strip()
+            if clean.startswith("```"):
+                lines = clean.split("\n")
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                clean = "\n".join(lines).strip()
+
+            parsed = json.loads(clean)
+            if isinstance(parsed, dict):
+                return parsed.get("delegate_to")
+        except (json.JSONDecodeError, ValueError):
+            pass
+        return None
 
     async def run_in_conversation(
         self,

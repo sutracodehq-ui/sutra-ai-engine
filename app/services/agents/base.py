@@ -94,7 +94,32 @@ class BaseAgent:
             caps_text = "\n".join(f"- {c}" for c in capabilities)
             prompt += f"\n\n## Your Capabilities\n{caps_text}"
 
+        # ─── Peer Awareness (Collaboration) ───────────────
+        peer_info = self._get_peer_summary()
+        if peer_info:
+            prompt += (
+                "\n\n## Collaboration — Your Specialist Peers"
+                "\nYou have access to these specialist agents. If a user's query is outside your expertise, "
+                "include a \"delegate_to\" key in your JSON response with the agent identifier."
+                "\nOnly delegate if the query is clearly better handled by another agent."
+                f"\n{peer_info}"
+            )
+
         return prompt
+
+    def _get_peer_summary(self) -> str:
+        """Build a compact summary of peer agents for system prompt injection."""
+        try:
+            from app.services.agents.hub import get_agent_hub
+            hub = get_agent_hub()
+            lines = []
+            for info in hub.agent_info():
+                if info["identifier"] != self.identifier:
+                    lines.append(f"- **{info['identifier']}**: {info.get('description', info.get('domain', ''))}")
+            # Limit to 30 peers to avoid prompt bloat
+            return "\n".join(lines[:30])
+        except Exception:
+            return ""
 
     async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None) -> Tuple[str, Optional[int]]:
         """
@@ -150,9 +175,18 @@ class BaseAgent:
                 from app.services.intelligence.agent_memory import get_agent_memory
                 memory = get_agent_memory()
                 examples = await memory.recall(self.identifier, prompt)
-                for ex in examples:
-                    messages.append({"role": "user", "content": ex["prompt"]})
-                    messages.append({"role": "assistant", "content": ex["response"]})
+
+                # Cross-agent learning: if no own memories, check peers
+                if not examples:
+                    cross_examples = await memory.recall_cross_agent(self.identifier, prompt)
+                    for ex in cross_examples:
+                        source = ex.get("source_agent", "peer")
+                        messages.append({"role": "user", "content": ex["prompt"]})
+                        messages.append({"role": "assistant", "content": f"[Insight from {source}]: {ex['response']}"})
+                else:
+                    for ex in examples:
+                        messages.append({"role": "user", "content": ex["prompt"]})
+                        messages.append({"role": "assistant", "content": ex["response"]})
             except Exception as e:
                 logger.warning(f"AgentMemory recall skipped: {e}")
 
