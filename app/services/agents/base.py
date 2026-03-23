@@ -46,11 +46,61 @@ class BaseAgent:
         Build a system prompt from the static YAML config.
         
         Auto-injections:
-        1. Chain-of-Thought: Adds reasoning instructions for better output quality
-        2. JSON Mode: Enforces strict JSON output when response_schema.format == "json"
-        3. Rules: Appends any agent-specific rules from YAML
+        1. Brand/Org Context: Injects brand, product, and organization info when available
+        2. Chain-of-Thought: Adds reasoning instructions for better output quality
+        3. JSON Mode: Enforces strict JSON output when response_schema.format == "json"
+        4. Rules: Appends any agent-specific rules from YAML
         """
         prompt = self._config.get("system_prompt", "You are a helpful AI assistant.")
+
+        # ─── Smart Context Injection (Generic for ALL agents) ─
+        # If the caller passes brand/org/product context, inject it so the
+        # LLM knows WHO it is representing. Works for chatbot, education_guru,
+        # or any agent — no per-agent config needed.
+        if context:
+            context_parts = []
+
+            # Brand / Organization identity
+            brand_name = context.get("brand_name") or context.get("organization_name")
+            if brand_name:
+                context_parts.append(f"- **Organization/Brand**: {brand_name}")
+
+            brand_desc = context.get("brand_description") or context.get("organization_description")
+            if brand_desc:
+                context_parts.append(f"- **About**: {brand_desc}")
+
+            # Product info
+            product_name = context.get("product_name")
+            if product_name:
+                context_parts.append(f"- **Product**: {product_name}")
+
+            product_info = context.get("product_info")
+            if product_info:
+                context_parts.append(f"- **Product Details**: {product_info}")
+
+            # Website
+            website_url = context.get("website_url")
+            if website_url:
+                context_parts.append(f"- **Website**: {website_url}")
+
+            # Website content summary (from URL analyzer / scraping)
+            website_summary = context.get("website_summary")
+            if website_summary:
+                context_parts.append(f"- **Website Summary**: {website_summary}")
+
+            # Custom instructions from brand owner
+            custom_instructions = context.get("custom_instructions")
+            if custom_instructions:
+                context_parts.append(f"- **Special Instructions**: {custom_instructions}")
+
+            if context_parts:
+                ctx_text = "\n".join(context_parts)
+                prompt += (
+                    f"\n\n## Brand & Organization Context"
+                    f"\nYou are representing this brand/organization. Use this information to give specific, "
+                    f"contextual responses — never give generic advice that ignores this context."
+                    f"\n{ctx_text}"
+                )
 
         # ─── Chain-of-Thought Injection ───────────────────
         cot_instruction = (

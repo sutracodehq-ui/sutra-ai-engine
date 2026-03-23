@@ -99,6 +99,55 @@ class ChatbotEngine:
             logger.info(f"Chatbot: new session {session_id} for brand {brand_id}")
         return self._sessions[session_id]
 
+    # ─── Brand Config Resolution ────────────────────────────
+
+    async def _get_brand_config(self, brand_id: str, db=None) -> dict | None:
+        """
+        Auto-resolve brand/product metadata from the tenant record.
+
+        Reads from existing DB fields first (name, description),
+        then overlays any explicit overrides from tenant.config JSON.
+        No manual setup needed — works out of the box.
+        """
+        if not db:
+            return None
+
+        try:
+            from sqlalchemy import select
+            from app.models.tenant import Tenant
+
+            # brand_id could be tenant slug or ID
+            if brand_id.isdigit():
+                result = await db.execute(
+                    select(Tenant).where(Tenant.id == int(brand_id))
+                )
+            else:
+                result = await db.execute(
+                    select(Tenant).where(Tenant.slug == brand_id)
+                )
+            tenant = result.scalar_one_or_none()
+
+            if not tenant:
+                return None
+
+            # Auto-resolve from existing tenant fields
+            brand_config = {
+                "brand_name": tenant.name,
+            }
+            if tenant.description:
+                brand_config["brand_description"] = tenant.description
+
+            # Overlay explicit overrides from config JSON (if any)
+            if tenant.config and isinstance(tenant.config, dict):
+                brand_config.update(tenant.config)
+
+            return brand_config
+
+        except Exception as e:
+            logger.debug(f"Chatbot: brand config lookup skipped: {e}")
+
+        return None
+
     # ─── Core Chat ──────────────────────────────────────────
 
     async def chat(
@@ -143,11 +192,22 @@ class ChatbotEngine:
         from app.services.agents.hub import AiAgentHub
         hub = AiAgentHub()
 
-        # Use chatbot_trainer agent with brand context
+        # ─── Smart Agent Resolution ───────────────────────
+        # Priority: brand config → chatbot config → fallback
+        # This lets each brand/tenant use a different agent
+        # (e.g., education brand uses education_guru, marketing uses chatbot_trainer)
         agent_id = config.get("default_agent", "chatbot_trainer")
+
+        # Check if brand has a custom agent override (from tenant config or request)
+        brand_config = await self._get_brand_config(brand_id, db)
+        if brand_config:
+            agent_id = brand_config.get("chatbot_agent", agent_id)
+
         agent = hub.get(agent_id)
 
-        # Build context with brand knowledge
+        # ─── Smart Context Population ─────────────────────
+        # Always populate brand/org context so _build_from_config()
+        # can inject it into the system prompt for ANY agent.
         context = {
             "brand_id": brand_id,
             "language": session.language or language,
@@ -155,17 +215,35 @@ class ChatbotEngine:
             "chatbot": True,
         }
 
-        # Inject brand knowledge into prompt if available
-        if has_knowledge and confidence >= confidence_threshold:
+        # Inject brand metadata into context (from tenant config)
+        if brand_config:
+            for key in (
+                "brand_name", "brand_description", "organization_name",
+                "organization_description", "product_name", "product_info",
+                "website_url", "website_summary", "custom_instructions",
+            ):
+                if brand_config.get(key):
+                    context[key] = brand_config[key]
+
+        # ─── Build Enhanced Prompt ─────────────────────────
+        # Always include brand knowledge context when available,
+        # AND always frame the prompt properly even when KB is empty.
+        prompt_parts = []
+
+        # Brand knowledge from ChromaDB (if any match — any confidence)
+        if has_knowledge:
             brand_context = knowledge_result.get("context", "")
-            enhanced_prompt = (
-                f"Brand Context:\n{brand_context}\n\n"
-                f"Customer Question: {message}\n\n"
-                f"Respond helpfully using the brand context. "
-                f"Be conversational and on-brand."
-            )
-        else:
-            enhanced_prompt = message
+            if brand_context:
+                prompt_parts.append(f"Relevant Brand Knowledge:\n{brand_context}")
+
+        # Always frame the customer's question clearly
+        prompt_parts.append(f"Customer Question: {message}")
+        prompt_parts.append(
+            "Respond helpfully and conversationally using whatever brand context you have. "
+            "Be specific to this brand — never give generic advice."
+        )
+
+        enhanced_prompt = "\n\n".join(prompt_parts)
 
         # Execute with conversation history
         response = await agent.execute_in_conversation(
