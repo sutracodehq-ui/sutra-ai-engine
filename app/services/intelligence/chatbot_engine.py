@@ -148,70 +148,6 @@ class ChatbotEngine:
 
         return None
 
-    # ─── Intent-Based Smart Routing ─────────────────────────
-
-    # Config-driven: action keywords → specialist agent.
-    # The chatbot auto-detects when the user wants a specialist
-    # (e.g., "generate a quiz" → quiz_generator, "create notes" → note_generator).
-    # This is generic — works across all product domains.
-    INTENT_ROUTES: list[dict] = [
-        # EdTech
-        {"keywords": ["quiz", "mcq", "question paper", "test paper", "question bank"],
-         "agent": "quiz_generator", "action_words": ["generate", "create", "make", "build", "prepare"]},
-        {"keywords": ["notes", "revision notes", "summary notes", "study notes"],
-         "agent": "note_generator", "action_words": ["generate", "create", "make", "write", "prepare"]},
-        {"keywords": ["flashcard", "flash card"],
-         "agent": "flashcard_creator", "action_words": ["generate", "create", "make", "build"]},
-        {"keywords": ["lecture plan", "lesson plan", "teaching plan", "class plan"],
-         "agent": "lecture_planner", "action_words": ["generate", "create", "make", "plan", "design"]},
-        {"keywords": ["key points", "important points", "main points"],
-         "agent": "key_points_extractor", "action_words": ["extract", "list", "give", "find", "get"]},
-        # Marketing
-        {"keywords": ["social media post", "instagram post", "twitter post", "facebook post"],
-         "agent": "social", "action_words": ["generate", "create", "write", "make", "draft"]},
-        {"keywords": ["email campaign", "newsletter", "email"],
-         "agent": "email_campaign", "action_words": ["generate", "create", "write", "draft"]},
-        {"keywords": ["ad copy", "advertisement", "ad creative"],
-         "agent": "ad_creative", "action_words": ["generate", "create", "write", "make", "design"]},
-        {"keywords": ["seo", "meta title", "meta description", "keywords"],
-         "agent": "seo", "action_words": ["analyze", "generate", "optimize", "create", "write"]},
-        # Finance
-        {"keywords": ["stock", "share", "equity"],
-         "agent": "stock_analyzer", "action_words": ["analyze", "check", "review"]},
-        # Health
-        {"keywords": ["diet plan", "meal plan", "nutrition plan"],
-         "agent": "diet_planner", "action_words": ["generate", "create", "make", "plan", "suggest"]},
-        {"keywords": ["symptoms", "feeling sick", "health issue"],
-         "agent": "symptom_triage", "action_words": ["check", "assess", "evaluate", "help"]},
-    ]
-
-    def _detect_specialist_agent(self, message: str, available_agents: list[str]) -> str | None:
-        """
-        Detect user intent and route to specialist agent.
-
-        Uses keyword + action word matching — no LLM call needed.
-        Returns the specialist agent identifier if a match is found, None otherwise.
-        """
-        msg_lower = message.lower()
-
-        for route in self.INTENT_ROUTES:
-            # Check if the agent is available in the hub
-            if route["agent"] not in available_agents:
-                continue
-
-            # Check if any keyword matches
-            keyword_match = any(kw in msg_lower for kw in route["keywords"])
-            if not keyword_match:
-                continue
-
-            # Check if any action word is present (user wants to DO something, not just ask)
-            action_match = any(aw in msg_lower for aw in route.get("action_words", []))
-            if action_match:
-                logger.info(f"Chatbot: intent detected → {route['agent']} for: {message[:80]}")
-                return route["agent"]
-
-        return None
-
     # ─── Core Chat ──────────────────────────────────────────
 
     async def chat(
@@ -252,15 +188,17 @@ class ChatbotEngine:
 
         confidence_threshold = config.get("confidence_threshold", 0.6)
 
-        # 2. Generate response via AI agent
+        # 2. Generate response via AI agent hub
+        # The hub's _resolve_agent() auto-detects specialist intents
+        # (e.g., "generate quiz" → quiz_generator) transparently.
         from app.services.agents.hub import AiAgentHub
         hub = AiAgentHub()
 
-        # ─── Smart Agent Resolution ───────────────────────
-        # Priority: intent detection → brand config → chatbot config → fallback
+        # ─── Agent Resolution ─────────────────────────────
+        # Priority: brand config → chatbot config → fallback
+        # Intent routing is handled centrally by hub._resolve_agent()
         agent_id = config.get("default_agent", "chatbot_trainer")
 
-        # Check if brand has a custom agent override
         brand_config = await self._get_brand_config(brand_id, db)
         if brand_config:
             agent_id = brand_config.get("chatbot_agent", agent_id)
@@ -273,7 +211,6 @@ class ChatbotEngine:
             "chatbot": True,
         }
 
-        # Inject brand metadata into context (from tenant record)
         if brand_config:
             for key in (
                 "brand_name", "brand_description", "organization_name",
@@ -283,50 +220,30 @@ class ChatbotEngine:
                 if brand_config.get(key):
                     context[key] = brand_config[key]
 
-        # ─── Intent-Based Specialist Routing ──────────────
-        # Detect if user wants a specialist action (generate quiz, create notes, etc.)
-        # If detected, execute the specialist directly and return actual content.
-        specialist_id = self._detect_specialist_agent(message, hub.available_agents())
+        # ─── Build Enhanced Prompt ────────────────────────
+        prompt_parts = []
+        if has_knowledge:
+            brand_context = knowledge_result.get("context", "")
+            if brand_context:
+                prompt_parts.append(f"Relevant Brand Knowledge:\n{brand_context}")
 
-        if specialist_id:
-            # Execute specialist agent directly — get ACTUAL content (quiz, notes, etc.)
-            try:
-                specialist_response = await hub.run(
-                    specialist_id, message, db=db, context=context
-                )
-                response_text = specialist_response.content
-                # Boost confidence since we matched a specialist
-                confidence = max(confidence, 0.85)
-            except Exception as e:
-                logger.warning(f"Chatbot: specialist {specialist_id} failed, falling back: {e}")
-                specialist_id = None  # Fall through to default agent
+        prompt_parts.append(f"Customer Question: {message}")
+        prompt_parts.append(
+            "Respond helpfully and conversationally using whatever brand context you have. "
+            "Be specific to this brand — never give generic advice."
+        )
 
-        if not specialist_id:
-            # ─── Default Conversational Mode ──────────────
-            agent = hub.get(agent_id)
+        enhanced_prompt = "\n\n".join(prompt_parts)
 
-            # Build enhanced prompt with brand knowledge
-            prompt_parts = []
-            if has_knowledge:
-                brand_context = knowledge_result.get("context", "")
-                if brand_context:
-                    prompt_parts.append(f"Relevant Brand Knowledge:\n{brand_context}")
-
-            prompt_parts.append(f"Customer Question: {message}")
-            prompt_parts.append(
-                "Respond helpfully and conversationally using whatever brand context you have. "
-                "Be specific to this brand — never give generic advice."
-            )
-
-            enhanced_prompt = "\n\n".join(prompt_parts)
-
-            response = await agent.execute_in_conversation(
-                prompt=enhanced_prompt,
-                history=session.history[:-1],
-                db=db,
-                context=context,
-            )
-            response_text = response.content
+        # Execute via hub — _resolve_agent() handles specialist routing
+        response = await hub.run_in_conversation(
+            agent_type=agent_id,
+            prompt=enhanced_prompt,
+            history=session.history[:-1],
+            db=db,
+            context=context,
+        )
+        response_text = response.content
         session.add_message("assistant", response_text)
 
         # 3. Escalate if low confidence

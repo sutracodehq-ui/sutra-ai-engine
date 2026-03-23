@@ -35,6 +35,8 @@ class DriverManager:
         "gemini": "app.services.drivers.gemini_driver.GeminiDriver",
         "groq": "app.services.drivers.groq_driver.GroqDriver",
         "ollama": "app.services.drivers.ollama_driver.OllamaDriver",
+        "sarvam": "app.services.drivers.sarvam_driver.SarvamDriver",
+        "nvidia": "app.services.drivers.nvidia_driver.NvidiaDriver",
         "mock": "app.services.drivers.mock_driver.MockDriver",
     }
 

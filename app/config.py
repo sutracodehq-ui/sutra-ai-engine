@@ -70,6 +70,18 @@ class Settings(BaseSettings):
     groq_max_tokens: int = 2048
     groq_temperature: float = 0.7
 
+    # ─── Sarvam AI (Indian language models) ─────────
+    sarvam_api_key: str = ""
+    sarvam_model: str = "sarvam-m"
+    sarvam_max_tokens: int = 2048
+    sarvam_temperature: float = 0.7
+
+    # ─── NVIDIA NIM (high-perf frontier models) ─────
+    nvidia_api_key: str = ""
+    nvidia_model: str = "meta/llama-3.1-405b-instruct"
+    nvidia_max_tokens: int = 2048
+    nvidia_temperature: float = 0.7
+
     # ─── Ollama ─────────────────────────────────────
     ollama_base_url: str = "http://sutra-ai-ollama:11434"
     ollama_model: str = "llama3.1:8b"

@@ -461,6 +461,87 @@ class AiAgentHub:
         """Get metadata for all registered agents."""
         return [agent.info() for agent in self._agents.values()]
 
+    # ─── Intent-Based Smart Routing (Centralized) ────────────
+    # Config-driven: keyword + action word → specialist agent.
+    # Works for ALL execution paths: run(), run_stream(), run_in_conversation().
+    # When user says "generate a quiz on X", the hub auto-swaps to quiz_generator
+    # regardless of which agent was originally requested.
+
+    INTENT_ROUTES: list[dict] = [
+        # EdTech
+        {"keywords": ["quiz", "mcq", "question paper", "test paper", "question bank"],
+         "agent": "quiz_generator", "actions": ["generate", "create", "make", "build", "prepare"]},
+        {"keywords": ["notes", "revision notes", "summary notes", "study notes", "study material"],
+         "agent": "note_generator", "actions": ["generate", "create", "make", "write", "prepare"]},
+        {"keywords": ["flashcard", "flash card"],
+         "agent": "flashcard_creator", "actions": ["generate", "create", "make", "build"]},
+        {"keywords": ["lecture plan", "lesson plan", "teaching plan", "class plan"],
+         "agent": "lecture_planner", "actions": ["generate", "create", "make", "plan", "design"]},
+        {"keywords": ["key points", "important points", "main points"],
+         "agent": "key_points_extractor", "actions": ["extract", "list", "give", "find", "get"]},
+        # Marketing
+        {"keywords": ["social media post", "instagram post", "twitter post", "facebook post", "linkedin post"],
+         "agent": "social", "actions": ["generate", "create", "write", "make", "draft"]},
+        {"keywords": ["email campaign", "newsletter", "marketing email"],
+         "agent": "email_campaign", "actions": ["generate", "create", "write", "draft"]},
+        {"keywords": ["ad copy", "advertisement", "ad creative"],
+         "agent": "ad_creative", "actions": ["generate", "create", "write", "make", "design"]},
+        {"keywords": ["seo", "meta title", "meta description"],
+         "agent": "seo", "actions": ["analyze", "generate", "optimize", "create", "write"]},
+        # Finance
+        {"keywords": ["stock", "share price", "equity"],
+         "agent": "stock_analyzer", "actions": ["analyze", "check", "review"]},
+        # Health
+        {"keywords": ["diet plan", "meal plan", "nutrition plan"],
+         "agent": "diet_planner", "actions": ["generate", "create", "make", "plan", "suggest"]},
+        {"keywords": ["symptoms", "feeling sick", "health issue"],
+         "agent": "symptom_triage", "actions": ["check", "assess", "evaluate", "help"]},
+        # Legal
+        {"keywords": ["contract", "agreement", "legal document"],
+         "agent": "contract_analyzer", "actions": ["analyze", "review", "check", "draft"]},
+        {"keywords": ["rti", "right to information"],
+         "agent": "rti_drafter", "actions": ["draft", "write", "create", "file"]},
+    ]
+
+    def _resolve_agent(self, requested_agent: str, prompt: str) -> str:
+        """
+        Smart agent resolution — detect user intent and route to specialist.
+
+        Priority:
+        1. If prompt matches a specialist intent (keyword + action), use that specialist
+        2. Otherwise, use the originally requested agent
+
+        This ensures "generate a quiz on X" always goes to quiz_generator,
+        even if the frontend called education_guru or chatbot_trainer.
+        """
+        # Skip intent routing if already targeting a specialist directly
+        # (prevents re-routing quiz_generator → quiz_generator)
+        specialist_ids = {r["agent"] for r in self.INTENT_ROUTES}
+        if requested_agent in specialist_ids:
+            return requested_agent
+
+        # Skip if in a delegation chain (prevent loops)
+        # This is checked via context in run() but we do a fast check here
+        msg_lower = prompt.lower()
+
+        for route in self.INTENT_ROUTES:
+            # Only route to agents that exist
+            if route["agent"] not in self._agents:
+                continue
+
+            # Keyword match + action word match
+            has_keyword = any(kw in msg_lower for kw in route["keywords"])
+            has_action = any(aw in msg_lower for aw in route["actions"])
+
+            if has_keyword and has_action:
+                logger.info(
+                    f"AiAgentHub: intent routing {requested_agent} → {route['agent']} "
+                    f"for: {prompt[:80]}"
+                )
+                return route["agent"]
+
+        return requested_agent
+
     async def run(
         self, 
         agent_type: str, 
@@ -470,8 +551,10 @@ class AiAgentHub:
         **options
     ) -> LlmResponse:
         """Dispatch a task to the appropriate agent, with auto-delegation."""
-        agent = self.get(agent_type)
-        logger.info(f"AiAgentHub: running agent '{agent_type}'")
+        # Smart routing: detect specialist intent before execution
+        resolved_type = self._resolve_agent(agent_type, prompt)
+        agent = self.get(resolved_type)
+        logger.info(f"AiAgentHub: running agent '{resolved_type}'")
         response = await agent.execute(prompt, db=db, context=context, **options)
 
         # ─── Auto-Delegation: detect delegate_to in response ─────
@@ -534,8 +617,10 @@ class AiAgentHub:
         **options
     ) -> AsyncGenerator[str, None]:
         """Stream a task response token-by-token (SSE-ready)."""
-        agent = self.get(agent_type)
-        logger.info(f"AiAgentHub: streaming agent '{agent_type}'")
+        # Smart routing: detect specialist intent before streaming
+        resolved_type = self._resolve_agent(agent_type, prompt)
+        agent = self.get(resolved_type)
+        logger.info(f"AiAgentHub: streaming agent '{resolved_type}'")
         async for token in agent.execute_stream(prompt, db=db, context=context, **options):
             yield token
 
@@ -549,7 +634,9 @@ class AiAgentHub:
         **options,
     ) -> LlmResponse:
         """Run a task within a conversation with full history."""
-        agent = self.get(agent_type)
+        # Smart routing: detect specialist intent before conversation execution
+        resolved_type = self._resolve_agent(agent_type, prompt)
+        agent = self.get(resolved_type)
         return await agent.execute_in_conversation(prompt, history, db=db, context=context, **options)
 
     async def batch(
