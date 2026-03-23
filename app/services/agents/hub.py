@@ -306,6 +306,9 @@ class AiAgentHub:
         from app.services.agents.infrastructure_auditor import InfrastructureAuditorAgent
         from app.services.agents.udise_report_generator import UdiseReportGeneratorAgent
 
+        # ─── Phase 42: Brand Strategy ──────────────────────
+        from app.services.agents.brand_advisor import BrandAdvisorAgent
+
         llm = get_llm_service()
         for agent_cls in [
             # Core
@@ -430,6 +433,8 @@ class AiAgentHub:
             UdiseComplianceAdvisorAgent, DocumentOcrExtractorAgent,
             StudentDataValidatorAgent, InfrastructureAuditorAgent,
             UdiseReportGeneratorAgent,
+            # Phase 42: Brand Strategy
+            BrandAdvisorAgent,
         ]:
             agent = agent_cls(llm)
             self.register(agent)

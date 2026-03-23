@@ -49,8 +49,15 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
     db.add(task)
     await db.flush()
 
+    # Prevent keyword argument conflict for 'context' if it exists in options
+    options = (body.options or {}).copy()
+    if "context" in options:
+        extra_context = options.pop("context")
+        if isinstance(extra_context, dict):
+            context.update(extra_context)
+
     try:
-        response = await hub.run(agent_type, body.prompt, db=db, context=context, **body.options or {})
+        response = await hub.run(agent_type, body.prompt, db=db, context=context, **options)
         task.status = "completed"
         task.result = {"content": response.content}
         task.tokens_used = response.total_tokens
@@ -140,7 +147,14 @@ async def batch_run(body: BatchRunRequest, tenant: CurrentTenant, db: DbSession)
     context = {}
     context["tenant_slug"] = tenant.slug
 
-    results = await hub.batch(body.prompt, body.agent_types, db=db, context=context, **body.options or {})
+    # Prevent keyword argument conflict for 'context'
+    options = (body.options or {}).copy()
+    if "context" in options:
+        extra_context = options.pop("context")
+        if isinstance(extra_context, dict):
+            context.update(extra_context)
+
+    results = await hub.batch(body.prompt, body.agent_types, db=db, context=context, **options)
 
     output = {}
     for agent_type, response in results.items():

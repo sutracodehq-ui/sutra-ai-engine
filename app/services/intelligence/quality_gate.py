@@ -71,8 +71,22 @@ class QualityGate:
 
         return result
 
+    def _clean_content(self, content: str) -> str:
+        """Strip markdown code fences if present."""
+        content = content.strip()
+        if content.startswith("```"):
+            # Remove starts like ```json or just ```
+            lines = content.split("\n")
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            content = "\n".join(lines).strip()
+        return content
+
     def _score_format(self, content: str) -> float:
         """Score JSON validity (0.0-1.0)."""
+        content = self._clean_content(content)
         try:
             parsed = json.loads(content)
             if isinstance(parsed, dict) and len(parsed) > 0:
@@ -89,6 +103,7 @@ class QualityGate:
         if not expected_fields:
             return 0.8  # No expectations to check
 
+        content = self._clean_content(content)
         try:
             parsed = json.loads(content)
             if not isinstance(parsed, dict):

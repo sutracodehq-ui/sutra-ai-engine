@@ -126,9 +126,29 @@ class ResponseEnvelopeMiddleware(BaseHTTPMiddleware):
 
 def _rebuild_response(original, body_bytes: bytes, request_id: str, duration_ms: float):
     """Rebuild a response from raw bytes, preserving status and adding headers."""
-    return JSONResponse(
+    content_type = original.headers.get("content-type", "application/json")
+    
+    # Try to parse as JSON for the response object if it's application/json
+    content = body_bytes
+    if "application/json" in content_type:
+        try:
+            content = json.loads(body_bytes)
+            return JSONResponse(
+                status_code=original.status_code,
+                content=content,
+                headers={
+                    "X-Request-Id": request_id,
+                    "X-Response-Time": f"{duration_ms}ms",
+                },
+            )
+        except json.JSONDecodeError:
+            pass # Fall back to plain Response
+
+    from starlette.responses import Response
+    return Response(
+        content=body_bytes,
         status_code=original.status_code,
-        content=json.loads(body_bytes),
+        media_type=content_type,
         headers={
             "X-Request-Id": request_id,
             "X-Response-Time": f"{duration_ms}ms",
