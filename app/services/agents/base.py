@@ -41,14 +41,14 @@ class BaseAgent:
         with open(self.config_path, "r") as f:
             return yaml.safe_load(f)
 
-    def _build_from_config(self, context: dict | None = None) -> str:
+    def _build_from_config(self, context: dict | None = None, stream: bool = False) -> str:
         """
         Build a system prompt from the static YAML config.
         
         Auto-injections:
         1. Brand/Org Context: Injects brand, product, and organization info when available
         2. Chain-of-Thought: Adds reasoning instructions for better output quality
-        3. JSON Mode: Enforces strict JSON output when response_schema.format == "json"
+        3. Output Format: JSON for REST (/run), markdown for SSE (/stream)
         4. Rules: Appends any agent-specific rules from YAML
         """
         prompt = self._config.get("system_prompt", "You are a helpful AI assistant.")
@@ -85,37 +85,47 @@ class BaseAgent:
                 )
 
         # ─── Chain-of-Thought Injection ───────────────────
-        # IMPORTANT: The instruction MUST be extremely clear that thinking
-        # process should NEVER appear in the output. gemma3 tends to leak
-        # [THINKING PROCESS] blocks if the instruction is weak.
         cot_instruction = (
             "\n\n## CRITICAL: Internal Reasoning Only"
             "\nThink carefully before answering, but NEVER show your reasoning "
             "in the output. Do NOT include phrases like 'Let me think', "
             "'THINKING PROCESS', 'Step 1:', or any internal reasoning. "
             "Your output must contain ONLY the final, polished response "
-            "in the required format — nothing else."
+            "— nothing else."
         )
         prompt += cot_instruction
 
-        # ─── JSON Mode Enforcement ────────────────────────
+        # ─── Output Format (mode-aware) ───────────────────
         schema = self._config.get("response_schema", {})
-        if isinstance(schema, dict) and schema.get("format") == "json":
-            fields = schema.get("fields", [])
-            fields_str = ", ".join(f'"{f}"' for f in fields) if fields else "relevant fields"
+
+        if stream:
+            # STREAM mode → conversational markdown for real-time display
             prompt += (
-                f"\n\n## Output Format"
-                f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
-                f"\nRequired top-level keys: {fields_str}"
-                f"\nEnsure all values are properly typed (strings, numbers, arrays as appropriate)."
+                "\n\n## Output Format"
+                "\nRespond in **conversational markdown** — NOT JSON."
+                "\nUse bold headings, bullet points, numbered steps, and emoji for clarity."
+                "\nDo NOT wrap your response in ```json``` code blocks."
+                "\nAt the very end of your response, add 2-3 follow-up suggestions "
+                "as a bullet list under a '**Suggestions:**' heading."
             )
-        elif isinstance(schema, list) and schema:
-            fields_str = ", ".join(f'"{f}"' for f in schema)
-            prompt += (
-                f"\n\n## Output Format"
-                f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
-                f"\nRequired top-level keys: {fields_str}"
-            )
+        else:
+            # RUN mode → structured JSON for programmatic consumption
+            if isinstance(schema, dict) and schema.get("format") == "json":
+                fields = schema.get("fields", [])
+                fields_str = ", ".join(f'"{f}"' for f in fields) if fields else "relevant fields"
+                prompt += (
+                    f"\n\n## Output Format"
+                    f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
+                    f"\nRequired top-level keys: {fields_str}"
+                    f"\nEnsure all values are properly typed (strings, numbers, arrays as appropriate)."
+                )
+            elif isinstance(schema, list) and schema:
+                fields_str = ", ".join(f'"{f}"' for f in schema)
+                prompt += (
+                    f"\n\n## Output Format"
+                    f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
+                    f"\nRequired top-level keys: {fields_str}"
+                )
 
         # ─── Rules Injection ──────────────────────────────
         rules = self._config.get("rules", [])
@@ -132,25 +142,35 @@ class BaseAgent:
         # ─── Peer Awareness (Collaboration) ───────────────
         peer_info = self._get_peer_summary()
         if peer_info:
+            delegate_note = (
+                'include a "delegate_to" key in your JSON response'
+                if not stream else
+                "suggest delegating to the appropriate agent"
+            )
             prompt += (
                 "\n\n## Collaboration — Your Specialist Peers"
                 "\nYou have access to these specialist agents. If a user's query is outside your expertise, "
-                "include a \"delegate_to\" key in your JSON response with the agent identifier."
+                f"{delegate_note} with the agent identifier."
                 "\nOnly delegate if the query is clearly better handled by another agent."
                 f"\n{peer_info}"
             )
 
         # ─── Proactive Suggestions ────────────────────────
-        prompt += (
-            "\n\n## Proactive Suggestions"
-            "\nAlways include a \"suggestions\" key in your JSON response. This must be an array of 2-3 specific, actionable "
-            "follow-up questions or next steps the user can take. "
-            "\n- Recommendations should be context-aware and, where possible, brand-aligned."
-            "\n- You can suggest asking for more details, trying a related workflow, or using a specialist peer agent."
-        )
+        if stream:
+            prompt += (
+                "\n\n## Proactive Suggestions"
+                "\nAt the end of your response, under '**Suggestions:**', include 2-3 specific, "
+                "actionable follow-up questions or next steps the user can take."
+            )
+        else:
+            prompt += (
+                "\n\n## Proactive Suggestions"
+                '\nAlways include a "suggestions" key in your JSON response. This must be an array of 2-3 specific, actionable '
+                "follow-up questions or next steps the user can take."
+            )
 
-        # ─── Output Format (Re-applied to include suggestions) ─
-        if isinstance(schema, dict) and schema.get("format") == "json":
+        # ─── Re-enforce Output Format (JSON only) ─────────
+        if not stream and isinstance(schema, dict) and schema.get("format") == "json":
             fields = schema.get("fields", []).copy()
             if "suggestions" not in fields:
                 fields.append("suggestions")
@@ -177,7 +197,7 @@ class BaseAgent:
         except Exception:
             return ""
 
-    async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None) -> Tuple[str, Optional[int]]:
+    async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None, stream: bool = False) -> Tuple[str, Optional[int]]:
         """
         Resolve the system prompt via the Self-Optimizing Prompt Engine.
         
@@ -188,7 +208,7 @@ class BaseAgent:
         Returns (prompt_text, optimization_id).
         """
         if not db:
-            return self._build_from_config(context), None
+            return self._build_from_config(context, stream=stream), None
 
         try:
             from app.services.intelligence.prompt_engine import PromptEngine
@@ -202,7 +222,7 @@ class BaseAgent:
             logger.error(f"PromptEngine fallback for {self.identifier}: {e}")
 
         # Final fallback: Static YAML with CoT/JSON injections
-        return self._build_from_config(context), None
+        return self._build_from_config(context, stream=stream), None
 
 
     async def build_messages(
@@ -210,10 +230,11 @@ class BaseAgent:
         prompt: str, 
         history: List[dict] | None = None, 
         db: AsyncSession | None = None,
-        context: dict | None = None
+        context: dict | None = None,
+        stream: bool = False,
     ) -> Tuple[List[dict], Optional[int]]:
         """Build the full message array for the LLM."""
-        system_prompt, opt_id = await self.get_system_prompt(db, context)
+        system_prompt, opt_id = await self.get_system_prompt(db, context, stream=stream)
 
         # ─── Inject Multilingual Support ──────────────────
         from app.services.intelligence.multilingual import get_language_instruction
@@ -471,7 +492,7 @@ class BaseAgent:
         from app.services.driver_manager import get_driver_manager
         from app.lib.stream_filter import strip_cot
 
-        messages, opt_id = await self.build_messages(prompt, None, db, context)
+        messages, opt_id = await self.build_messages(prompt, None, db, context, stream=True)
 
         # Auto-detect language + complexity → pick best driver + model
         settings = get_settings()
