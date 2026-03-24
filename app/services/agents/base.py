@@ -510,10 +510,12 @@ class BaseAgent:
             except Exception as e:
                 logger.debug(f"SmartRouter fallback: {e}")
 
-        # Stream via DriverManager (handles fallback chain + circuit breaker internally)
+        # Stream via DriverManager — with resilient fallback
         manager = get_driver_manager()
         full_response = []
         clean_opts = {k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
+        used_fallback = False
+        actual_driver = driver_override
 
         try:
             raw_stream = manager.stream(
@@ -525,10 +527,32 @@ class BaseAgent:
             async for token in strip_cot(raw_stream):
                 full_response.append(token)
                 yield token
-        except Exception as e:
-            logger.error(f"Agent stream: all drivers failed for {self.identifier}: {e}")
-            yield f"\n[Error: {str(e)}]"
-            return
+        except Exception as primary_err:
+            # Primary driver failed — fall back to cloud via the full chain
+            logger.warning(
+                f"Agent stream: primary driver '{driver_override or 'default'}' failed "
+                f"for {self.identifier}: {primary_err}. Falling back to chain."
+            )
+
+            try:
+                # Retry WITHOUT driver_override → uses the full fallback chain
+                fallback_stream = manager.stream(
+                    messages=messages,
+                    driver_override=None,  # let the chain handle it
+                    model_override=None,
+                    **clean_opts,
+                )
+                async for token in strip_cot(fallback_stream):
+                    full_response.append(token)
+                    yield token
+                used_fallback = True
+                actual_driver = "fallback_chain"
+            except Exception as fallback_err:
+                logger.error(
+                    f"Agent stream: all drivers failed for {self.identifier}: {fallback_err}"
+                )
+                yield f"\n[Error: {str(fallback_err)}]"
+                return
 
         # Post-stream: store in memory for self-learning
         complete_text = "".join(full_response)
@@ -539,6 +563,31 @@ class BaseAgent:
                 await memory.remember(self.identifier, prompt, complete_text)
             except Exception as e:
                 logger.debug(f"Post-stream memory store skipped: {e}")
+
+        # Cloud-to-local teaching: when cloud fallback handled the request,
+        # store the prompt+response as training data so the local model
+        # can learn from it over time.
+        if used_fallback and complete_text:
+            try:
+                import json
+                from pathlib import Path
+                training_dir = Path("training/cloud_teaching")
+                training_dir.mkdir(parents=True, exist_ok=True)
+                entry = {
+                    "agent": self.identifier,
+                    "prompt": prompt,
+                    "response": complete_text,
+                    "source": actual_driver,
+                }
+                log_path = training_dir / f"{self.identifier}.jsonl"
+                with open(log_path, "a") as f:
+                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                logger.info(
+                    f"Cloud teaching: stored {len(complete_text)} chars "
+                    f"from {actual_driver} for {self.identifier}"
+                )
+            except Exception as e:
+                logger.debug(f"Cloud teaching store skipped: {e}")
 
 
     async def execute_in_conversation(
