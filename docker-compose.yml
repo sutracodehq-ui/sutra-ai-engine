@@ -132,6 +132,8 @@ services:
   sutra-ai-ollama:
     image: ollama/ollama:latest
     container_name: sutra-ai-ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=2  # software-level parallelism: 2 concurrent inference slots
     ports:
       - "11435:11434"
     volumes:

@@ -3,7 +3,7 @@
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,13 +42,14 @@ async def chat_completion(
         driver=result.driver if hasattr(result, "driver") else result.get("driver"),
         model=result.model if hasattr(result, "model") else result.get("model"),
         usage=result.metadata if hasattr(result, "metadata") else result.get("usage", {}),
-        metadata=result.metadata if hasattr(result, "metadata") else result.get("metadata", {})
+        metadata=result.metadata if hasattr(result, "metadata") else result.get("metadata", {}),
     )
 
 
 @router.post("/stream")
 async def chat_stream(
     body: ChatRequest,
+    request: Request,
     db: DbSession,
     tenant: Annotated[Tenant, Depends(get_current_tenant)],
 ):
@@ -56,8 +57,9 @@ async def chat_stream(
     Streaming chat completion (SSE).
     Uses the high-performance pipeline with Zero-buffer passthrough.
     """
-    
-    async def event_generator():
+
+    async def _llm_generator():
+        """Inner generator: streams tokens from the LLM."""
         full_response = []
         stream = await ChatEngine.execute(
             db,
@@ -70,7 +72,6 @@ async def chat_stream(
             **body.options or {}
         )
 
-        # Stream tokens in real-time
         async for chunk in stream:
             full_response.append(chunk)
             yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
@@ -91,4 +92,16 @@ async def chat_stream(
             yield f"data: {json.dumps({'type': 'suggestions', 'items': suggestions})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    # Queue the request — emits thinking/calculating status, handles concurrency
+    from app.services.intelligence.llm_queue import get_llm_queue
+    queue = get_llm_queue()
+
+    return StreamingResponse(
+        queue.stream(_llm_generator, request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

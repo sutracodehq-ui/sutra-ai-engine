@@ -6,7 +6,7 @@ Streaming endpoints provide SSE (Server-Sent Events) for ChatGPT-style token-by-
 
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.dependencies import CurrentTenant, DbSession
@@ -97,7 +97,7 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
 
 # ─── SSE Streaming execution logic ──────────────────────────────
 
-async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
+async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, request: Request | None = None):
     """SSE streaming agent execution — yields tokens as they arrive."""
     hub = get_agent_hub()
 
@@ -124,17 +124,15 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
         if isinstance(extra_context, dict):
             context.update(extra_context)
 
-    async def event_generator():
+    async def _llm_generator():
+        """Inner generator: streams tokens from the LLM."""
         full_response = []
         try:
-            # ─── Stream tokens in real-time ───────────────────────
-            # Tokens are yielded as they arrive from the LLM.
-            # The base agent's execute_stream already strips CoT blocks.
             async for token in hub.run_stream(agent_type, body.prompt, db=db, context=context, **options):
                 full_response.append(token)
                 yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
-            # ─── Post-stream: extract suggestions ─────────────────
+            # Post-stream: extract suggestions
             complete_text = "".join(full_response)
             suggestions = []
 
@@ -147,14 +145,11 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
             except Exception:
                 result_data = {"content": complete_text}
 
-            # Event: suggestions — follow-up actions
             if suggestions:
                 yield f"data: {json.dumps({'type': 'suggestions', 'items': suggestions})}\n\n"
 
-            # Event: done — stream complete
             yield f"data: {json.dumps({'type': 'done', 'task_id': task_id, 'agent': agent_type})}\n\n"
 
-            # Update task record
             task.status = "completed"
             task.result = result_data
             await db.commit()
@@ -166,13 +161,17 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
             task.error = str(e)
             await db.commit()
 
+    # Queue the request — emits thinking/calculating status, handles concurrency
+    from app.services.intelligence.llm_queue import get_llm_queue
+    queue = get_llm_queue()
+
     return StreamingResponse(
-        event_generator(),
+        queue.stream(_llm_generator, request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",  # Disable Nginx buffering
+            "X-Accel-Buffering": "no",
         },
     )
 
@@ -224,8 +223,8 @@ def _register_agent_routes():
             return handler
 
         def make_stream_handler(at: str):
-            async def handler(body: AgentRunRequest, tenant: CurrentTenant, db: DbSession):
-                return await _stream_agent(at, body, tenant, db)
+            async def handler(body: AgentRunRequest, request: Request, tenant: CurrentTenant, db: DbSession):
+                return await _stream_agent(at, body, tenant, db, request)
             handler.__doc__ = stream_docstring
             handler.__name__ = f"stream_{at}"
             return handler

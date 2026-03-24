@@ -88,6 +88,9 @@ class Settings(BaseSettings):
     ollama_max_tokens: int = 2048
     ollama_temperature: float = 0.7
 
+    # ─── LLM Queue ──────────────────────────────────
+    llm_max_parallel: int = 2  # concurrent inference slots (match OLLAMA_NUM_PARALLEL)
+
     # ─── ChromaDB ───────────────────────────────────
     chromadb_url: str = "http://sutra-ai-chromadb:8000"
     embedding_model: str = "nomic-embed-text"
