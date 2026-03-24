@@ -18,6 +18,7 @@ services:
       - ./scripts:/app/scripts
       - ./docker/entrypoint.sh:/app/docker/entrypoint.sh
       - ./docs:/app/docs
+      - ./intelligence_config.yaml:/app/intelligence_config.yaml
       - sutra_home:/home/sutra        # ChromaDB embedding cache
       - training_data:/app/training    # chat logs, training data
     depends_on:
@@ -47,6 +48,7 @@ services:
       - ./alembic:/app/alembic
       - ./scripts:/app/scripts
       - ./docs:/app/docs
+      - ./intelligence_config.yaml:/app/intelligence_config.yaml
       - sutra_home:/home/sutra        # ChromaDB embedding cache
       - training_data:/app/training    # chat logs, training data
     depends_on:
