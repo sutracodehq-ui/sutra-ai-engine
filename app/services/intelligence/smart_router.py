@@ -31,23 +31,38 @@ logger = logging.getLogger(__name__)
 # ─── Config Loader (cached singleton) ─────────────────────────
 
 _config_cache: dict | None = None
+_config_loaded_at: float = 0
+_CONFIG_TTL: float = 60.0  # reload YAML every 60s
 
 
 def _load_config() -> dict:
-    """Load smart_router config from YAML. Cached after first call."""
-    global _config_cache
-    if _config_cache is not None:
+    """Load smart_router config from YAML. Cached with 60s TTL."""
+    global _config_cache, _config_loaded_at
+    import time as _time
+
+    now = _time.monotonic()
+    if _config_cache is not None and (now - _config_loaded_at) < _CONFIG_TTL:
         return _config_cache
 
     config_path = Path("intelligence_config.yaml")
     if not config_path.exists():
         _config_cache = {}
+        _config_loaded_at = now
         return _config_cache
 
     with open(config_path) as f:
         full = yaml.safe_load(f) or {}
 
     _config_cache = full.get("smart_router", {})
+    _config_loaded_at = now
+
+    # Reset precomputed sets so they rebuild from new config
+    global _indic_scripts, _hinglish_words, _complex_signals, _simple_signals
+    _indic_scripts = None
+    _hinglish_words = None
+    _complex_signals = None
+    _simple_signals = None
+
     return _config_cache
 
 

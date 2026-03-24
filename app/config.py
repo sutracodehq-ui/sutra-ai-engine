@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     ollama_temperature: float = 0.7
 
     # ─── LLM Queue ──────────────────────────────────
-    llm_max_parallel: int = 2  # concurrent inference slots (match OLLAMA_NUM_PARALLEL)
+    llm_max_parallel: int = 10  # concurrent inference slots (cloud APIs handle unlimited)
 
     # ─── ChromaDB ───────────────────────────────────
     chromadb_url: str = "http://sutra-ai-chromadb:8000"

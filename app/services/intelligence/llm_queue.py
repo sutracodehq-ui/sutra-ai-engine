@@ -105,12 +105,14 @@ class LlmQueue:
             # Slot acquired — emit "calculating" status
             yield _sse({"type": "status", "stage": "calculating"})
 
-            # Stream tokens with proactive disconnect detection
+            # Stream tokens with batched disconnect detection (every 5 chunks)
             gen = generator_fn()
+            chunk_count = 0
             try:
                 async for chunk in gen:
-                    # Periodic disconnect check
-                    if request and await request.is_disconnected():
+                    chunk_count += 1
+                    # Check disconnect every 5 chunks to reduce async overhead
+                    if request and chunk_count % 5 == 0 and await request.is_disconnected():
                         logger.info("LlmQueue: client disconnected mid-stream, freeing slot")
                         cancelled = True
                         break

@@ -72,10 +72,11 @@ class WebSearch:
                     "include_answer": True,
                     "search_depth": "basic",
                 },
+                timeout=3.0,  # 3s hard timeout — never block the agent
             )
 
             if resp.status_code != 200:
-                logger.warning(f"Tavily search failed: HTTP {resp.status_code}")
+                logger.debug(f"Tavily search skipped: HTTP {resp.status_code}")
                 return {"results": [], "answer": "", "source": "tavily"}
 
             data = resp.json()
@@ -95,7 +96,7 @@ class WebSearch:
             }
 
         except Exception as e:
-            logger.warning(f"Tavily search error: {e}")
+            logger.debug(f"Tavily search skipped: {e}")
             return {"results": [], "answer": "", "source": "tavily"}
 
     async def _ddg_search(self, query: str, max_results: int) -> dict:
