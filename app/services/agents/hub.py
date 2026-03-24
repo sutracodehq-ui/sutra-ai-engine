@@ -1,11 +1,12 @@
 """
 AI Agent Hub — Software Factory registry and orchestrator.
 
-Config-driven: agents self-register from configuration.
-New agents = new YAML config + one-line class. Zero hub changes.
+Config-driven: agents auto-register from YAML configs in agent_config/.
+New agents = new YAML file. Zero code changes needed.
 """
 
 import logging
+from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from app.services.agents.base import BaseAgent
@@ -30,415 +31,34 @@ class AiAgentHub:
         self._auto_register()
 
     def _auto_register(self):
-        """Auto-register all built-in agents. Software Factory: config-driven assembly."""
-        # ─── Core Marketing Agents ────────────────────────
-        from app.services.agents.copywriter import CopywriterAgent
-        from app.services.agents.seo import SeoAgent
-        from app.services.agents.social import SocialAgent
-        from app.services.agents.email_campaign import EmailCampaignAgent
-        from app.services.agents.whatsapp import WhatsappAgent
-        from app.services.agents.sms import SmsAgent
-        from app.services.agents.ad_creative import AdCreativeAgent
-        from app.services.agents.brand_auditor import BrandAuditorAgent
-        from app.services.agents.content_repurpose import ContentRepurposerAgent
-        from app.services.agents.click_shield import ClickShieldAgent
+        """
+        Auto-discover and register all agents from YAML configs.
 
-        # ─── Phase 1: Marketing Intelligence ─────────────
-        from app.services.agents.persona_builder import PersonaBuilderAgent
-        from app.services.agents.campaign_strategist import CampaignStrategistAgent
-        from app.services.agents.ab_test_advisor import AbTestAdvisorAgent
-        from app.services.agents.competitor_analyst import CompetitorAnalystAgent
-        from app.services.agents.url_analyzer import UrlAnalyzerAgent
-
-        # ─── Phase 2: Analytics & Insights ────────────────
-        from app.services.agents.performance_reporter import PerformanceReporterAgent
-        from app.services.agents.budget_optimizer import BudgetOptimizerAgent
-        from app.services.agents.anomaly_alerter import AnomalyAlerterAgent
-
-        # ─── Phase 3: Creative & Media ────────────────────
-        from app.services.agents.visual_designer import VisualDesignerAgent
-        from app.services.agents.video_scriptwriter import VideoScriptwriterAgent
-        from app.services.agents.landing_page_builder import LandingPageBuilderAgent
-
-        # ─── Phase 4: Autonomous Operations ───────────────
-        from app.services.agents.auto_publisher import AutoPublisherAgent
-        from app.services.agents.lead_scorer import LeadScorerAgent
-        from app.services.agents.chatbot_trainer import ChatbotTrainerAgent
-
-        # ─── Phase 5: Reputation & Growth ─────────────────
-        from app.services.agents.review_reputation import ReviewReputationAgent
-        from app.services.agents.trend_spotter import TrendSpotterAgent
-        from app.services.agents.funnel_analyzer import FunnelAnalyzerAgent
-        from app.services.agents.influencer_matcher import InfluencerMatcherAgent
-        from app.services.agents.journey_mapper import JourneyMapperAgent
-
-        # ─── Phase 6: Smart Automation ────────────────────
-        from app.services.agents.auto_scheduler import AutoSchedulerAgent
-        from app.services.agents.audience_segmenter import AudienceSegmenterAgent
-        from app.services.agents.churn_predictor import ChurnPredictorAgent
-
-        # ─── Phase 7: Analytics & Intelligence ────────────
-        from app.services.agents.roi_calculator import RoiCalculatorAgent
-        from app.services.agents.content_grader import ContentGraderAgent
-        from app.services.agents.attribution_analyst import AttributionAnalystAgent
-        from app.services.agents.pricing_strategist import PricingStrategistAgent
-
-        # ─── Phase 8: Platform-Specific ───────────────────
-        from app.services.agents.google_ads_optimizer import GoogleAdsOptimizerAgent
-        from app.services.agents.meta_ads_optimizer import MetaAdsOptimizerAgent
-        from app.services.agents.linkedin_growth import LinkedinGrowthAgent
-
-        # ─── Phase 9: Voice & Calling ─────────────────────
-        from app.services.agents.cold_call_scripter import ColdCallScripterAgent
-        from app.services.agents.call_sentiment_analyzer import CallSentimentAnalyzerAgent
-        from app.services.agents.whatsapp_bot_builder import WhatsappBotBuilderAgent
-        from app.services.agents.call_summarizer import CallSummarizerAgent
-        from app.services.agents.ivr_designer import IvrDesignerAgent
-
-        # ─── Phase 10: Video Intelligence ─────────────────
-        from app.services.agents.youtube_analyzer import YoutubeAnalyzerAgent
-        from app.services.agents.video_summarizer import VideoSummarizerAgent
-        from app.services.agents.caption_generator import CaptionGeneratorAgent
-        from app.services.agents.audio_dubber import AudioDubberAgent
-        from app.services.agents.social_clip_maker import SocialClipMakerAgent
-
-        # ─── Phase 11: EdTech Intelligence ────────────────
-        from app.services.agents.note_generator import NoteGeneratorAgent
-        from app.services.agents.key_points_extractor import KeyPointsExtractorAgent
-        from app.services.agents.quiz_generator import QuizGeneratorAgent
-        from app.services.agents.flashcard_creator import FlashcardCreatorAgent
-        from app.services.agents.lecture_planner import LecturePlannerAgent
-
-        # ─── Phase 12: Market & Finance Intelligence ──────
-        from app.services.agents.stock_analyzer import StockAnalyzerAgent
-        from app.services.agents.stock_predictor import StockPredictorAgent
-        from app.services.agents.market_trend_analyzer import MarketTrendAnalyzerAgent
-        from app.services.agents.ai_trend_tracker import AiTrendTrackerAgent
-        from app.services.agents.crypto_analyzer import CryptoAnalyzerAgent
-
-        # ─── Phase 13: Data & ML Intelligence ─────────────
-        from app.services.agents.data_curator import DataCuratorAgent
-        from app.services.agents.dataset_optimizer import DatasetOptimizerAgent
-        from app.services.agents.ml_pipeline import MlPipelineAgent
-
-        # ─── Phase 14: Health Intelligence ─────────────────
-        from app.services.agents.lab_report_interpreter import LabReportInterpreterAgent
-        from app.services.agents.symptom_triage import SymptomTriageAgent
-        from app.services.agents.diet_planner import DietPlannerAgent
-        from app.services.agents.mental_health_companion import MentalHealthCompanionAgent
-        from app.services.agents.medicine_info import MedicineInfoAgent
-        from app.services.agents.patient_followup import PatientFollowupAgent
-        from app.services.agents.ayurveda_advisor import AyurvedaAdvisorAgent
-
-        # ─── Phase 15: Legal & Compliance ──────────────────
-        from app.services.agents.contract_analyzer import ContractAnalyzerAgent
-        from app.services.agents.rti_drafter import RtiDrafterAgent
-        from app.services.agents.gst_compliance import GstComplianceAgent
-        from app.services.agents.legal_document_writer import LegalDocumentWriterAgent
-
-        # ─── Phase 16: HR & Recruitment ────────────────────
-        from app.services.agents.resume_screener import ResumeScreenerAgent
-        from app.services.agents.interview_q_generator import InterviewQGeneratorAgent
-        from app.services.agents.jd_writer import JdWriterAgent
-        from app.services.agents.salary_benchmarker import SalaryBenchmarkerAgent
-        from app.services.agents.onboarding_guide import OnboardingGuideAgent
-
-        # ─── Phase 17: E-Commerce ──────────────────────────
-        from app.services.agents.product_description_writer import ProductDescriptionWriterAgent
-        from app.services.agents.review_analyzer import ReviewAnalyzerAgent
-        from app.services.agents.dynamic_pricing import DynamicPricingAgent
-        from app.services.agents.returns_predictor import ReturnsPredictorAgent
-        from app.services.agents.catalog_enricher import CatalogEnricherAgent
-
-        # ─── Phase 18: Real Estate ─────────────────────────
-        from app.services.agents.property_valuator import PropertyValuatorAgent
-        from app.services.agents.rental_yield_calculator import RentalYieldCalculatorAgent
-        from app.services.agents.rera_compliance import ReraComplianceAgent
-        from app.services.agents.area_comparator import AreaComparatorAgent
-
-        # ─── Phase 19: Agriculture ─────────────────────────
-        from app.services.agents.crop_advisor import CropAdvisorAgent
-        from app.services.agents.soil_report_interpreter import SoilReportInterpreterAgent
-        from app.services.agents.weather_planting import WeatherPlantingAgent
-        from app.services.agents.msp_tracker import MspTrackerAgent
-        from app.services.agents.subsidy_finder import SubsidyFinderAgent
-
-        # ─── Phase 20: Personal Finance ────────────────────
-        from app.services.agents.tax_planner import TaxPlannerAgent
-        from app.services.agents.loan_comparator import LoanComparatorAgent
-        from app.services.agents.insurance_advisor import InsuranceAdvisorAgent
-        from app.services.agents.sip_calculator import SipCalculatorAgent
-        from app.services.agents.retirement_planner import RetirementPlannerAgent
-
-        # ─── Phase 21: Travel & Tourism ────────────────────
-        from app.services.agents.trip_planner import TripPlannerAgent
-        from app.services.agents.visa_guide import VisaGuideAgent
-        from app.services.agents.travel_budget_optimizer import TravelBudgetOptimizerAgent
-        from app.services.agents.cultural_advisor import CulturalAdvisorAgent
-        from app.services.agents.itinerary_generator import ItineraryGeneratorAgent
-
-        # ─── Phase 22: Logistics ───────────────────────────
-        from app.services.agents.route_optimizer import RouteOptimizerAgent
-        from app.services.agents.shipment_tracker import ShipmentTrackerAgent
-        from app.services.agents.warehouse_planner import WarehousePlannerAgent
-        from app.services.agents.last_mile_optimizer import LastMileOptimizerAgent
-
-        # ─── Phase 23: Government Services ─────────────────
-        from app.services.agents.scheme_eligibility import SchemeEligibilityAgent
-        from app.services.agents.complaint_drafter import ComplaintDrafterAgent
-        from app.services.agents.document_translator import DocumentTranslatorAgent
-        from app.services.agents.form_filler import FormFillerAgent
-
-        # ─── Phase 24: Customer Success ────────────────────
-        from app.services.agents.nps_analyzer import NpsAnalyzerAgent
-        from app.services.agents.retention_strategist import RetentionStrategistAgent
-        from app.services.agents.feedback_synthesizer import FeedbackSynthesizerAgent
-        from app.services.agents.churn_reversal import ChurnReversalAgent
-        from app.services.agents.upsell_advisor import UpsellAdvisorAgent
-
-        # ─── Phase 25: Daily Productivity ──────────────────
-        from app.services.agents.email_summarizer import EmailSummarizerAgent
-        from app.services.agents.meeting_notes import MeetingNotesAgent
-        from app.services.agents.invoice_generator import InvoiceGeneratorAgent
-        from app.services.agents.expense_tracker import ExpenseTrackerAgent
-        from app.services.agents.daily_briefing import DailyBriefingAgent
-        from app.services.agents.reminder_agent import ReminderAgent
-
-        # ─── Phase 26: Creator Economy ─────────────────────
-        from app.services.agents.youtube_revenue_optimizer import YoutubeRevenueOptimizerAgent
-        from app.services.agents.reel_script_writer import ReelScriptWriterAgent
-        from app.services.agents.sponsorship_matcher import SponsorshipMatcherAgent
-        from app.services.agents.audience_growth_strategist import AudienceGrowthStrategistAgent
-        from app.services.agents.content_monetizer import ContentMonetizerAgent
-
-        # ─── Phase 27: Cybersecurity ───────────────────────
-        from app.services.agents.phishing_detector import PhishingDetectorAgent
-        from app.services.agents.password_auditor import PasswordAuditorAgent
-        from app.services.agents.incident_reporter import IncidentReporterAgent
-        from app.services.agents.compliance_checker import ComplianceCheckerAgent
-        from app.services.agents.threat_briefing import ThreatBriefingAgent
-
-        # ─── Phase 28: Startup & Funding ───────────────────
-        from app.services.agents.pitch_deck_analyzer import PitchDeckAnalyzerAgent
-        from app.services.agents.funding_tracker import FundingTrackerAgent
-        from app.services.agents.startup_valuation import StartupValuationAgent
-        from app.services.agents.cap_table_manager import CapTableManagerAgent
-        from app.services.agents.market_sizing import MarketSizingAgent
-
-        # ─── Phase 29: Climate & Sustainability ────────────
-        from app.services.agents.carbon_footprint import CarbonFootprintAgent
-        from app.services.agents.esg_report_writer import EsgReportWriterAgent
-        from app.services.agents.solar_roi_calculator import SolarRoiCalculatorAgent
-        from app.services.agents.green_certification import GreenCertificationAgent
-
-        # ─── Phase 30: Sports & Fantasy ────────────────────
-        from app.services.agents.cricket_analyst import CricketAnalystAgent
-        from app.services.agents.fantasy_team_builder import FantasyTeamBuilderAgent
-        from app.services.agents.sports_nutrition import SportsNutritionAgent
-        from app.services.agents.fitness_coach import FitnessCoachAgent
-
-        # ─── Phase 31: EV & Green Energy ───────────────────
-        from app.services.agents.ev_comparator import EvComparatorAgent
-        from app.services.agents.charging_station_planner import ChargingStationPlannerAgent
-        from app.services.agents.battery_health import BatteryHealthAgent
-        from app.services.agents.solar_planner import SolarPlannerAgent
-
-        # ─── Phase 32: Wedding & Events (ShaadiAI) ─────────
-        from app.services.agents.wedding_budget_planner import WeddingBudgetPlannerAgent
-        from app.services.agents.vendor_matcher import VendorMatcherAgent
-        from app.services.agents.invitation_writer import InvitationWriterAgent
-        from app.services.agents.event_timeline import EventTimelineAgent
-        from app.services.agents.guest_list_manager import GuestListManagerAgent
-
-        # ─── Phase 33: Astrology & Spirituality (JyotishAI) ─
-        from app.services.agents.kundli_analyzer import KundliAnalyzerAgent
-        from app.services.agents.muhurat_finder import MuhuratFinderAgent
-        from app.services.agents.vastu_advisor import VastuAdvisorAgent
-        from app.services.agents.panchang_reader import PanchangReaderAgent
-        from app.services.agents.mantra_guide import MantraGuideAgent
-
-        # ─── Phase 34: Food & Restaurant (FoodBrain) ───────
-        from app.services.agents.recipe_generator import RecipeGeneratorAgent
-        from app.services.agents.menu_designer import MenuDesignerAgent
-        from app.services.agents.food_cost_optimizer import FoodCostOptimizerAgent
-        from app.services.agents.zomato_listing_optimizer import ZomatoListingOptimizerAgent
-        from app.services.agents.kitchen_inventory import KitchenInventoryAgent
-
-        # ─── Phase 35: Gaming & Esports (GameIQ) ──────────
-        from app.services.agents.game_strategy import GameStrategyAgent
-        from app.services.agents.esports_analyst import EsportsAnalystAgent
-        from app.services.agents.stream_optimizer import StreamOptimizerAgent
-        from app.services.agents.gaming_pc_builder import GamingPcBuilderAgent
-
-        # ─── Phase 36: Construction & Interior (BuildSmart) ─
-        from app.services.agents.construction_estimator import ConstructionEstimatorAgent
-        from app.services.agents.interior_designer import InteriorDesignerAgent
-        from app.services.agents.material_calculator import MaterialCalculatorAgent
-        from app.services.agents.contractor_checker import ContractorCheckerAgent
-
-        # ─── Phase 37: Parenting & Childcare (ParentSquad) ──
-        from app.services.agents.child_milestone_tracker import ChildMilestoneTrackerAgent
-        from app.services.agents.school_selector import SchoolSelectorAgent
-        from app.services.agents.vaccination_scheduler import VaccinationSchedulerAgent
-        from app.services.agents.child_nutrition import ChildNutritionAgent
-
-        # ─── Phase 38: News & Media (NewsRadar) ───────────
-        from app.services.agents.fake_news_detector import FakeNewsDetectorAgent
-        from app.services.agents.news_summarizer import NewsSummarizerAgent
-        from app.services.agents.media_monitor import MediaMonitorAgent
-        from app.services.agents.press_release_writer import PressReleaseWriterAgent
-
-        # ─── Phase 39: Pet Care (PetPal) ──────────────────
-        from app.services.agents.pet_health import PetHealthAgent
-        from app.services.agents.pet_nutrition import PetNutritionAgent
-        from app.services.agents.pet_trainer import PetTrainerAgent
-
-        # ─── Phase 40: Elder Care (SeniorSafe) ────────────
-        from app.services.agents.elder_health_monitor import ElderHealthMonitorAgent
-        from app.services.agents.pension_advisor import PensionAdvisorAgent
-        from app.services.agents.will_drafter import WillDrafterAgent
-        from app.services.agents.caregiver_guide import CaregiverGuideAgent
-
-        # ─── Phase 41: UDISE+ Education Compliance ─────────
-        from app.services.agents.udise_compliance_advisor import UdiseComplianceAdvisorAgent
-        from app.services.agents.document_ocr_extractor import DocumentOcrExtractorAgent
-        from app.services.agents.student_data_validator import StudentDataValidatorAgent
-        from app.services.agents.infrastructure_auditor import InfrastructureAuditorAgent
-        from app.services.agents.udise_report_generator import UdiseReportGeneratorAgent
-
-        # ─── Phase 42: Brand Strategy ──────────────────────
-        from app.services.agents.brand_advisor import BrandAdvisorAgent
-        from app.services.agents.education_guru import EducationGuruAgent
+        Software Factory: instead of 187 manual imports, scan agent_config/
+        and create a SutraAgent for each YAML file found. Adding a new skill
+        = just add a YAML file. Zero code changes needed.
+        """
+        from app.services.agents.sutra_agent import SutraAgent
+        from app.services.llm_service import get_llm_service
 
         llm = get_llm_service()
-        for agent_cls in [
-            # Core
-            CopywriterAgent, SeoAgent, SocialAgent, EmailCampaignAgent,
-            WhatsappAgent, SmsAgent, AdCreativeAgent,
-            BrandAuditorAgent, ContentRepurposerAgent, ClickShieldAgent,
-            # Phase 1: Marketing Intelligence
-            PersonaBuilderAgent, CampaignStrategistAgent,
-            AbTestAdvisorAgent, CompetitorAnalystAgent, UrlAnalyzerAgent,
-            # Phase 2: Analytics & Insights
-            PerformanceReporterAgent, BudgetOptimizerAgent, AnomalyAlerterAgent,
-            # Phase 3: Creative & Media
-            VisualDesignerAgent, VideoScriptwriterAgent, LandingPageBuilderAgent,
-            # Phase 4: Autonomous Operations
-            AutoPublisherAgent, LeadScorerAgent, ChatbotTrainerAgent,
-            # Phase 5: Reputation & Growth
-            ReviewReputationAgent, TrendSpotterAgent, FunnelAnalyzerAgent,
-            InfluencerMatcherAgent, JourneyMapperAgent,
-            # Phase 6: Smart Automation
-            AutoSchedulerAgent, AudienceSegmenterAgent, ChurnPredictorAgent,
-            # Phase 7: Analytics & Intelligence
-            RoiCalculatorAgent, ContentGraderAgent, AttributionAnalystAgent,
-            PricingStrategistAgent,
-            # Phase 8: Platform-Specific
-            GoogleAdsOptimizerAgent, MetaAdsOptimizerAgent, LinkedinGrowthAgent,
-            # Phase 9: Voice & Calling
-            ColdCallScripterAgent, CallSentimentAnalyzerAgent,
-            WhatsappBotBuilderAgent, CallSummarizerAgent, IvrDesignerAgent,
-            # Phase 10: Video Intelligence
-            YoutubeAnalyzerAgent, VideoSummarizerAgent, CaptionGeneratorAgent,
-            AudioDubberAgent, SocialClipMakerAgent,
-            # Phase 11: EdTech Intelligence
-            NoteGeneratorAgent, KeyPointsExtractorAgent, QuizGeneratorAgent,
-            FlashcardCreatorAgent, LecturePlannerAgent,
-            # Phase 12: Market & Finance Intelligence
-            StockAnalyzerAgent, StockPredictorAgent, MarketTrendAnalyzerAgent,
-            AiTrendTrackerAgent, CryptoAnalyzerAgent,
-            # Phase 13: Data & ML Intelligence
-            DataCuratorAgent, DatasetOptimizerAgent, MlPipelineAgent,
-            # Phase 14: Health Intelligence
-            LabReportInterpreterAgent, SymptomTriageAgent, DietPlannerAgent,
-            MentalHealthCompanionAgent, MedicineInfoAgent, PatientFollowupAgent,
-            AyurvedaAdvisorAgent,
-            # Phase 15: Legal & Compliance
-            ContractAnalyzerAgent, RtiDrafterAgent, GstComplianceAgent,
-            LegalDocumentWriterAgent,
-            # Phase 16: HR & Recruitment
-            ResumeScreenerAgent, InterviewQGeneratorAgent, JdWriterAgent,
-            SalaryBenchmarkerAgent, OnboardingGuideAgent,
-            # Phase 17: E-Commerce
-            ProductDescriptionWriterAgent, ReviewAnalyzerAgent, DynamicPricingAgent,
-            ReturnsPredictorAgent, CatalogEnricherAgent,
-            # Phase 18: Real Estate
-            PropertyValuatorAgent, RentalYieldCalculatorAgent,
-            ReraComplianceAgent, AreaComparatorAgent,
-            # Phase 19: Agriculture
-            CropAdvisorAgent, SoilReportInterpreterAgent, WeatherPlantingAgent,
-            MspTrackerAgent, SubsidyFinderAgent,
-            # Phase 20: Personal Finance
-            TaxPlannerAgent, LoanComparatorAgent, InsuranceAdvisorAgent,
-            SipCalculatorAgent, RetirementPlannerAgent,
-            # Phase 21: Travel & Tourism
-            TripPlannerAgent, VisaGuideAgent, TravelBudgetOptimizerAgent,
-            CulturalAdvisorAgent, ItineraryGeneratorAgent,
-            # Phase 22: Logistics
-            RouteOptimizerAgent, ShipmentTrackerAgent,
-            WarehousePlannerAgent, LastMileOptimizerAgent,
-            # Phase 23: Government Services
-            SchemeEligibilityAgent, ComplaintDrafterAgent,
-            DocumentTranslatorAgent, FormFillerAgent,
-            # Phase 24: Customer Success
-            NpsAnalyzerAgent, RetentionStrategistAgent, FeedbackSynthesizerAgent,
-            ChurnReversalAgent, UpsellAdvisorAgent,
-            # Phase 25: Daily Productivity
-            EmailSummarizerAgent, MeetingNotesAgent, InvoiceGeneratorAgent,
-            ExpenseTrackerAgent, DailyBriefingAgent, ReminderAgent,
-            # Phase 26: Creator Economy
-            YoutubeRevenueOptimizerAgent, ReelScriptWriterAgent, SponsorshipMatcherAgent,
-            AudienceGrowthStrategistAgent, ContentMonetizerAgent,
-            # Phase 27: Cybersecurity
-            PhishingDetectorAgent, PasswordAuditorAgent, IncidentReporterAgent,
-            ComplianceCheckerAgent, ThreatBriefingAgent,
-            # Phase 28: Startup & Funding
-            PitchDeckAnalyzerAgent, FundingTrackerAgent, StartupValuationAgent,
-            CapTableManagerAgent, MarketSizingAgent,
-            # Phase 29: Climate & Sustainability
-            CarbonFootprintAgent, EsgReportWriterAgent,
-            SolarRoiCalculatorAgent, GreenCertificationAgent,
-            # Phase 30: Sports & Fantasy
-            CricketAnalystAgent, FantasyTeamBuilderAgent,
-            SportsNutritionAgent, FitnessCoachAgent,
-            # Phase 31: EV & Green Energy
-            EvComparatorAgent, ChargingStationPlannerAgent,
-            BatteryHealthAgent, SolarPlannerAgent,
-            # Phase 32: Wedding & Events (ShaadiAI)
-            WeddingBudgetPlannerAgent, VendorMatcherAgent, InvitationWriterAgent,
-            EventTimelineAgent, GuestListManagerAgent,
-            # Phase 33: Astrology & Spirituality (JyotishAI)
-            KundliAnalyzerAgent, MuhuratFinderAgent, VastuAdvisorAgent,
-            PanchangReaderAgent, MantraGuideAgent,
-            # Phase 34: Food & Restaurant (FoodBrain)
-            RecipeGeneratorAgent, MenuDesignerAgent, FoodCostOptimizerAgent,
-            ZomatoListingOptimizerAgent, KitchenInventoryAgent,
-            # Phase 35: Gaming & Esports (GameIQ)
-            GameStrategyAgent, EsportsAnalystAgent,
-            StreamOptimizerAgent, GamingPcBuilderAgent,
-            # Phase 36: Construction & Interior (BuildSmart)
-            ConstructionEstimatorAgent, InteriorDesignerAgent,
-            MaterialCalculatorAgent, ContractorCheckerAgent,
-            # Phase 37: Parenting & Childcare (ParentSquad)
-            ChildMilestoneTrackerAgent, SchoolSelectorAgent,
-            VaccinationSchedulerAgent, ChildNutritionAgent,
-            # Phase 38: News & Media (NewsRadar)
-            FakeNewsDetectorAgent, NewsSummarizerAgent,
-            MediaMonitorAgent, PressReleaseWriterAgent,
-            # Phase 39: Pet Care (PetPal)
-            PetHealthAgent, PetNutritionAgent, PetTrainerAgent,
-            # Phase 40: Elder Care (SeniorSafe)
-            ElderHealthMonitorAgent, PensionAdvisorAgent,
-            WillDrafterAgent, CaregiverGuideAgent,
-            # Phase 41: UDISE+ Education Compliance
-            UdiseComplianceAdvisorAgent, DocumentOcrExtractorAgent,
-            StudentDataValidatorAgent, InfrastructureAuditorAgent,
-            UdiseReportGeneratorAgent,
-            # Phase 42: Brand Strategy
-            BrandAdvisorAgent, EducationGuruAgent,
-        ]:
-            agent = agent_cls(llm)
-            self.register(agent)
+        config_dir = Path("agent_config")
+
+        if not config_dir.exists():
+            logger.warning("agent_config/ directory not found — no agents registered")
+            return
+
+        registered = 0
+        for yaml_file in sorted(config_dir.glob("*.yaml")):
+            skill_id = yaml_file.stem  # e.g., "quiz_generator" from "quiz_generator.yaml"
+            try:
+                agent = SutraAgent(skill_id, llm=llm)
+                self.register(agent)
+                registered += 1
+            except Exception as e:
+                logger.warning(f"Failed to register agent '{skill_id}': {e}")
+
+        logger.info(f"AiAgentHub: auto-registered {registered} agents from {config_dir}")
 
 
     def register(self, agent: BaseAgent) -> None:

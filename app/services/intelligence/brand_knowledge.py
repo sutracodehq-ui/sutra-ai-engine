@@ -41,10 +41,12 @@ class BrandKnowledge:
         """Lazy-init ChromaDB client."""
         if self._client is None:
             import chromadb
+            from urllib.parse import urlparse
             settings = get_settings()
-            self._client = chromadb.HttpClient(
-                host=settings.chroma_host, port=int(settings.chroma_port)
-            )
+            parsed = urlparse(settings.chromadb_url)
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 8000
+            self._client = chromadb.HttpClient(host=host, port=port)
         return self._client
 
     def _get_collection(self, brand_id: str):
