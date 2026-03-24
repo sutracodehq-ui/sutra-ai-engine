@@ -127,34 +127,71 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
     async def event_generator():
         full_response = []
         try:
+            # ─── Phase 1: Collect tokens from LLM ────────────────
+            # We collect first, then post-process — this ensures no CoT
+            # blocks, raw JSON, or malformed content reaches the client.
             async for token in hub.run_stream(agent_type, body.prompt, db=db, context=context, **options):
                 full_response.append(token)
-                yield f"data: {json.dumps({'token': token, 'agent': agent_type})}\n\n"
 
-            # Stream complete — run through Response Filtration Engine
+            # ─── Phase 2: Post-process through Response Filter ───
             complete_text = "".join(full_response)
+            content_markdown = ""
+            suggestions = []
+
             try:
                 from app.services.intelligence.response_filter import get_response_filter
                 engine = get_response_filter()
                 filtered = engine.filter(complete_text)
                 result_data = filtered.data
                 suggestions = filtered.suggestions
+
+                # Extract the markdown content from parsed JSON
+                # Priority: response > content > advice > answer > raw text
+                if filtered.parsed and isinstance(result_data, dict):
+                    content_markdown = (
+                        result_data.get("response")
+                        or result_data.get("content")
+                        or result_data.get("advice")
+                        or result_data.get("answer")
+                        or result_data.get("result")
+                        or ""
+                    )
+                    # If content is itself a dict (nested), stringify it nicely
+                    if isinstance(content_markdown, dict):
+                        content_markdown = (
+                            content_markdown.get("advice")
+                            or content_markdown.get("content")
+                            or content_markdown.get("response")
+                            or json.dumps(content_markdown, indent=2)
+                        )
+                else:
+                    # LLM returned plain text (not JSON) — use as-is
+                    content_markdown = complete_text
             except Exception:
+                content_markdown = complete_text
                 result_data = {"content": complete_text}
-                suggestions = []
 
-            # Final event with filtered data and suggestions
-            yield f"data: {json.dumps({'token': '', 'done': True, 'task_id': task_id, 'suggestions': suggestions, 'total_length': len(complete_text)})}\n\n"
-            yield "data: [DONE]\n\n"
+            # ─── Phase 3: Emit typed SSE events ──────────────────
 
-            # Update task record with filtered result
+            # Event: token — the main markdown content
+            if content_markdown:
+                yield f"data: {json.dumps({'type': 'token', 'content': content_markdown})}\n\n"
+
+            # Event: suggestions — follow-up actions
+            if suggestions:
+                yield f"data: {json.dumps({'type': 'suggestions', 'items': suggestions})}\n\n"
+
+            # Event: done — stream complete
+            yield f"data: {json.dumps({'type': 'done', 'task_id': task_id, 'agent': agent_type})}\n\n"
+
+            # Update task record
             task.status = "completed"
             task.result = result_data
             await db.commit()
 
         except Exception as e:
-            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
-            yield "data: [DONE]\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'task_id': task_id, 'agent': agent_type})}\n\n"
             task.status = "failed"
             task.error = str(e)
             await db.commit()

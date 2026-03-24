@@ -50,10 +50,11 @@ RUN pip install --no-cache-dir psycopg2-binary
 # Make entrypoint executable
 RUN chmod +x ./docker/entrypoint.sh
 
-# Non-root user for security
-RUN useradd --no-create-home --shell /bin/false sutra && \
+# Non-root user for security (with home dir for ChromaDB embedding cache)
+RUN useradd --create-home --shell /bin/false sutra && \
     chown -R sutra:sutra /app
 USER sutra
+ENV HOME=/home/sutra
 
 EXPOSE 8000
 

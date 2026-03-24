@@ -103,13 +103,16 @@ class BaseAgent:
                 )
 
         # ─── Chain-of-Thought Injection ───────────────────
+        # IMPORTANT: The instruction MUST be extremely clear that thinking
+        # process should NEVER appear in the output. gemma3 tends to leak
+        # [THINKING PROCESS] blocks if the instruction is weak.
         cot_instruction = (
-            "\n\n## Reasoning Process"
-            "\nBefore generating your final response, think through the problem step by step:"
-            "\n1. Analyze the user's request and identify key requirements"
-            "\n2. Consider the best approach to fulfill each requirement"
-            "\n3. Generate a high-quality, comprehensive response"
-            "\nDo NOT include your reasoning steps in the final output."
+            "\n\n## CRITICAL: Internal Reasoning Only"
+            "\nThink carefully before answering, but NEVER show your reasoning "
+            "in the output. Do NOT include phrases like 'Let me think', "
+            "'THINKING PROCESS', 'Step 1:', or any internal reasoning. "
+            "Your output must contain ONLY the final, polished response "
+            "in the required format — nothing else."
         )
         prompt += cot_instruction
 
@@ -555,14 +558,55 @@ class BaseAgent:
 
             try:
                 logger.info(f"Agent stream: trying {drv}" + (f" ({mdl})" if mdl else ""))
+                # ─── Streaming CoT Filter ─────────────────────
+                # Buffer tokens and strip any [THINKING PROCESS]...[END THINKING PROCESS]
+                # or similar reasoning blocks that leak from the model.
+                cot_buffer = ""
+                in_cot_block = False
+                COT_START_MARKERS = ["[THINKING PROCESS]", "[THINKING]", "[REASONING]", "<think>"]
+                COT_END_MARKERS = ["[END THINKING PROCESS]", "[END THINKING]", "[END REASONING]", "</think>"]
+
                 async for token in manager.stream(
                     messages=messages,
                     driver_override=drv,
                     model_override=mdl,
                     **clean_opts,
                 ):
-                    full_response.append(token)
-                    yield token
+                    cot_buffer += token
+
+                    # Check if we're entering a CoT block
+                    if not in_cot_block:
+                        for marker in COT_START_MARKERS:
+                            if marker in cot_buffer:
+                                in_cot_block = True
+                                # Yield everything before the marker
+                                before = cot_buffer.split(marker, 1)[0]
+                                if before.strip():
+                                    full_response.append(before)
+                                    yield before
+                                cot_buffer = cot_buffer.split(marker, 1)[1]
+                                break
+
+                    # Check if we're exiting a CoT block
+                    if in_cot_block:
+                        for marker in COT_END_MARKERS:
+                            if marker in cot_buffer:
+                                in_cot_block = False
+                                cot_buffer = cot_buffer.split(marker, 1)[1]
+                                break
+                        continue  # Don't yield while inside CoT block
+
+                    # Normal token — flush buffer periodically
+                    if len(cot_buffer) > 100 or not any(cot_buffer.endswith(m[:len(cot_buffer)]) for m in COT_START_MARKERS):
+                        if cot_buffer:
+                            full_response.append(cot_buffer)
+                            yield cot_buffer
+                            cot_buffer = ""
+
+                # Flush any remaining buffer
+                if cot_buffer and not in_cot_block:
+                    full_response.append(cot_buffer)
+                    yield cot_buffer
                 last_error = None
                 break  # Success — stop trying
             except Exception as e:
