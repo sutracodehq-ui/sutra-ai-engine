@@ -601,3 +601,175 @@ skill_transfer:
   pack_refresh_days: 30                # Regenerate skill packs every N days
   max_patterns_per_pack: 10            # Max pattern rules per skill pack
   max_guardrails_per_pack: 5           # Max guardrail rules per skill pack
+
+# ─── Smart Router (O(1) Decision Tree) ─────────────────────
+smart_router:
+  # Sample sizes for O(1) — fixed caps, never scan full prompt
+  sample_chars: 100          # chars to sample for language detection
+  sample_words: 10           # words to sample for hinglish detection
+  signal_words: 3            # first N words checked for complexity signal
+
+  # Language detection — Unicode script prefixes (extendable)
+  indic_scripts:
+    - DEVANAGARI
+    - BENGALI
+    - GURMUKHI
+    - GUJARATI
+    - ORIYA
+    - TAMIL
+    - TELUGU
+    - KANNADA
+    - MALAYALAM
+
+  indic_threshold: 0.3       # % of sampled chars that must be Indic
+
+  # Hinglish words (Latin-script Hindi) — frozenset at load
+  hinglish_words:
+    - kya
+    - hai
+    - kaise
+    - karo
+    - batao
+    - mujhe
+    - banao
+    - chahiye
+    - acha
+    - theek
+    - nahi
+    - haan
+    - bhai
+    - yaar
+    - dost
+    - kuch
+    - mera
+    - tera
+    - humara
+    - aapka
+    - samjhao
+    - padhao
+    - likho
+    - namaste
+    - dhanyavaad
+    - shukriya
+    - bahut
+    - accha
+
+  hinglish_min_matches: 2    # need ≥ N hinglish words to classify
+
+  # Signal words for O(1) complexity detection (checked via frozenset)
+  complex_signals:
+    - analyze
+    - compare
+    - contrast
+    - evaluate
+    - synthesize
+    - strategy
+    - strategic
+    - comprehensive
+    - research
+    - report
+    - whitepaper
+    - audit
+    - elaborate
+
+  simple_signals:
+    - hi
+    - hello
+    - thanks
+    - thank
+    - ok
+    - okay
+    - bye
+    - short
+    - quick
+    - simple
+    - basic
+    - brief
+
+  # Length buckets for prompt classification
+  length_buckets:
+    short: 10        # < 10 words
+    long: 80         # > 80 words
+    # anything in between = "medium"
+
+  # Decision table: (length_bucket, signal, agent_tier) → complexity
+  # 27 combinations: 3 lengths × 3 signals × 3 agent tiers
+  decision_table:
+    # short prompts
+    short_simple_simple: simple
+    short_simple_moderate: simple
+    short_simple_complex: moderate
+    short_none_simple: simple
+    short_none_moderate: simple
+    short_none_complex: moderate
+    short_complex_simple: moderate
+    short_complex_moderate: moderate
+    short_complex_complex: complex
+
+    # medium prompts
+    medium_simple_simple: simple
+    medium_simple_moderate: simple
+    medium_simple_complex: moderate
+    medium_none_simple: simple
+    medium_none_moderate: moderate
+    medium_none_complex: moderate
+    medium_complex_simple: moderate
+    medium_complex_moderate: complex
+    medium_complex_complex: complex
+
+    # long prompts
+    long_simple_simple: simple
+    long_simple_moderate: moderate
+    long_simple_complex: moderate
+    long_none_simple: moderate
+    long_none_moderate: moderate
+    long_none_complex: complex
+    long_complex_simple: moderate
+    long_complex_moderate: complex
+    long_complex_complex: complex
+
+  # Default if key not found
+  default_complexity: moderate
+
+  # Driver chains per complexity tier (first available wins)
+  driver_chains:
+    english:
+      simple: [ollama, groq, gemini]
+      moderate: [ollama, groq, gemini, openai]
+      complex: [ollama, nvidia, anthropic, openai, gemini, groq]
+    indic:
+      simple: [ollama, sarvam, groq, gemini]
+      moderate: [ollama, sarvam, groq, gemini, openai]
+      complex: [ollama, sarvam, nvidia, anthropic, openai, gemini]
+
+  # Model tiers per driver per complexity
+  model_tiers:
+    openai:
+      simple: gpt-4o-mini
+      moderate: gpt-4o-mini
+      complex: gpt-4o
+    anthropic:
+      simple: claude-haiku-4-20250514
+      moderate: claude-sonnet-4-20250514
+      complex: claude-sonnet-4-20250514
+    gemini:
+      simple: gemini-2.0-flash
+      moderate: gemini-2.0-flash
+      complex: gemini-2.5-pro-preview-06-05
+    groq:
+      simple: llama-3.3-70b-versatile
+      moderate: llama-3.3-70b-versatile
+      complex: llama-3.3-70b-versatile
+    ollama:
+      simple: qwen2.5:3b
+      moderate: qwen2.5:3b
+      complex: null               # uses config ai_model (env var)
+    sarvam:
+      simple: null                # uses config sarvam_model
+      moderate: null
+      complex: null
+    nvidia:
+      simple: meta/llama-3.1-8b-instruct
+      moderate: meta/llama-3.1-70b-instruct
+      complex: null               # uses config nvidia_model
+

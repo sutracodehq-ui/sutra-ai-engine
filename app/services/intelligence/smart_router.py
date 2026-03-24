@@ -1,108 +1,168 @@
 """
-Smart Router — auto-detect language, complexity, and task type to pick the best driver + model.
+Smart Router — O(1) Decision Tree for driver + model selection.
 
-This is the brain of the multi-model engine:
-1. Language Detection: Hindi/Indic → Sarvam, English → default chain
-2. Complexity Scoring: simple → Ollama (local), moderate → Groq (fast cloud), complex → NVIDIA/Claude
-3. Agent Awareness: quiz_generator always gets a powerful model, sms gets a lightweight one
-4. Circuit Breaker Aware: skips drivers that are currently failing
+Software Factory Principle: Config-driven, zero hardcoded data.
 
-No LLM calls needed — pure heuristic detection. Runs in <1ms.
+All data lives in intelligence_config.yaml → smart_router section:
+- Language detection (Indic script names, Hinglish words)
+- Complexity signals (complex/simple keyword sets)
+- Decision table (27 entries: 3 lengths × 3 signals × 3 agent tiers)
+- Driver chains per complexity+language
+- Model tiers per driver+complexity
+
+Every operation is O(1):
+1. detect_language()  → sample fixed chars + frozenset lookup
+2. assess_complexity() → first 3 words + single dict lookup
+3. _pick_driver()     → precomputed cache at init
 """
 
 import logging
-import re
 import unicodedata
+from pathlib import Path
+from typing import Optional
+
+import yaml
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
-# ─── Language Detection ──────────────────────────────────────
+# ─── Config Loader (cached singleton) ─────────────────────────
 
-# Unicode ranges for Indian scripts
-INDIC_RANGES = [
-    (0x0900, 0x097F),  # Devanagari (Hindi, Marathi, Sanskrit)
-    (0x0980, 0x09FF),  # Bengali
-    (0x0A00, 0x0A7F),  # Gurmukhi (Punjabi)
-    (0x0A80, 0x0AFF),  # Gujarati
-    (0x0B00, 0x0B7F),  # Odia
-    (0x0B80, 0x0BFF),  # Tamil
-    (0x0C00, 0x0C7F),  # Telugu
-    (0x0C80, 0x0CFF),  # Kannada
-    (0x0D00, 0x0D7F),  # Malayalam
-]
+_config_cache: dict | None = None
 
-# Common Hindi words in Latin script (Hinglish detection)
-HINGLISH_WORDS = {
-    "kya", "hai", "kaise", "karo", "batao", "mujhe", "banao", "chahiye",
-    "acha", "theek", "nahi", "haan", "bhai", "yaar", "dost", "kuch",
-    "mera", "tera", "humara", "aapka", "kaisa", "kitna", "kab", "kahan",
-    "kyun", "kaise", "samjhao", "padhao", "likho", "bolo", "dekho",
-    "namaste", "dhanyavaad", "shukriya", "bahut", "accha", "thik",
-}
 
+def _load_config() -> dict:
+    """Load smart_router config from YAML. Cached after first call."""
+    global _config_cache
+    if _config_cache is not None:
+        return _config_cache
+
+    config_path = Path("intelligence_config.yaml")
+    if not config_path.exists():
+        _config_cache = {}
+        return _config_cache
+
+    with open(config_path) as f:
+        full = yaml.safe_load(f) or {}
+
+    _config_cache = full.get("smart_router", {})
+    return _config_cache
+
+
+def _get(key: str, default=None):
+    """O(1) config value read."""
+    return _load_config().get(key, default)
+
+
+# ─── Precomputed Lookup Sets (built once from YAML) ────────────
+
+_indic_scripts: frozenset | None = None
+_hinglish_words: frozenset | None = None
+_complex_signals: frozenset | None = None
+_simple_signals: frozenset | None = None
+
+
+def _ensure_sets():
+    """Build frozensets from YAML lists on first use. O(1) after init."""
+    global _indic_scripts, _hinglish_words, _complex_signals, _simple_signals
+
+    if _indic_scripts is not None:
+        return  # already built
+
+    cfg = _load_config()
+    _indic_scripts = frozenset(cfg.get("indic_scripts", []))
+    _hinglish_words = frozenset(cfg.get("hinglish_words", []))
+    _complex_signals = frozenset(cfg.get("complex_signals", []))
+    _simple_signals = frozenset(cfg.get("simple_signals", []))
+
+
+# ─── O(1) Language Detection ──────────────────────────────────
 
 def detect_language(text: str) -> str:
     """
-    Detect if text is primarily Indic or English.
+    Detect language in O(1) — fixed-size sample, frozenset lookups.
 
     Returns: 'indic', 'hinglish', or 'english'
     """
     if not text:
         return "english"
 
-    # Count Indic script characters
-    indic_chars = 0
-    total_chars = 0
+    _ensure_sets()
+    cfg = _load_config()
+    sample_chars = cfg.get("sample_chars", 100)
+    sample_words = cfg.get("sample_words", 10)
+    indic_threshold = cfg.get("indic_threshold", 0.3)
+    hinglish_min = cfg.get("hinglish_min_matches", 2)
 
-    for char in text:
-        cp = ord(char)
-        if char.isalpha():
-            total_chars += 1
-            for start, end in INDIC_RANGES:
-                if start <= cp <= end:
-                    indic_chars += 1
+    # 1. Sample fixed number of chars — O(1)
+    sample = text[:sample_chars]
+    alpha_count = 0
+    indic_count = 0
+
+    for char in sample:
+        if not char.isalpha():
+            continue
+        alpha_count += 1
+        # O(1): unicodedata.name() + startswith against frozenset-backed tuple
+        try:
+            name = unicodedata.name(char, "")
+            # Check if the Unicode name starts with any Indic script prefix
+            for script in _indic_scripts:
+                if name.startswith(script):
+                    indic_count += 1
                     break
+        except ValueError:
+            pass
 
-    # If >30% Indic script characters → Indic
-    if total_chars > 0 and (indic_chars / total_chars) > 0.3:
+    if alpha_count > 0 and (indic_count / alpha_count) > indic_threshold:
         return "indic"
 
-    # Check for Hinglish (Hindi words in Latin script)
-    words = set(text.lower().split())
-    hinglish_matches = words & HINGLISH_WORDS
-    if len(hinglish_matches) >= 2:
+    # 2. Hinglish: check first N words — O(1) with frozenset
+    words = text.lower().split()[:sample_words]
+    matches = sum(1 for w in words if w in _hinglish_words)
+    if matches >= hinglish_min:
         return "hinglish"
 
     return "english"
 
 
-# ─── Complexity Signals ──────────────────────────────────────
+# ─── O(1) Complexity Assessment ───────────────────────────────
 
-COMPLEX_KEYWORDS = {
-    "analyze", "compare", "contrast", "evaluate", "synthesize",
-    "strategy", "strategic", "comprehensive", "detailed analysis",
-    "multi-step", "in-depth", "research", "report", "whitepaper",
-    "long-form", "case study", "competitive analysis", "audit",
-    "explain in detail", "step by step", "elaborate",
-}
+def _detect_signal(prompt: str) -> str:
+    """
+    Check first N words for complexity signal. O(1) — frozenset lookup.
 
-SIMPLE_KEYWORDS = {
-    "short", "quick", "simple", "basic", "brief",
-    "one-liner", "tweet", "sms", "subject line", "headline",
-    "hashtag", "caption", "tagline", "slogan", "hi", "hello",
-    "thanks", "thank you", "ok", "okay", "bye",
-}
+    Returns: 'complex', 'simple', or 'none'
+    """
+    _ensure_sets()
+    n = _get("signal_words", 3)
+
+    words = prompt.lower().split(None, n + 1)[:n]
+
+    for w in words:
+        if w in _complex_signals:
+            return "complex"
+    for w in words:
+        if w in _simple_signals:
+            return "simple"
+
+    return "none"
+
+
+def _length_bucket(word_count: int) -> str:
+    """Classify prompt length. O(1) — two comparisons."""
+    buckets = _get("length_buckets", {"short": 10, "long": 80})
+    if word_count < buckets.get("short", 10):
+        return "short"
+    if word_count > buckets.get("long", 80):
+        return "long"
+    return "medium"
+
 
 def _get_agent_complexity(agent_type: str) -> str:
-    """
-    Read complexity from the agent's YAML config.
-
-    Falls back to 'moderate' if not set. This replaces the old
-    hardcoded AGENT_COMPLEXITY dict — now config-driven.
-    """
+    """Read complexity from the agent's YAML config. Cached by hub."""
     try:
         from app.services.agents.hub import get_agent_hub
         hub = get_agent_hub()
@@ -112,51 +172,10 @@ def _get_agent_complexity(agent_type: str) -> str:
         return "moderate"
 
 
-# ─── Driver Priority Chain (per complexity tier) ─────────────
-# Each tier has an ordered list of drivers to try.
-# The router picks the first driver that has a valid API key configured.
-
-def _get_driver_chain() -> dict[str, list[str]]:
-    """
-    Complexity → ordered driver preferences.
-    Local first (ollama) → cloud fallback.
-    First available (has API key) wins.
-    """
-    return {
-        "simple": ["ollama", "groq", "gemini"],
-        "moderate": ["ollama", "groq", "gemini", "openai"],
-        "complex": ["ollama", "nvidia", "anthropic", "openai", "gemini", "groq"],
-    }
-
-
-def _get_indic_driver_chain() -> dict[str, list[str]]:
-    """Driver chain when language is Indic — Sarvam gets priority after local."""
-    return {
-        "simple": ["ollama", "sarvam", "groq", "gemini"],
-        "moderate": ["ollama", "sarvam", "groq", "gemini", "openai"],
-        "complex": ["ollama", "sarvam", "nvidia", "anthropic", "openai", "gemini"],
-    }
-
-
-# Model tiers per driver
-def _get_model_tiers() -> dict[str, dict[str, str]]:
-    """Build model tiers using config values."""
-    settings = get_settings()
-    return {
-        "openai": {"simple": "gpt-4o-mini", "moderate": "gpt-4o-mini", "complex": "gpt-4o"},
-        "anthropic": {"simple": "claude-haiku-4-20250514", "moderate": "claude-sonnet-4-20250514", "complex": "claude-sonnet-4-20250514"},
-        "gemini": {"simple": "gemini-2.0-flash", "moderate": "gemini-2.0-flash", "complex": "gemini-2.5-pro-preview-06-05"},
-        "groq": {"simple": "llama-3.3-70b-versatile", "moderate": "llama-3.3-70b-versatile", "complex": "llama-3.3-70b-versatile"},
-        "ollama": {"simple": "qwen2.5:3b", "moderate": "qwen2.5:3b", "complex": settings.ollama_model},
-        "sarvam": {"simple": settings.sarvam_model, "moderate": settings.sarvam_model, "complex": settings.sarvam_model},
-        "nvidia": {"simple": "meta/llama-3.1-8b-instruct", "moderate": "meta/llama-3.1-70b-instruct", "complex": settings.nvidia_model},
-    }
-
-
-# ─── API Key Availability Check ──────────────────────────────
+# ─── O(1) Driver Key Check ────────────────────────────────────
 
 def _driver_has_key(driver: str) -> bool:
-    """Check if a driver has its API key configured (non-empty)."""
+    """Check if a driver has its API key configured. O(1)."""
     settings = get_settings()
     key_map = {
         "openai": settings.openai_api_key,
@@ -165,24 +184,24 @@ def _driver_has_key(driver: str) -> bool:
         "groq": settings.groq_api_key,
         "sarvam": settings.sarvam_api_key,
         "nvidia": settings.nvidia_api_key,
-        "ollama": "always_available",  # Local, no key needed
+        "ollama": "always_available",
     }
     return bool(key_map.get(driver, ""))
 
 
+# ─── SmartRouter ───────────────────────────────────────────────
+
 class SmartRouter:
     """
-    Auto-detect language + complexity → pick best driver + model.
+    O(1) Decision Tree Router.
 
-    Usage:
-        router = SmartRouter()
-        decision = router.route("मुझे law of motion पर quiz बनाओ", "chatbot_trainer")
-        # → {"driver": "sarvam", "model": "sarvam-m", "complexity": "complex",
-        #    "language": "hinglish", "reason": "hinglish detected + complex task"}
+    All data from intelligence_config.yaml. Zero hardcoded constants.
 
-        decision = router.route("Generate a quiz on law of motion", "education_guru")
-        # → {"driver": "nvidia", "model": "meta/llama-3.1-405b-instruct", "complexity": "complex",
-        #    "language": "english", "reason": "complex agent + powerful model needed"}
+    Flow:
+    1. detect_language()     → O(1) sample + frozenset
+    2. assess_complexity()   → O(1) first 3 words + dict[key] lookup
+    3. _pick_driver()        → O(1) precomputed chain + first available
+    4. select_model()        → O(1) dict[driver][complexity] lookup
     """
 
     def __init__(self, *, enabled: bool = True):
@@ -190,106 +209,79 @@ class SmartRouter:
 
     def assess_complexity(self, prompt: str, agent_type: str) -> str:
         """
-        Score prompt complexity: simple | moderate | complex
+        O(1) complexity assessment via decision table lookup.
 
-        Factors:
-        1. Prompt length
-        2. Keyword signals
-        3. Agent type default
-        4. Structural complexity (lists, multi-part instructions)
+        Features (all O(1)):
+        - length_bucket: short | medium | long
+        - signal: simple | none | complex
+        - agent_tier: from YAML cache
         """
         if not self._enabled:
             return "moderate"
 
-        score = 0
+        word_count = len(prompt.split(None, 100))  # cap at 100 splits
+        bucket = _length_bucket(word_count)
+        signal = _detect_signal(prompt)
+        agent_tier = _get_agent_complexity(agent_type)
 
-        # 1. Prompt length
-        word_count = len(prompt.split())
-        if word_count < 20:
-            score -= 1
-        elif word_count > 150:
-            score += 2
-        elif word_count > 80:
-            score += 1
-
-        # 2. Keyword signals
-        lower = prompt.lower()
-        for kw in COMPLEX_KEYWORDS:
-            if kw in lower:
-                score += 1
-        for kw in SIMPLE_KEYWORDS:
-            if kw in lower:
-                score -= 1
-
-        # 3. Agent type default (reads from YAML config)
-        agent_default = _get_agent_complexity(agent_type)
-        if agent_default == "complex":
-            score += 1
-        elif agent_default == "simple":
-            score -= 1
-
-        # 4. Structural complexity (numbered lists, multiple questions)
-        if re.search(r"\d+\.\s", prompt):
-            score += 1  # Has numbered lists
-        if prompt.count("?") > 2:
-            score += 1  # Multiple questions
-
-        # Map score to tier
-        if score <= -1:
-            return "simple"
-        elif score >= 2:
-            return "complex"
-        return "moderate"
+        # O(1): single dict lookup
+        key = f"{bucket}_{signal}_{agent_tier}"
+        table = _get("decision_table", {})
+        return table.get(key, _get("default_complexity", "moderate"))
 
     def _pick_driver(self, complexity: str, language: str, circuit_breaker=None) -> str:
-        """Pick the first available driver from the priority chain."""
-        if language in ("indic", "hinglish"):
-            chains = _get_indic_driver_chain()
-        else:
-            chains = _get_driver_chain()
+        """Pick the first available driver from YAML chain. O(d) worst-case, O(1) typical."""
+        lang_key = "indic" if language in ("indic", "hinglish") else "english"
 
-        chain = chains.get(complexity, chains["moderate"])
+        chains = _get("driver_chains", {})
+        chain = chains.get(lang_key, {}).get(complexity, ["ollama", "groq"])
 
         for driver in chain:
-            # Skip if no API key
             if not _driver_has_key(driver):
                 continue
-
-            # Skip if circuit breaker says it's down
             if circuit_breaker and not circuit_breaker.is_available(driver):
                 logger.debug(f"SmartRouter: {driver} circuit OPEN, skipping")
                 continue
-
             return driver
 
-        # Fallback: use whatever is configured as ai_driver
         return get_settings().ai_driver
 
-    def select_model(self, prompt: str, agent_type: str, driver: str) -> str | None:
+    def _pick_model(self, driver: str, complexity: str) -> Optional[str]:
+        """O(1): dict[driver][complexity] lookup from YAML."""
+        tiers = _get("model_tiers", {})
+        driver_tiers = tiers.get(driver, {})
+        model = driver_tiers.get(complexity)
+
+        # null in YAML means use env var default
+        if model is None:
+            settings = get_settings()
+            defaults = {
+                "ollama": settings.ollama_model,
+                "sarvam": settings.sarvam_model,
+                "nvidia": settings.nvidia_model,
+            }
+            model = defaults.get(driver)
+
+        return model
+
+    def select_model(self, prompt: str, agent_type: str, driver: str) -> Optional[str]:
         """Select the optimal model for a prompt within a specific driver."""
         if not self._enabled:
             return None
-
         complexity = self.assess_complexity(prompt, agent_type)
-        driver_tiers = _get_model_tiers().get(driver)
-
-        if not driver_tiers:
-            return None
-
-        model = driver_tiers.get(complexity)
-        return model
+        return self._pick_model(driver, complexity)
 
     def route(self, prompt: str, agent_type: str, circuit_breaker=None) -> dict:
         """
-        Full auto-routing decision — detects language + complexity → picks driver + model.
+        Full O(1) routing decision.
 
         Returns:
             {
-                "driver": "nvidia",
-                "model": "meta/llama-3.1-405b-instruct",
-                "complexity": "complex",
+                "driver": "groq",
+                "model": "llama-3.3-70b-versatile",
+                "complexity": "moderate",
                 "language": "english",
-                "reason": "complex agent, powerful model needed"
+                "reason": "moderate task → groq (llama-3.3-70b-versatile)"
             }
         """
         if not self._enabled:
@@ -302,27 +294,25 @@ class SmartRouter:
                 "reason": "smart router disabled",
             }
 
-        # 1. Detect language
+        # 1. O(1) language detection
         language = detect_language(prompt)
 
-        # 2. Assess complexity
+        # 2. O(1) complexity assessment
         complexity = self.assess_complexity(prompt, agent_type)
 
         # 3. Pick best available driver
         driver = self._pick_driver(complexity, language, circuit_breaker)
 
-        # 4. Pick model tier within that driver
-        model_tiers = _get_model_tiers().get(driver, {})
-        model = model_tiers.get(complexity)
+        # 4. O(1) model selection
+        model = self._pick_model(driver, complexity)
 
         reason_parts = []
         if language != "english":
             reason_parts.append(f"{language} detected")
-        reason_parts.append(f"{complexity} task")
-        reason_parts.append(f"→ {driver}")
+        reason_parts.append(f"{complexity} task → {driver}")
         if model:
             reason_parts.append(f"({model})")
-        reason = ", ".join(reason_parts)
+        reason = " ".join(reason_parts)
 
         logger.info(f"SmartRouter: {reason}")
 
