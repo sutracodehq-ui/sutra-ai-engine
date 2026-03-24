@@ -70,40 +70,23 @@ async def chat_stream(
             **body.options or {}
         )
 
-        # Phase 1: Collect all tokens
+        # Stream tokens in real-time
         async for chunk in stream:
             full_response.append(chunk)
+            yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
 
-        # Phase 2: Post-process through Response Filter
+        # Post-stream: extract suggestions
         complete_text = "".join(full_response)
-        content_markdown = ""
         suggestions = []
 
         try:
             from app.services.intelligence.response_filter import get_response_filter
             engine = get_response_filter()
             filtered = engine.filter(complete_text)
-
-            if filtered.parsed and isinstance(filtered.data, dict):
-                content_markdown = (
-                    filtered.data.get("response")
-                    or filtered.data.get("content")
-                    or filtered.data.get("advice")
-                    or filtered.data.get("answer")
-                    or ""
-                )
-                if isinstance(content_markdown, dict):
-                    content_markdown = content_markdown.get("content") or json.dumps(content_markdown, indent=2)
-            else:
-                content_markdown = complete_text
-
             suggestions = filtered.suggestions
         except Exception:
-            content_markdown = complete_text
+            pass
 
-        # Phase 3: Emit typed SSE events
-        if content_markdown:
-            yield f"data: {json.dumps({'type': 'token', 'content': content_markdown})}\n\n"
         if suggestions:
             yield f"data: {json.dumps({'type': 'suggestions', 'items': suggestions})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"

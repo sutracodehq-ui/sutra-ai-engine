@@ -127,55 +127,25 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db):
     async def event_generator():
         full_response = []
         try:
-            # ─── Phase 1: Collect tokens from LLM ────────────────
-            # We collect first, then post-process — this ensures no CoT
-            # blocks, raw JSON, or malformed content reaches the client.
+            # ─── Stream tokens in real-time ───────────────────────
+            # Tokens are yielded as they arrive from the LLM.
+            # The base agent's execute_stream already strips CoT blocks.
             async for token in hub.run_stream(agent_type, body.prompt, db=db, context=context, **options):
                 full_response.append(token)
+                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
-            # ─── Phase 2: Post-process through Response Filter ───
+            # ─── Post-stream: extract suggestions ─────────────────
             complete_text = "".join(full_response)
-            content_markdown = ""
             suggestions = []
 
             try:
                 from app.services.intelligence.response_filter import get_response_filter
                 engine = get_response_filter()
                 filtered = engine.filter(complete_text)
-                result_data = filtered.data
                 suggestions = filtered.suggestions
-
-                # Extract the markdown content from parsed JSON
-                # Priority: response > content > advice > answer > raw text
-                if filtered.parsed and isinstance(result_data, dict):
-                    content_markdown = (
-                        result_data.get("response")
-                        or result_data.get("content")
-                        or result_data.get("advice")
-                        or result_data.get("answer")
-                        or result_data.get("result")
-                        or ""
-                    )
-                    # If content is itself a dict (nested), stringify it nicely
-                    if isinstance(content_markdown, dict):
-                        content_markdown = (
-                            content_markdown.get("advice")
-                            or content_markdown.get("content")
-                            or content_markdown.get("response")
-                            or json.dumps(content_markdown, indent=2)
-                        )
-                else:
-                    # LLM returned plain text (not JSON) — use as-is
-                    content_markdown = complete_text
+                result_data = filtered.data if filtered.parsed else {"content": complete_text}
             except Exception:
-                content_markdown = complete_text
                 result_data = {"content": complete_text}
-
-            # ─── Phase 3: Emit typed SSE events ──────────────────
-
-            # Event: token — the main markdown content
-            if content_markdown:
-                yield f"data: {json.dumps({'type': 'token', 'content': content_markdown})}\n\n"
 
             # Event: suggestions — follow-up actions
             if suggestions:
