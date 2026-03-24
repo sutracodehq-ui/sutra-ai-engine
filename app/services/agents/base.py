@@ -312,6 +312,58 @@ class BaseAgent:
             })
             logger.info(f"Data enrichment: {len(context_chunks)} sources injected for {self.identifier}")
 
+        # ─── Web Search: Real-time internet data ──────────────
+        if settings.ai_web_search_enabled:
+            try:
+                from app.services.intelligence.web_search import get_web_search
+                ws = get_web_search()
+
+                if ws.should_search(prompt):
+                    search_result = await ws.search(prompt, max_results=5)
+
+                    if search_result.get("results"):
+                        search_context = f"[WEB SEARCH RESULTS for: '{prompt[:100]}']\n"
+
+                        # Add AI-generated summary if available (Tavily)
+                        if search_result.get("answer"):
+                            search_context += f"Summary: {search_result['answer']}\n\n"
+
+                        # Add individual results
+                        for r in search_result["results"]:
+                            search_context += f"- {r['title']}: {r['snippet'][:200]}\n  Source: {r['url']}\n"
+
+                        search_context += "\n[Use these search results to provide current, accurate information. Cite sources when possible.]"
+
+                        messages.insert(1, {
+                            "role": "system",
+                            "content": search_context,
+                        })
+                        logger.info(f"Web search: {len(search_result['results'])} results injected ({search_result['source']})")
+            except Exception as e:
+                logger.debug(f"Web search skipped: {e}")
+
+        # ─── Chain of Thought: Think before responding ────────
+        if settings.ai_chain_of_thought_enabled:
+            # Inject CoT instruction for complex/moderate tasks
+            from app.services.intelligence.smart_router import SmartRouter
+            try:
+                complexity = SmartRouter(enabled=True).assess_complexity(prompt, self.identifier)
+                if complexity in ("complex", "moderate"):
+                    cot_instruction = (
+                        "\n\n[THINKING PROCESS]\n"
+                        "Before responding, reason through the problem step by step:\n"
+                        "1. Understand what the user is really asking\n"
+                        "2. Consider what data/context you have available\n"
+                        "3. Plan your response structure\n"
+                        "4. Provide a comprehensive, well-organized answer\n"
+                        "Do NOT show your thinking process to the user — just give the final polished response.\n"
+                        "[END THINKING PROCESS]"
+                    )
+                    # Append to the existing system prompt
+                    messages[0]["content"] += cot_instruction
+            except Exception:
+                pass
+
         # Add conversation history
         if history:
             for msg in history:

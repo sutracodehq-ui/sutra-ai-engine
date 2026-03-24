@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     r2_bucket: str = "sutra-ai-storage"
     r2_endpoint: str = ""
 
+    # ─── Tavily (Web Search) ────────────────────────
+    tavily_api_key: str = ""
+
+    # ─── Intelligence Features ─────────────────────
+    ai_web_search_enabled: bool = True
+    ai_chain_of_thought_enabled: bool = True
+
     # ─── Quality Gate ───────────────────────────────
     ai_quality_gate_enabled: bool = True
     ai_quality_gate_threshold: int = 6
