@@ -22,7 +22,7 @@ def _load_config() -> dict:
     """Load language configuration from YAML."""
     global _config
     if _config is None:
-        config_path = Path(__file__).resolve().parent.parent.parent / "config" / "languages.yaml"
+        config_path = Path(__file__).resolve().parent.parent.parent.parent / "config" / "languages.yaml"
         try:
             with open(config_path, "r") as f:
                 _config = yaml.safe_load(f)
