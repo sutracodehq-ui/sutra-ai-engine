@@ -70,7 +70,10 @@ class OllamaDriver(LlmDriver):
             },
         }
 
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        # Long read timeout for LLM inference (thinking before first token)
+        # Short connect timeout to fail fast if Ollama is down
+        timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():

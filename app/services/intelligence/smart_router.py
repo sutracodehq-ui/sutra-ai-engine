@@ -147,7 +147,7 @@ def _get_model_tiers() -> dict[str, dict[str, str]]:
         "anthropic": {"simple": "claude-haiku-4-20250514", "moderate": "claude-sonnet-4-20250514", "complex": "claude-sonnet-4-20250514"},
         "gemini": {"simple": "gemini-2.0-flash", "moderate": "gemini-2.0-flash", "complex": "gemini-2.5-pro-preview-06-05"},
         "groq": {"simple": "llama-3.3-70b-versatile", "moderate": "llama-3.3-70b-versatile", "complex": "llama-3.3-70b-versatile"},
-        "ollama": {"simple": settings.ollama_model, "moderate": settings.ollama_model, "complex": settings.ollama_model},
+        "ollama": {"simple": "qwen2.5:3b", "moderate": "qwen2.5:3b", "complex": settings.ollama_model},
         "sarvam": {"simple": settings.sarvam_model, "moderate": settings.sarvam_model, "complex": settings.sarvam_model},
         "nvidia": {"simple": "meta/llama-3.1-8b-instruct", "moderate": "meta/llama-3.1-70b-instruct", "complex": settings.nvidia_model},
     }
