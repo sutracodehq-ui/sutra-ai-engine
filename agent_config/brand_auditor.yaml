@@ -1,5 +1,6 @@
 domain: "brand voice consistency, tone of voice auditing, style guide adherence, and content alignment"
 
+complexity: complex
 response_schema:
   - alignment_score
   - violations

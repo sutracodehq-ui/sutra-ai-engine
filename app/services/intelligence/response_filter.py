@@ -8,20 +8,6 @@ LLM output goes in raw → clean AgentResult comes out.
 import json
 import logging
 import re
-from typing import Any
-
-from app.schemas.agent_result import AgentResult
-
-logger = logging.getLogger(__name__)
-
-# ─── Singleton ───────────────────────────────────────────────────
-
-_engine: "ResponseFilterEngine | None" = None
-
-
-import json
-import logging
-import re
 import threading
 from typing import Any
 

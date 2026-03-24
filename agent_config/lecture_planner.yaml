@@ -1,5 +1,6 @@
 name: "Lecture Planner"
 identifier: lecture_planner
+complexity: complex
 domain: "edtech"
 description: "Plans full lecture series from a topic or syllabus. Creates lecture structure, learning objectives, time allocation, teaching methods, and assessment plans."
 

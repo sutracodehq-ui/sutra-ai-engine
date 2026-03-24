@@ -1,5 +1,6 @@
 name: "Contract Analyzer"
 identifier: contract_analyzer
+complexity: complex
 domain: "legal"
 description: "Analyzes contracts, identifies key clauses, risks, obligations, and suggests improvements. Supports Indian contract law."
 

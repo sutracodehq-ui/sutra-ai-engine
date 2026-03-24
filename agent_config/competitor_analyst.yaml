@@ -1,5 +1,6 @@
 domain: "competitive intelligence, market positioning, competitor SWOT analysis, gap identification"
 
+complexity: complex
 response_schema:
   - competitor_name
   - strengths

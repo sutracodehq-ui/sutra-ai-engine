@@ -1,5 +1,6 @@
 name: "Education Guru"
 identifier: education_guru
+complexity: complex
 domain: "education"
 description: "Personal AI assistant for EdTech institutions — school management advice, academic planning, NEP 2020 compliance, staff development, parent communication, and growth strategy."
 

@@ -96,44 +96,20 @@ SIMPLE_KEYWORDS = {
     "thanks", "thank you", "ok", "okay", "bye",
 }
 
-# Agent-level complexity defaults
-AGENT_COMPLEXITY: dict[str, str] = {
-    # Simple/fast agents
-    "sms": "simple",
-    "whatsapp": "simple",
-    "chatbot_trainer": "moderate",
-    # Moderate agents
-    "ad_creative": "moderate",
-    "copywriter": "moderate",
-    "social_media": "moderate",
-    "email_campaign": "moderate",
-    "content_repurposer": "moderate",
-    "note_generator": "moderate",
-    "flashcard_creator": "moderate",
-    "student_data_validator": "moderate",
-    "document_ocr_extractor": "moderate",
-    "medicine_info": "moderate",
-    "ayurveda_advisor": "moderate",
-    # Complex agents (need powerful models)
-    "quiz_generator": "complex",
-    "lecture_planner": "complex",
-    "seo": "complex",
-    "brand_auditor": "complex",
-    "competitor_analyst": "complex",
-    "trend_spotter": "complex",
-    "brand_advisor": "complex",
-    "education_guru": "complex",
-    "edtech": "complex",
-    "udise_compliance_advisor": "complex",
-    "infrastructure_auditor": "complex",
-    "udise_report_generator": "complex",
-    "tax_advisor": "complex",
-    "mutual_fund_advisor": "complex",
-    "insurance_advisor": "complex",
-    "symptom_checker": "complex",
-    "contract_analyzer": "complex",
-    "stock_analyzer": "complex",
-}
+def _get_agent_complexity(agent_type: str) -> str:
+    """
+    Read complexity from the agent's YAML config.
+
+    Falls back to 'moderate' if not set. This replaces the old
+    hardcoded AGENT_COMPLEXITY dict — now config-driven.
+    """
+    try:
+        from app.services.agents.hub import get_agent_hub
+        hub = get_agent_hub()
+        agent = hub.get(agent_type)
+        return agent._config.get("complexity", "moderate")
+    except Exception:
+        return "moderate"
 
 
 # ─── Driver Priority Chain (per complexity tier) ─────────────
@@ -245,8 +221,8 @@ class SmartRouter:
             if kw in lower:
                 score -= 1
 
-        # 3. Agent type default
-        agent_default = AGENT_COMPLEXITY.get(agent_type, "moderate")
+        # 3. Agent type default (reads from YAML config)
+        agent_default = _get_agent_complexity(agent_type)
         if agent_default == "complex":
             score += 1
         elif agent_default == "simple":

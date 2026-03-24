@@ -6,6 +6,7 @@ New agents = new YAML file. Zero code changes needed.
 """
 
 import logging
+import threading
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
@@ -437,10 +438,13 @@ class AiAgentHub:
 # ─── Singleton ──────────────────────────────────────────────────
 
 _hub: AiAgentHub | None = None
+_hub_lock = threading.Lock()
 
 
 def get_agent_hub() -> AiAgentHub:
     global _hub
     if _hub is None:
-        _hub = AiAgentHub()
+        with _hub_lock:
+            if _hub is None:
+                _hub = AiAgentHub()
     return _hub

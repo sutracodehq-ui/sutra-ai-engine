@@ -53,45 +53,27 @@ class BaseAgent:
         """
         prompt = self._config.get("system_prompt", "You are a helpful AI assistant.")
 
-        # ─── Smart Context Injection (Generic for ALL agents) ─
-        # If the caller passes brand/org/product context, inject it so the
-        # LLM knows WHO it is representing. Works for chatbot, education_guru,
-        # or any agent — no per-agent config needed.
+        # ─── Smart Context Injection (Polymorphic — config-driven) ────
+        # Map: (context_key_or_fallback, display_label)
+        CONTEXT_FIELDS = {
+            ("brand_name", "organization_name"): "Organization/Brand",
+            ("brand_description", "organization_description"): "About",
+            ("product_name",): "Product",
+            ("product_info",): "Product Details",
+            ("industry",): "Industry",
+            ("target_audience",): "Target Audience",
+            ("website_url",): "Website",
+            ("website_summary",): "Website Summary",
+            ("custom_instructions",): "Special Instructions",
+        }
+
         if context:
-            context_parts = []
-
-            # Brand / Organization identity
-            brand_name = context.get("brand_name") or context.get("organization_name")
-            if brand_name:
-                context_parts.append(f"- **Organization/Brand**: {brand_name}")
-
-            brand_desc = context.get("brand_description") or context.get("organization_description")
-            if brand_desc:
-                context_parts.append(f"- **About**: {brand_desc}")
-
-            # Product info
-            product_name = context.get("product_name")
-            if product_name:
-                context_parts.append(f"- **Product**: {product_name}")
-
-            product_info = context.get("product_info")
-            if product_info:
-                context_parts.append(f"- **Product Details**: {product_info}")
-
-            # Website
-            website_url = context.get("website_url")
-            if website_url:
-                context_parts.append(f"- **Website**: {website_url}")
-
-            # Website content summary (from URL analyzer / scraping)
-            website_summary = context.get("website_summary")
-            if website_summary:
-                context_parts.append(f"- **Website Summary**: {website_summary}")
-
-            # Custom instructions from brand owner
-            custom_instructions = context.get("custom_instructions")
-            if custom_instructions:
-                context_parts.append(f"- **Special Instructions**: {custom_instructions}")
+            context_parts = [
+                f"- **{label}**: {value}"
+                for keys, label in CONTEXT_FIELDS.items()
+                for value in [next((context[k] for k in keys if context.get(k)), None)]
+                if value
+            ]
 
             if context_parts:
                 ctx_text = "\n".join(context_parts)
@@ -345,27 +327,10 @@ class BaseAgent:
             except Exception as e:
                 logger.debug(f"Web search skipped: {e}")
 
-        # ─── Chain of Thought: Think before responding ────────
-        if settings.ai_chain_of_thought_enabled:
-            # Inject CoT instruction for complex/moderate tasks
-            from app.services.intelligence.smart_router import SmartRouter
-            try:
-                complexity = SmartRouter(enabled=True).assess_complexity(prompt, self.identifier)
-                if complexity in ("complex", "moderate"):
-                    cot_instruction = (
-                        "\n\n[THINKING PROCESS]\n"
-                        "Before responding, reason through the problem step by step:\n"
-                        "1. Understand what the user is really asking\n"
-                        "2. Consider what data/context you have available\n"
-                        "3. Plan your response structure\n"
-                        "4. Provide a comprehensive, well-organized answer\n"
-                        "Do NOT show your thinking process to the user — just give the final polished response.\n"
-                        "[END THINKING PROCESS]"
-                    )
-                    # Append to the existing system prompt
-                    messages[0]["content"] += cot_instruction
-            except Exception:
-                pass
+        # ─── Chain of Thought ─────────────────────────────────
+        # NOTE: CoT instruction is already in _build_from_config() system prompt.
+        # We do NOT inject [THINKING PROCESS] markers here — they leak into output.
+        # The system prompt's "CRITICAL: Internal Reasoning Only" handles this.
 
         # Add conversation history
         if history:
@@ -504,120 +469,44 @@ class BaseAgent:
         After stream ends, stores full response in memory for self-learning.
         """
         from app.services.driver_manager import get_driver_manager
+        from app.lib.stream_filter import strip_cot
 
         messages, opt_id = await self.build_messages(prompt, None, db, context)
 
         # Auto-detect language + complexity → pick best driver + model
         settings = get_settings()
-        driver_name = settings.ai_driver
+        driver_override = None
         model_override = None
 
         if settings.ai_smart_router_enabled:
             try:
                 from app.services.intelligence.smart_router import SmartRouter
-                smart = SmartRouter(enabled=True)
-
-                # Get circuit breaker for driver availability checks
-                from app.services.driver_manager import get_driver_manager
                 cb = get_driver_manager().circuit_breaker
-
-                decision = smart.route(prompt, self.identifier, circuit_breaker=cb)
-                driver_name = decision["driver"]
+                decision = SmartRouter(enabled=True).route(prompt, self.identifier, circuit_breaker=cb)
+                driver_override = decision["driver"]
                 model_override = decision.get("model")
-
-                logger.info(
-                    f"Agent stream: {decision['reason']} "
-                    f"(lang={decision['language']}, complexity={decision['complexity']})"
-                )
+                logger.info(f"Agent stream: {decision['reason']}")
             except Exception as e:
                 logger.debug(f"SmartRouter fallback: {e}")
 
-        # Stream via DriverManager — with fallback chain
+        # Stream via DriverManager (handles fallback chain + circuit breaker internally)
         manager = get_driver_manager()
         full_response = []
-
-        # Build fallback chain: SmartRouter pick → ai_driver → ai_fallback → ollama
-        drivers_to_try = []
-        if driver_name:
-            drivers_to_try.append((driver_name, model_override))
-        if settings.ai_driver != driver_name:
-            drivers_to_try.append((settings.ai_driver, None))
-        if settings.ai_fallback_driver and settings.ai_fallback_driver not in {d[0] for d in drivers_to_try}:
-            drivers_to_try.append((settings.ai_fallback_driver, None))
-        if "ollama" not in {d[0] for d in drivers_to_try}:
-            drivers_to_try.append(("ollama", None))
-
         clean_opts = {k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
-        last_error = None
 
-        for drv, mdl in drivers_to_try:
-            # Skip if circuit breaker says driver is down
-            if not manager.circuit_breaker.is_available(drv):
-                logger.info(f"Agent stream: {drv} circuit OPEN, skipping")
-                continue
-
-            try:
-                logger.info(f"Agent stream: trying {drv}" + (f" ({mdl})" if mdl else ""))
-                # ─── Streaming CoT Filter ─────────────────────
-                # Buffer tokens and strip any [THINKING PROCESS]...[END THINKING PROCESS]
-                # or similar reasoning blocks that leak from the model.
-                cot_buffer = ""
-                in_cot_block = False
-                COT_START_MARKERS = ["[THINKING PROCESS]", "[THINKING]", "[REASONING]", "<think>"]
-                COT_END_MARKERS = ["[END THINKING PROCESS]", "[END THINKING]", "[END REASONING]", "</think>"]
-
-                async for token in manager.stream(
-                    messages=messages,
-                    driver_override=drv,
-                    model_override=mdl,
-                    **clean_opts,
-                ):
-                    cot_buffer += token
-
-                    # Check if we're entering a CoT block
-                    if not in_cot_block:
-                        for marker in COT_START_MARKERS:
-                            if marker in cot_buffer:
-                                in_cot_block = True
-                                # Yield everything before the marker
-                                before = cot_buffer.split(marker, 1)[0]
-                                if before.strip():
-                                    full_response.append(before)
-                                    yield before
-                                cot_buffer = cot_buffer.split(marker, 1)[1]
-                                break
-
-                    # Check if we're exiting a CoT block
-                    if in_cot_block:
-                        for marker in COT_END_MARKERS:
-                            if marker in cot_buffer:
-                                in_cot_block = False
-                                cot_buffer = cot_buffer.split(marker, 1)[1]
-                                break
-                        continue  # Don't yield while inside CoT block
-
-                    # Normal token — flush buffer periodically
-                    if len(cot_buffer) > 100 or not any(cot_buffer.endswith(m[:len(cot_buffer)]) for m in COT_START_MARKERS):
-                        if cot_buffer:
-                            full_response.append(cot_buffer)
-                            yield cot_buffer
-                            cot_buffer = ""
-
-                # Flush any remaining buffer
-                if cot_buffer and not in_cot_block:
-                    full_response.append(cot_buffer)
-                    yield cot_buffer
-                last_error = None
-                break  # Success — stop trying
-            except Exception as e:
-                last_error = e
-                logger.warning(f"Agent stream: {drv} failed, trying next: {e}")
-                full_response.clear()  # Reset for retry
-                continue
-
-        if last_error:
-            logger.error(f"Agent stream: all drivers failed for {self.identifier}: {last_error}")
-            yield f"\n[Error: {str(last_error)}]"
+        try:
+            raw_stream = manager.stream(
+                messages=messages,
+                driver_override=driver_override,
+                model_override=model_override,
+                **clean_opts,
+            )
+            async for token in strip_cot(raw_stream):
+                full_response.append(token)
+                yield token
+        except Exception as e:
+            logger.error(f"Agent stream: all drivers failed for {self.identifier}: {e}")
+            yield f"\n[Error: {str(e)}]"
             return
 
         # Post-stream: store in memory for self-learning

@@ -1,5 +1,6 @@
 name: "Quiz Generator"
 identifier: quiz_generator
+complexity: complex
 domain: "edtech"
 description: "Generates quizzes from notes, transcripts, or any educational content. Creates MCQs, fill-in-the-blanks, true/false, short answer, and match-the-following questions with answers and explanations."
 

@@ -1,5 +1,6 @@
 domain: "WhatsApp Business API, message templates, conversational flows, quick-reply buttons, and compliance"
 
+complexity: simple
 response_schema:
   - template_body
   - header_text

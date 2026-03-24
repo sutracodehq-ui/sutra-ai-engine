@@ -8,6 +8,7 @@ Integrates CircuitBreaker (skip dead drivers) and RetryStrategy (transient fault
 """
 
 import logging
+import threading
 from typing import Any, AsyncGenerator
 
 from app.config import get_settings
@@ -230,12 +231,15 @@ class DriverManager:
 # ─── Singleton ──────────────────────────────────────────────────
 
 _manager: DriverManager | None = None
+_manager_lock = threading.Lock()
 
 
 def get_driver_manager() -> DriverManager:
     """Get or create the singleton DriverManager."""
     global _manager
     if _manager is None:
-        _manager = DriverManager()
+        with _manager_lock:
+            if _manager is None:
+                _manager = DriverManager()
     return _manager
 

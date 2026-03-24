@@ -1,5 +1,6 @@
 name: "Stock Analyzer"
 identifier: stock_analyzer
+complexity: complex
 domain: "finance"
 description: "Analyzes stock market data, identifies patterns, and provides buy/sell/hold recommendations with technical analysis."
 

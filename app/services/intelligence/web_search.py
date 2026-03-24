@@ -13,6 +13,7 @@ Fallback: if Tavily is unavailable, uses DuckDuckGo HTML scraping (no API key).
 """
 
 import logging
+import threading
 from typing import Optional
 
 import httpx
@@ -196,10 +197,13 @@ class WebSearch:
 
 # ─── Singleton ──────────────────────────────────────────────
 _search: WebSearch | None = None
+_search_lock = threading.Lock()
 
 
 def get_web_search() -> WebSearch:
     global _search
     if _search is None:
-        _search = WebSearch()
+        with _search_lock:
+            if _search is None:
+                _search = WebSearch()
     return _search

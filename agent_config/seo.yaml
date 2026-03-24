@@ -1,5 +1,6 @@
 domain: "SEO, meta tags, keywords, content structure, technical SEO, and page performance"
 
+complexity: complex
 response_schema:
   - meta_title
   - meta_description
