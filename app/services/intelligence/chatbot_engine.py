@@ -243,7 +243,23 @@ class ChatbotEngine:
             db=db,
             context=context,
         )
+
+        # Extract human-readable text from JSON response
+        # The agent returns JSON with fields like "response", "advice", etc.
+        # We need the clean text for the chatbot, not the raw JSON.
         response_text = response.content
+        try:
+            parsed = json.loads(response_text)
+            if isinstance(parsed, dict):
+                # Priority: response > advice > content
+                response_text = (
+                    parsed.get("response")
+                    or parsed.get("advice")
+                    or parsed.get("content")
+                    or response_text
+                )
+        except (json.JSONDecodeError, TypeError):
+            pass  # Not JSON — use raw text as-is (already markdown)
         session.add_message("assistant", response_text)
 
         # 3. Escalate if low confidence
