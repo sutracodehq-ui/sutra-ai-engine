@@ -82,8 +82,9 @@ def _cfg(section: str, key: str = None, default=None):
 
 
 def _ensure_sets():
-    """Build frozensets from YAML lists on first use."""
+    """Build frozensets and lookup tables from YAML lists on first use."""
     global _indic_scripts, _hinglish_words, _complex_signals, _simple_signals
+    global _indic_ranges, _script_labels
     if _indic_scripts is not None:
         return
     sr = _cfg("smart_router", default={})
@@ -92,30 +93,56 @@ def _ensure_sets():
     _complex_signals = frozenset(sr.get("complex_signals", []))
     _simple_signals = frozenset(sr.get("simple_signals", []))
 
+    # Build Indic char ranges from YAML config (never hardcoded)
+    raw_ranges = sr.get("indic_ranges", {})
+    _indic_ranges = [(v[0], v[1], k) for k, v in raw_ranges.items() if isinstance(v, list) and len(v) == 2]
+    _script_labels = sr.get("script_labels", {})
 
-# ─── Smart Routing (O(1) Decision Tree) ───────────────────────
+
+# Precomputed at first use from YAML
+_indic_ranges: list[tuple] | None = None
+_script_labels: dict[str, str] | None = None
+
+
+def _detect_script_fast(char: str) -> str | None:
+    """O(1) script detection using config-driven Unicode code point ranges."""
+    cp = ord(char)
+    # Fast reject: ASCII range (most common case)
+    if cp < 0x0900:
+        return None
+    for lo, hi, script in _indic_ranges:
+        if lo <= cp <= hi:
+            return script
+    return None
+
 
 def detect_language(text: str) -> str:
-    """O(1) language detection: 'indic', 'hinglish', or 'english'."""
+    """
+    O(1) language detection with regional Indic script identification.
+    Uses Unicode code point ranges (no unicodedata.name() calls).
+
+    Returns: specific language ('tamil', 'bengali', 'hindi', 'hinglish', 'english')
+    """
     if not text:
         return "english"
     _ensure_sets()
     sr = _cfg("smart_router", default={})
     sample = text[:sr.get("sample_chars", 100)]
     alpha_count = indic_count = 0
+    script_counts: dict[str, int] = {}
     for char in sample:
         if not char.isalpha():
             continue
         alpha_count += 1
-        try:
-            name = unicodedata.name(char, "")
-            for script in _indic_scripts:
-                if name.startswith(script):
-                    indic_count += 1
-                    break
-        except ValueError:
-            pass
+        script = _detect_script_fast(char)
+        if script:
+            indic_count += 1
+            script_counts[script] = script_counts.get(script, 0) + 1
     if alpha_count > 0 and (indic_count / alpha_count) > sr.get("indic_threshold", 0.3):
+        # Return the specific dominant script
+        if script_counts:
+            dominant = max(script_counts, key=script_counts.get)
+            return _script_labels.get(dominant, "indic")
         return "indic"
     words = text.lower().split()[:sr.get("sample_words", 10)]
     if sum(1 for w in words if w in _hinglish_words) >= sr.get("hinglish_min_matches", 2):
@@ -334,6 +361,7 @@ class Brain:
         buckets = sr.get("length_buckets", {"short": 10, "long": 80})
         bucket = "short" if wc < buckets.get("short", 10) else ("long" if wc > buckets.get("long", 80) else "medium")
 
+        # Single-pass signal detection (merged from two loops → one)
         n = sr.get("signal_words", 3)
         words = prompt.lower().split(None, n + 1)[:n]
         signal = "none"
@@ -341,11 +369,9 @@ class Brain:
             if w in _complex_signals:
                 signal = "complex"
                 break
-        if signal == "none":
-            for w in words:
-                if w in _simple_signals:
-                    signal = "simple"
-                    break
+            if w in _simple_signals:
+                signal = "simple"
+                # Don't break — complex overrides simple
 
         agent_tier = "moderate"
         try:
@@ -359,18 +385,24 @@ class Brain:
 
     def _pick_driver(self, complexity: str, language: str, cb=None) -> str:
         sr = _cfg("smart_router", default={})
-        lang_key = "indic" if language in ("indic", "hinglish") else "english"
+        # Map regional languages to 'indic' for driver chain lookup
+        lang_key = "english" if language == "english" else "indic"
         chains = sr.get("driver_chains", {})
         chain = chains.get(lang_key, {}).get(complexity, ["ollama", "groq"])
+
+        # O(1) key availability check (precomputed dict)
         settings = get_settings()
         key_map = {
-            "openai": settings.openai_api_key, "anthropic": settings.anthropic_api_key,
-            "gemini": settings.gemini_api_key, "groq": settings.groq_api_key,
-            "sarvam": settings.sarvam_api_key, "nvidia": settings.nvidia_api_key,
-            "ollama": "always",
+            "openai": bool(settings.openai_api_key),
+            "anthropic": bool(settings.anthropic_api_key),
+            "gemini": bool(settings.gemini_api_key),
+            "groq": bool(settings.groq_api_key),
+            "sarvam": bool(settings.sarvam_api_key),
+            "nvidia": bool(settings.nvidia_api_key),
+            "ollama": True,
         }
         for d in chain:
-            if not key_map.get(d, ""):
+            if not key_map.get(d, False):
                 continue
             if cb and not cb.is_available(d):
                 continue
@@ -446,7 +478,8 @@ class Brain:
             return await get_llm_service().complete(prompt=prompt, system_prompt=system_prompt, driver="ollama", **opts)
         except Exception as e:
             logger.warning(f"Brain: local failed: {e}")
-            return LlmResponse(content="", total_tokens=0, driver="ollama", model="qwen2.5:3b", metadata={"error": str(e)})
+            fallback_model = _cfg("fallback_models", "local", default="qwen2.5:3b")
+            return LlmResponse(content="", total_tokens=0, driver="ollama", model=fallback_model, metadata={"error": str(e)})
 
     async def _call_cloud(self, prompt: str, system_prompt: str, **opts) -> LlmResponse:
         from app.services.llm_service import get_llm_service
@@ -677,9 +710,10 @@ class Brain:
         )
         try:
             # Use Groq or Gemini for meta-optimization (high intelligence)
+            meta_model = _cfg("fallback_models", "meta_optimizer", default="llama-3.3-70b-versatile")
             resp = await get_llm_service().complete(
                 prompt=meta_prompt, system_prompt="You are a Meta-Prompt Optimizer.",
-                driver="groq", model="llama-3.3-70b-versatile"
+                driver="groq", model=meta_model
             )
             return resp.content.strip() if resp.content else None
         except Exception as e:
@@ -691,6 +725,219 @@ class Brain:
     def filter_response(self, raw_content: str, agent_config: dict | None = None) -> AgentResult:
         """Normalize raw LLM text → AgentResult."""
         return self._filter.filter(raw_content, agent_config)
+
+    # ─── Speculative Execution (V2: Draft & Verify) ──────────
+
+    async def execute_speculative(
+        self, prompt: str, system_prompt: str, agent_type: str,
+        expected_fields: list[str] | None = None, **options,
+    ) -> LlmResponse:
+        """
+        Speculative execution: draft with fast/free model, verify quality,
+        escalate to smart model only if draft fails quality gate.
+
+        Flow: Fast draft → Guardian score → accept OR escalate to cloud.
+        """
+        from app.services.intelligence.guardian import get_guardian
+
+        cfg = _cfg("speculative", default={})
+        if not cfg.get("enabled", False):
+            return await self.execute(prompt, system_prompt, agent_type, expected_fields=expected_fields, **options)
+
+        guardian = get_guardian()
+
+        # 1. Draft with fast/free model
+        try:
+            draft_driver = cfg.get("draft_driver", "groq")
+            draft_model = cfg.get("draft_model")
+            draft_max_tokens = cfg.get("draft_max_tokens", 1024)
+            timeout = cfg.get("draft_timeout_s", 10)
+
+            draft = await asyncio.wait_for(
+                self._call_driver(
+                    prompt, system_prompt,
+                    driver=draft_driver, model=draft_model,
+                    max_tokens=draft_max_tokens, **options
+                ),
+                timeout=timeout,
+            )
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Brain.speculative: draft failed ({e}), falling back")
+            return await self.execute(prompt, system_prompt, agent_type, expected_fields=expected_fields, **options)
+
+        # 2. Score the draft
+        score_result = guardian.score_response(draft, expected_fields)
+        min_score = cfg.get("min_quality_score", 6.5)
+
+        if score_result["total"] >= min_score:
+            draft.metadata = draft.metadata or {}
+            draft.metadata["speculative"] = "draft_accepted"
+            draft.metadata["draft_score"] = score_result["total"]
+            logger.info(f"Brain.speculative: DRAFT ACCEPTED (score={score_result['total']})")
+            await guardian.record_quality(agent_type, score_result["total"])
+            return draft
+
+        # 3. Escalate to smart model
+        logger.info(f"Brain.speculative: ESCALATING (draft_score={score_result['total']} < {min_score})")
+        final = await self._call_cloud(prompt, system_prompt, agent_type=agent_type, **options)
+        final.metadata = final.metadata or {}
+        final.metadata["speculative"] = "escalated"
+        return final
+
+    # ─── Swarm Orchestration (V3: Sub-Agents) ────────────────
+
+    async def execute_swarm(
+        self, prompt: str, agent_type: str, db=None, **opts,
+    ) -> LlmResponse:
+        """
+        Swarm execution: decompose → orchestrate sub-agents → synthesize.
+
+        Guards (all YAML-driven):
+        - max_subtasks, max_concurrent, decompose_timeout_s
+        - Circular delegation prevention
+        - Graceful degradation (partial results on failure)
+        - Fallback to single-agent execution
+        """
+        cfg = _cfg("swarm", default={})
+        if not cfg.get("enabled", False):
+            return await self.chain(agent_type, prompt, db=db, **opts)
+
+        # 1. Gate: only complex tasks enter swarm
+        complexity = self._assess_complexity(prompt, agent_type)
+        triggers = cfg.get("trigger_complexities", ["complex"])
+        if complexity not in triggers:
+            logger.info(f"Brain.swarm: SKIP (complexity={complexity}, need={triggers})")
+            return await self.chain(agent_type, prompt, db=db, **opts)
+
+        # 2. Detect language → propagate to all sub-agents
+        language = detect_language(prompt)
+
+        # 3. Decompose (fast model, with timeout)
+        try:
+            subtasks = await asyncio.wait_for(
+                self._decompose(prompt, cfg),
+                timeout=cfg.get("decompose_timeout_s", 15),
+            )
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"Brain.swarm: decompose failed ({e}), falling back")
+            return await self.chain(agent_type, prompt, db=db, **opts)
+
+        if not subtasks or len(subtasks) < 2:
+            return await self.chain(agent_type, prompt, db=db, **opts)
+
+        # 4. Orchestrate: run sub-agents with semaphore gate
+        max_concurrent = cfg.get("max_concurrent", 6)
+        sem = asyncio.Semaphore(max_concurrent)
+        swarm_id = hashlib.md5(f"{prompt}:{time.time()}".encode()).hexdigest()[:12]
+        logger.info(f"Brain.swarm[{swarm_id}]: {len(subtasks)} subtasks, lang={language}")
+
+        async def _run_one(subtask: dict) -> dict:
+            async with sem:
+                try:
+                    from app.services.agents.hub import get_agent_hub
+                    hub = get_agent_hub()
+                    target = subtask.get("agent", agent_type)
+                    sub_prompt = subtask.get("prompt", prompt)
+
+                    # Inject language instruction
+                    if language not in ("english", "hinglish"):
+                        sub_prompt = f"[Respond in {language}]\n{sub_prompt}"
+
+                    resp = await hub.run(target, sub_prompt, db=db, **opts)
+                    return {"agent": target, "status": "success", "content": resp.content, "tokens": resp.total_tokens}
+                except Exception as e:
+                    logger.warning(f"Brain.swarm[{swarm_id}]: subtask '{subtask.get('agent')}' failed: {e}")
+                    return {"agent": subtask.get("agent", "unknown"), "status": "error", "content": "", "error": str(e)}
+
+        results = await asyncio.gather(*[_run_one(st) for st in subtasks], return_exceptions=False)
+        successful = [r for r in results if r["status"] == "success" and r["content"]]
+
+        if not successful:
+            logger.warning(f"Brain.swarm[{swarm_id}]: ALL subtasks failed, falling back")
+            return await self.chain(agent_type, prompt, db=db, **opts)
+
+        # 5. Synthesize
+        return await self._synthesize(successful, prompt, cfg, language)
+
+    async def _decompose(self, prompt: str, cfg: dict) -> list[dict]:
+        """
+        Use a fast LLM to decompose a complex prompt into subtasks.
+        Returns: [{"agent": "agent_id", "prompt": "sub-prompt"}, ...]
+        """
+        from app.services.llm_service import get_llm_service
+        max_subtasks = cfg.get("max_subtasks", 6)
+
+        decompose_prompt = (
+            f"Decompose this user request into {max_subtasks} or fewer specialized sub-tasks.\n"
+            f"Available agent types (pick from these): support, copywriter, seo, summarizer, "
+            f"quiz_generator, note_generator, social, email_writer, code_generator.\n\n"
+            f"USER REQUEST: {prompt}\n\n"
+            f"Return JSON array ONLY: [{{\"agent\": \"agent_id\", \"prompt\": \"specific sub-task\"}}]\n"
+            f"If this is a simple task that doesn't need decomposition, return []"
+        )
+
+        driver = cfg.get("decompose_driver", "groq")
+        model = cfg.get("decompose_model")
+        try:
+            resp = await get_llm_service().complete(
+                prompt=decompose_prompt,
+                system_prompt="You are a task decomposition engine. Return valid JSON only.",
+                driver=driver, model=model, max_tokens=512,
+            )
+            parsed = json.loads(resp.content.strip().removeprefix("```json").removesuffix("```").strip())
+            if isinstance(parsed, list) and len(parsed) <= max_subtasks:
+                return parsed
+            return []
+        except Exception as e:
+            logger.warning(f"Brain._decompose: {e}")
+            return []
+
+    async def _synthesize(
+        self, results: list[dict], original_prompt: str, cfg: dict, language: str = "english",
+    ) -> LlmResponse:
+        """Merge sub-agent outputs into a single coherent response."""
+        from app.services.llm_service import get_llm_service
+
+        # Build context from sub-results
+        parts = []
+        total_tokens = 0
+        for r in results:
+            parts.append(f"[{r['agent']}]:\n{r['content'][:2000]}")
+            total_tokens += r.get("tokens", 0)
+
+        context = "\n\n---\n\n".join(parts)
+        lang_instruction = f" Respond in {language}." if language not in ("english", "hinglish") else ""
+
+        synth_prompt = (
+            f"You received outputs from multiple specialist agents for this request:\n"
+            f"\"{original_prompt}\"\n\n"
+            f"AGENT OUTPUTS:\n{context}\n\n"
+            f"Synthesize these into a single, coherent, high-quality response."
+            f" Remove redundancy and maintain consistency.{lang_instruction}"
+        )
+
+        driver = cfg.get("synthesize_driver", "groq")
+        try:
+            resp = await get_llm_service().complete(
+                prompt=synth_prompt,
+                system_prompt="You are a synthesis engine. Merge multiple expert inputs into one excellent output.",
+                driver=driver, max_tokens=cfg.get("subtask_max_tokens", 2048),
+            )
+            resp.metadata = resp.metadata or {}
+            resp.metadata["swarm"] = True
+            resp.metadata["sub_agents"] = [r["agent"] for r in results]
+            resp.metadata["sub_agent_count"] = len(results)
+            resp.total_tokens += total_tokens
+            return resp
+        except Exception as e:
+            # Fallback: concatenate raw results
+            logger.warning(f"Brain._synthesize: {e}, returning concatenated")
+            combined = "\n\n".join(r["content"] for r in results)
+            return LlmResponse(
+                content=combined, total_tokens=total_tokens,
+                driver="swarm", model="synthesized",
+                metadata={"swarm": True, "synthesis_fallback": True},
+            )
 
     # ─── Escalation (absorbs escalation_manager) ─────────────
 

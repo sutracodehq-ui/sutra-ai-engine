@@ -166,7 +166,7 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
     brain = get_brain()
 
     return StreamingResponse(
-        brain.queued_stream(_llm_generator, request),
+        brain.queue.stream(_llm_generator, request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

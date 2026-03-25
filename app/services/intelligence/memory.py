@@ -172,8 +172,8 @@ class Memory:
         except Exception as e:
             logger.warning(f"Memory.remember: {e}")
 
-    async def recall(self, agent_type: str, prompt: str, n: int = 3) -> list[dict]:
-        """Recall similar past interactions for an agent."""
+    async def recall(self, agent_type: str, prompt: str, n: int = 5) -> list[dict]:
+        """Recall similar past interactions for an agent. Applies Auto-Cut pruning."""
         client = _get_chroma()
         if not client:
             return []
@@ -181,12 +181,68 @@ class Memory:
             coll = client.get_or_create_collection(name=f"agent_memory_{agent_type}")
             if coll.count() == 0:
                 return []
-            results = coll.query(query_texts=[prompt], n_results=min(n, coll.count()))
-            return [{"content": doc, "meta": meta} for doc, meta in
-                    zip(results["documents"][0], results["metadatas"][0])] if results["documents"] else []
+            # Fetch more than needed, then prune
+            fetch_n = min(n * 3, coll.count(), 20)
+            results = coll.query(query_texts=[prompt], n_results=fetch_n)
+            if not results["documents"] or not results["documents"][0]:
+                return []
+            # Build raw results with scores
+            raw = []
+            distances = results.get("distances", [[]])[0]
+            for i, doc in enumerate(results["documents"][0]):
+                score = max(0.0, 1.0 - distances[i]) if i < len(distances) else 0.0
+                raw.append({"content": doc, "meta": results["metadatas"][0][i], "score": score})
+            # Apply Auto-Cut
+            return self._auto_cut(raw, n)
         except Exception as e:
             logger.debug(f"Memory.recall: {e}")
             return []
+
+    def _auto_cut(self, results: list[dict], max_chunks: int = 5) -> list[dict]:
+        """
+        RAG Auto-Cut: prune irrelevant and redundant chunks.
+
+        1. Drop chunks below similarity threshold (YAML: rag.auto_cut_threshold)
+        2. Remove overlapping/duplicate content
+        3. Keep only top-N most relevant
+        """
+        cfg = _sec("rag", {})
+        threshold = cfg.get("auto_cut_threshold", 0.55)
+        max_n = cfg.get("max_chunks", max_chunks)
+
+        # 1. Threshold filter
+        filtered = [r for r in results if r.get("score", 0) >= threshold]
+        if not filtered:
+            # Fallback: return best single result if all below threshold
+            return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:1] if results else []
+
+        # 2. Sort by relevance
+        filtered.sort(key=lambda x: x["score"], reverse=True)
+
+        # 3. Deduplicate overlapping content
+        if cfg.get("overlap_dedup", True):
+            filtered = self._dedup_chunks(filtered)
+
+        return filtered[:max_n]
+
+    def _dedup_chunks(self, chunks: list[dict]) -> list[dict]:
+        """Remove chunks with >60% content overlap (keeps higher-scored one)."""
+        kept = []
+        for chunk in chunks:
+            content = chunk.get("content", "")
+            words = set(content.lower().split())
+            is_dup = False
+            for existing in kept:
+                existing_words = set(existing.get("content", "").lower().split())
+                if not words or not existing_words:
+                    continue
+                overlap = len(words & existing_words) / min(len(words), len(existing_words))
+                if overlap > 0.6:
+                    is_dup = True
+                    break
+            if not is_dup:
+                kept.append(chunk)
+        return kept
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 3. BRAND KNOWLEDGE (absorbs brand_knowledge.py)

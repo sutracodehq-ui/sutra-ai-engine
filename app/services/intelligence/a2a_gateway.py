@@ -103,6 +103,57 @@ class A2AGateway:
         mem = get_memory()
         await mem.remember(target_agent, f"Shared from {source_agent}", context)
 
+    async def handoff(
+        self, source_agent: str, target_agent: str,
+        prompt: str, context: dict | None = None,
+        swarm_id: str = "", visited: set | None = None, db=None,
+    ) -> dict:
+        """
+        Transfer execution control from one agent to another.
+
+        Anti-loop guard: tracks visited agents per swarm session.
+        If target was already visited, rejects the handoff.
+        """
+        visited = visited or set()
+
+        # Circular delegation guard
+        if target_agent in visited:
+            logger.warning(f"A2A: CIRCULAR handoff rejected: {source_agent} → {target_agent} (visited={visited})")
+            return {"status": "circular_rejected", "source": source_agent, "target": target_agent}
+
+        visited.add(source_agent)
+        visited.add(target_agent)
+
+        # Permission check
+        if not self.can_consult(source_agent, target_agent):
+            return {"status": "denied", "reason": "Route not configured"}
+
+        hub = self._get_hub()
+        agent = hub.get(target_agent)
+        if not agent:
+            return {"status": "error", "reason": f"Agent {target_agent} not found"}
+
+        try:
+            a2a_context = {
+                **(context or {}),
+                "a2a_source": source_agent,
+                "a2a_type": "handoff",
+                "swarm_id": swarm_id,
+                "visited_agents": list(visited),
+            }
+            response = await agent.execute(prompt, db=db, context=a2a_context)
+            logger.info(f"A2A: {source_agent} → handoff → {target_agent} ✓ (swarm={swarm_id})")
+            return {
+                "status": "success",
+                "source": source_agent,
+                "target": target_agent,
+                "response": response.content,
+                "visited": list(visited),
+            }
+        except Exception as e:
+            logger.error(f"A2A: handoff to {target_agent} failed: {e}")
+            return {"status": "error", "reason": str(e)}
+
     def can_consult(self, source_agent: str, target_agent: str) -> bool:
         """Check if source agent is allowed to consult target agent."""
         routes = _load_a2a_routes()

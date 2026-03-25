@@ -6,7 +6,7 @@ Full pipeline:
   Optionally: → TTS Voice Response → R2 Storage
 """
 
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, Request
 from typing import Optional
 
 from app.dependencies import DbSession, get_current_tenant
@@ -156,3 +156,115 @@ async def speak(
         "voice": voice,
         "text_length": len(text),
     }
+
+
+@router.post("/stream", summary="Voice Input → SSE Stream Response")
+async def voice_stream(
+    file: UploadFile = File(..., description="Audio file (webm, mp3, wav, ogg, flac, m4a)"),
+    request: Request = None,
+    agent_type: str = Form(default="copywriter", description="Agent to process the voice input"),
+    voice_profile_id: Optional[int] = Form(default=None),
+    voice_profile_name: Optional[str] = Form(default=None),
+    conversation_id: Optional[str] = Form(default=None),
+    generate_voice_reply: bool = Form(default=False, description="Generate TTS audio reply after stream"),
+    tts_voice: Optional[str] = Form(default=None, description="TTS voice for reply"),
+    tenant: Tenant = Depends(get_current_tenant),
+    db: DbSession = None,
+):
+    """
+    Voice + SSE streaming in one call.
+
+    **Pipeline:**
+    1. 🎤 Transcribe audio with Whisper (auto-detect language)
+    2. 📡 Stream AI response token-by-token via SSE
+    3. 🔊 Optionally generate TTS voice reply at the end
+
+    The client receives SSE events:
+    - `{type: "transcription", text: "...", language: "hi"}` — transcribed text
+    - `{type: "status", stage: "thinking"}` — queue status
+    - `{type: "token", content: "..."}` — streamed tokens
+    - `{type: "voice_reply", r2_key: "..."}` — TTS audio (if requested)
+    - `{type: "done"}` — stream complete
+    """
+    import json
+    from fastapi.responses import StreamingResponse
+    from app.services.chat.engine import ChatEngine
+
+    # 1. Read + validate
+    file_bytes = await file.read()
+    max_size = 25 * 1024 * 1024
+    if len(file_bytes) > max_size:
+        raise HTTPException(status_code=400, detail="Audio file too large (max 25MB)")
+
+    async def _voice_stream_generator():
+        # 2. Transcribe
+        try:
+            transcription = await transcribe_audio(file_bytes, file.filename or "voice.webm")
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Transcription failed: {e}'})}\n\n"
+            return
+
+        text = transcription.get("text", "").strip()
+        language = transcription.get("language", "unknown")
+
+        if not text:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'No speech detected'})}\n\n"
+            return
+
+        # Send transcription event
+        yield f"data: {json.dumps({'type': 'transcription', 'text': text, 'language': language, 'duration': transcription.get('duration', 0)})}\n\n"
+
+        # 3. Stream AI response (reuses existing ChatEngine pipeline)
+        full_response = []
+        try:
+            stream = await ChatEngine.execute(
+                db, tenant,
+                prompt=text,
+                conversation_id=conversation_id,
+                voice_profile_id=voice_profile_id,
+                voice_profile_name=voice_profile_name,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                full_response.append(chunk)
+                yield f"data: {json.dumps({'type': 'token', 'content': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            return
+
+        # 4. Post-stream: suggestions
+        complete_text = "".join(full_response)
+        try:
+            from app.services.intelligence.brain import get_brain
+            filtered = get_brain().filter_response(complete_text)
+            if filtered.suggestions:
+                yield f"data: {json.dumps({'type': 'suggestions', 'items': filtered.suggestions})}\n\n"
+        except Exception:
+            pass
+
+        # 5. Optional TTS reply
+        if generate_voice_reply and complete_text:
+            try:
+                tts_bytes = await text_to_speech(complete_text[:4000], tts_voice)
+                r2_key = await upload_to_r2(tts_bytes, f"reply_{transcription.get('duration', 0):.0f}s.mp3", tenant.slug, "audio/mpeg")
+                yield f"data: {json.dumps({'type': 'voice_reply', 'r2_key': r2_key})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'tts_error', 'message': str(e)})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    # Queue through Brain for concurrency control
+    from app.services.intelligence.brain import get_brain
+    brain = get_brain()
+
+    return StreamingResponse(
+        brain.queue.stream(_voice_stream_generator, request),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+

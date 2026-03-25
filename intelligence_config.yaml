@@ -621,6 +621,31 @@ smart_router:
     - KANNADA
     - MALAYALAM
 
+  # Unicode code point ranges for O(1) script detection (config-driven)
+  # Format: [start_hex, end_hex, script_name]
+  indic_ranges:
+    DEVANAGARI: [0x0900, 0x097F]
+    BENGALI:    [0x0980, 0x09FF]
+    GURMUKHI:   [0x0A00, 0x0A7F]
+    GUJARATI:   [0x0A80, 0x0AFF]
+    ORIYA:      [0x0B00, 0x0B7F]
+    TAMIL:      [0x0B80, 0x0BFF]
+    TELUGU:     [0x0C00, 0x0C7F]
+    KANNADA:    [0x0C80, 0x0CFF]
+    MALAYALAM:  [0x0D00, 0x0D7F]
+
+  # Script → user-friendly language label
+  script_labels:
+    DEVANAGARI: hindi
+    BENGALI: bengali
+    GURMUKHI: punjabi
+    GUJARATI: gujarati
+    ORIYA: odia
+    TAMIL: tamil
+    TELUGU: telugu
+    KANNADA: kannada
+    MALAYALAM: malayalam
+
   indic_threshold: 0.3       # % of sampled chars that must be Indic
 
   # Hinglish words (Latin-script Hindi) — frozenset at load
@@ -872,3 +897,99 @@ quality:
     ttl_days: 7
     fast_path_threshold: 8.0
     direct_cloud_threshold: 5.0
+
+# ─── RAG Auto-Cut (V2: Context Pruning) ────────────────────
+rag:
+  auto_cut_threshold: 0.55       # Min similarity score to keep
+  max_chunks: 5                  # Max chunks sent to LLM
+  overlap_dedup: true            # Remove >60% overlapping chunks
+
+# ─── Speculative Execution (V2: Draft & Verify) ────────────
+speculative:
+  enabled: true
+  draft_driver: groq             # Free + fast (<500ms)
+  draft_model: llama-3.3-70b-versatile
+  draft_max_tokens: 1024
+  draft_timeout_s: 10            # Hard timeout for draft
+  min_quality_score: 6.5         # Below this → escalate to smart model
+
+# ─── Sub-Agent Swarm (V3: Task Decomposition) ──────────────
+swarm:
+  enabled: true
+  max_subtasks: 6                # Max parallel sub-tasks
+  max_depth: 2                   # Prevent recursive decomposition
+  max_concurrent: 6              # KVM 4 safe (6 × 400MB = 2.4GB peak)
+  decompose_timeout_s: 15        # Timeout for decompose LLM call
+  decompose_driver: groq         # Free, fast decomposer
+  decompose_model: llama-3.3-70b-versatile
+  synthesize_driver: groq        # Free, fast synthesizer
+  subtask_max_tokens: 2048       # Per-subtask budget
+  context_tunnel_max_kb: 16      # Max shared state between agents
+  trigger_complexities:          # Only swarm for complex tasks
+    - complex
+
+  # Pre-defined swarm alliances
+  alliances:
+    research_swarm:
+      members: [ai_trend_tracker, web_researcher, summarizer]
+      trigger_intents: [research, analyze, compare]
+    content_swarm:
+      members: [copywriter, seo, tone_checker]
+      trigger_intents: [write, create, draft]
+    coding_swarm:
+      members: [code_generator, code_reviewer, test_writer]
+      trigger_intents: [code, build, implement]
+    multimodal_swarm:
+      members: [image_generator, video_analyzer, summarizer]
+      trigger_intents: [generate image, analyze video, visual]
+      tools: [multimodal_engine]
+
+# ─── Budget & Cost Configuration ───────────────────────────
+budget:
+  default_monthly_tokens: 1000000
+  redis_ttl_days: 60
+  model_costs:
+    gpt-4o:
+      input: 0.0025
+      output: 0.010
+    gpt-4o-mini:
+      input: 0.00015
+      output: 0.0006
+    claude-sonnet-4-20250514:
+      input: 0.003
+      output: 0.015
+    gemini-2.5-pro-preview-06-05:
+      input: 0.00125
+      output: 0.010
+    gemini-2.0-flash:
+      input: 0.0001
+      output: 0.0004
+    llama-3.3-70b-versatile:
+      input: 0.00059
+      output: 0.00079
+  fallback_cost:
+    input: 0.001
+    output: 0.002
+  forecast_defaults:
+    input_multiplier: 1.3
+    default_output_tokens: 500
+    default_model: gpt-4o-mini
+
+# ─── Fallback Models ───────────────────────────────────────
+fallback_models:
+  local: "qwen2.5:3b"
+  meta_optimizer: llama-3.3-70b-versatile
+
+# ─── Timeouts (seconds) ───────────────────────────────────
+timeouts:
+  driver_http_s: 120
+  moderation_s: 5
+  escalation_s: 30
+  web_search_s: 10
+  web_fetch_s: 3
+  queue_acquire_s: 2
+
+# ─── Sentiment Analysis ───────────────────────────────────
+sentiment:
+  positive_words: [good, great, awesome, happy, thanks, love, perfect]
+  negative_words: [bad, wrong, broken, slow, hate, error, fail]

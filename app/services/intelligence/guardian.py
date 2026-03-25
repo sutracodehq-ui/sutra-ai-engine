@@ -161,6 +161,25 @@ class Guardian:
         self._quality_weights = q.get("weights", {"format": 0.35, "completeness": 0.30,
                                                    "length": 0.15, "coherence": 0.20})
 
+        # Pre-compile PII regex patterns from YAML config
+        safety = _sec("safety", {})
+        pii_cfg = safety.get("pii", {})
+        raw_patterns = pii_cfg.get("patterns", {})
+        self._pii_patterns = [re.compile(p) for p in raw_patterns.values()]
+        detect_patterns = pii_cfg.get("detect_patterns", {})
+        self._pii_detect_patterns = [re.compile(p) for p in detect_patterns.values()]
+
+        # Pre-compile sentiment patterns from YAML config
+        sent_cfg = safety.get("sentiment", _sec("sentiment", {}))
+        pos_words = sent_cfg.get("positive_words", ["good", "great", "awesome"])
+        neg_words = sent_cfg.get("negative_words", ["bad", "wrong", "broken"])
+        self._sentiment_pos = re.compile(r"\b(" + "|".join(pos_words) + r")\b")
+        self._sentiment_neg = re.compile(r"\b(" + "|".join(neg_words) + r")\b")
+
+        # Pre-load budget and timeout config
+        self._budget_cfg = _sec("budget", {})
+        self._timeouts = _sec("timeouts", _sec("resilience", {}).get("timeouts", {}))
+
     @property
     def circuit_breaker(self) -> _CircuitBreaker:
         return self._circuit
@@ -168,13 +187,17 @@ class Guardian:
     # ─── Quality Scoring (absorbs quality_engine scoring) ────
 
     def score_response(self, response: LlmResponse, expected_fields: list[str] | None = None) -> dict:
-        """Multi-dimensional quality scoring."""
+        """Multi-dimensional quality scoring (single split, reused word count)."""
         if not self._quality_enabled:
             return {"total": 10, "passed": True, "threshold": self._quality_threshold, "dimensions": {}}
 
         content = response.content or ""
         dims = {}
         w = self._quality_weights
+
+        # Single split — reuse for all dimensions
+        words = content.split()
+        word_count = len(words)
 
         # Format check
         if expected_fields:
@@ -188,8 +211,7 @@ class Guardian:
         else:
             dims["format"] = 8.0 if len(content) > 20 else 3.0
 
-        # Completeness
-        word_count = len(content.split())
+        # Completeness (reuses word_count)
         if word_count > 100:
             dims["completeness"] = 9.0
         elif word_count > 40:
@@ -199,7 +221,7 @@ class Guardian:
         else:
             dims["completeness"] = 2.0
 
-        # Length
+        # Length (reuses word_count)
         if 50 < word_count < 2000:
             dims["length"] = 8.0
         elif word_count > 10:
@@ -207,7 +229,7 @@ class Guardian:
         else:
             dims["length"] = 2.0
 
-        # Coherence
+        # Coherence (count sentence-ending chars in one pass)
         sentence_count = content.count(".") + content.count("!") + content.count("?")
         dims["coherence"] = min(8.5, max(3.0, sentence_count * 1.5))
 
@@ -267,7 +289,8 @@ class Guardian:
         if not settings.openai_api_key:
             return {"flagged": False, "categories": [], "score": 0.0}
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            mod_timeout = self._timeouts.get("moderation_s", 5)
+            async with httpx.AsyncClient(timeout=float(mod_timeout)) as client:
                 resp = await client.post("https://api.openai.com/v1/moderations",
                     headers={"Content-Type": "application/json", "Authorization": f"Bearer {settings.openai_api_key}"},
                     json={"input": text})
@@ -285,26 +308,16 @@ class Guardian:
     # ─── PII Redaction (absorbs pii_redactor.py) ─────────────
 
     def redact_pii(self, text: str, placeholder: str = "[REDACTED]") -> str:
-        """Mask emails, phones, credit cards."""
+        """Mask emails, phones, credit cards using pre-compiled YAML patterns."""
         if not text:
             return text
-        safety = _sec("safety", {}).get("pii", {})
-        patterns = safety.get("patterns", {
-            "email": r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+',
-            "phone": r'\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',
-            "credit_card": r'\b(?:\d[ -]*?){13,16}\b',
-        })
-        for pattern in patterns.values():
-            text = re.sub(pattern, placeholder, text)
+        for pattern in self._pii_patterns:
+            text = pattern.sub(placeholder, text)
         return text
 
     def contains_pii(self, text: str) -> bool:
-        safety = _sec("safety", {}).get("pii", {})
-        patterns = safety.get("patterns", {
-            "email": r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+',
-            "phone": r'\b\d{10,13}\b',
-        })
-        return any(re.search(p, text) for p in patterns.values())
+        """Detect PII using pre-compiled YAML detect patterns."""
+        return any(p.search(text) for p in self._pii_detect_patterns)
 
     # ─── Rate Limiting (absorbs rate_limiter.py) ─────────────
 
@@ -341,14 +354,15 @@ class Guardian:
     # ─── Token Budget (absorbs token_budget.py) ──────────────
 
     async def check_budget(self, tenant_id: int, tenant_config: dict | None = None) -> dict:
-        """Per-tenant monthly token budget enforcement."""
+        """Per-tenant monthly token budget enforcement (config-driven)."""
+        default_limit = self._budget_cfg.get("default_monthly_tokens", 1_000_000)
         try:
             from app.services.connectivity.webhooks import get_redis
             redis = get_redis()
         except Exception:
-            return {"allowed": True, "usage": 0, "limit": 1_000_000, "percentage": 0, "level": "ALLOW"}
+            return {"allowed": True, "usage": 0, "limit": default_limit, "percentage": 0, "level": "ALLOW"}
 
-        limit = (tenant_config or {}).get("monthly_token_limit", 1_000_000)
+        limit = (tenant_config or {}).get("monthly_token_limit", default_limit)
         month = datetime.now(timezone.utc).strftime("%Y-%m")
         key = f"sutra:budget:{tenant_id}:monthly:{month}"
         try:
@@ -365,27 +379,23 @@ class Guardian:
 
     async def record_usage(self, tenant_id: int, tokens: int, model: str = "unknown",
                            prompt_tokens: int = 0, completion_tokens: int = 0):
-        """Record token usage after a call."""
-        DEFAULT_COSTS = {
-            "gpt-4o": {"input": 0.0025, "output": 0.010},
-            "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
-            "claude-sonnet-4-20250514": {"input": 0.003, "output": 0.015},
-            "gemini-2.5-pro-preview-06-05": {"input": 0.00125, "output": 0.010},
-            "gemini-2.0-flash": {"input": 0.0001, "output": 0.0004},
-            "llama-3.3-70b-versatile": {"input": 0.00059, "output": 0.00079},
-        }
+        """Record token usage (model costs from YAML config)."""
         try:
             from app.services.connectivity.webhooks import get_redis
             redis = get_redis()
-            costs = DEFAULT_COSTS.get(model, {"input": 0.001, "output": 0.002})
+            model_costs = self._budget_cfg.get("model_costs", {})
+            fallback = self._budget_cfg.get("fallback_cost", {"input": 0.001, "output": 0.002})
+            costs = model_costs.get(model, fallback)
             cost = (prompt_tokens / 1000 * costs["input"]) + (completion_tokens / 1000 * costs["output"])
             month = datetime.now(timezone.utc).strftime("%Y-%m")
             key = f"sutra:budget:{tenant_id}:monthly:{month}"
+            ttl_days = self._budget_cfg.get("redis_ttl_days", 60)
+            ttl_s = ttl_days * 86400
             pipe = redis.pipeline()
             pipe.incrby(f"{key}:tokens", tokens)
             pipe.incrbyfloat(f"{key}:cost", cost)
-            pipe.expire(f"{key}:tokens", 60 * 86400)
-            pipe.expire(f"{key}:cost", 60 * 86400)
+            pipe.expire(f"{key}:tokens", ttl_s)
+            pipe.expire(f"{key}:cost", ttl_s)
             await pipe.execute()
         except Exception as e:
             logger.warning(f"Guardian.record_usage: {e}")
@@ -393,14 +403,13 @@ class Guardian:
     # ─── Sentiment Analysis (absorbs sentiment.py) ───────────
 
     async def analyze_sentiment(self, text: str) -> dict:
-        """Extract sentiment (positive/negative/neutral) and emotions."""
+        """Extract sentiment using pre-compiled patterns."""
         if not text:
             return {"sentiment": "neutral", "score": 0.5, "emotions": []}
         try:
-            # We use a lightweight heuristic or Brain for deeper analysis
-            # For Software Factory efficiency, we use a simple regex heuristic + optional Brain call
-            pos = len(re.findall(r"\b(good|great|awesome|happy|thanks|love|perfect)\b", text.lower()))
-            neg = len(re.findall(r"\b(bad|wrong|broken|slow|hate|error|fail)\b", text.lower()))
+            lower = text.lower()
+            pos = len(self._sentiment_pos.findall(lower))
+            neg = len(self._sentiment_neg.findall(lower))
             score = 0.5 + (0.1 * (pos - neg))
             sentiment = "positive" if score > 0.6 else ("negative" if score < 0.4 else "neutral")
             return {"sentiment": sentiment, "score": round(min(1.0, max(0.0, score)), 2), "emotions": []}
@@ -409,12 +418,19 @@ class Guardian:
 
     # ─── Token Forecasting (absorbs token_forecaster.py) ───────
 
-    def forecast_tokens(self, prompt: str, expected_output_len: int = 500) -> dict:
-        """Estimate token usage and cost BEFORE calling the LLM."""
-        input_tokens = len(prompt.split()) * 1.3  # Rough heuristic
+    def forecast_tokens(self, prompt: str, expected_output_len: int = 0) -> dict:
+        """Estimate token usage and cost BEFORE calling the LLM (config-driven)."""
+        fc = self._budget_cfg.get("forecast_defaults", {})
+        multiplier = fc.get("input_multiplier", 1.3)
+        if expected_output_len == 0:
+            expected_output_len = fc.get("default_output_tokens", 500)
+        input_tokens = len(prompt.split()) * multiplier
         total = input_tokens + expected_output_len
-        # Estimate cost based on current default driver (gpt-4o-mini)
-        cost = (input_tokens / 1000 * 0.00015) + (expected_output_len / 1000 * 0.0006)
+        default_model = fc.get("default_model", "gpt-4o-mini")
+        model_costs = self._budget_cfg.get("model_costs", {})
+        fallback = self._budget_cfg.get("fallback_cost", {"input": 0.001, "output": 0.002})
+        costs = model_costs.get(default_model, fallback)
+        cost = (input_tokens / 1000 * costs["input"]) + (expected_output_len / 1000 * costs["output"])
         return {
             "input_tokens": int(input_tokens),
             "output_tokens": expected_output_len,
