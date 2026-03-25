@@ -78,13 +78,17 @@ class ChatPipeline:
         language = context["language"]
 
         # Step 1.5: Knowledge Retrieval (RAG via Memory)
-        from app.services.rag.knowledge_base import KnowledgeBaseService
-        kb = KnowledgeBaseService()
-        relevant_chunks = await kb.query(self.tenant.id, safe_prompt)
+        try:
+            from app.services.rag.knowledge_base import KnowledgeBaseService
+            kb = KnowledgeBaseService()
+            relevant_chunks = await kb.query(self.tenant.id, safe_prompt) or []
+        except Exception:
+            relevant_chunks = []
         context["kb_chunks"] = relevant_chunks
 
         # 0.3 Sentiment-based Alerts (frustrated user)
-        if sentiment["label"] in ["angry", "frustrated"] and self.tenant.webhook_url:
+        sentiment_label = sentiment.get("sentiment", sentiment.get("label", "neutral"))
+        if sentiment_label in ["angry", "frustrated", "negative"] and self.tenant.webhook_url:
             from app.workers.webhook_job import trigger_frustration_alert
             trigger_frustration_alert.delay(self.tenant.id, sentiment, self.tenant.webhook_url)
 
@@ -157,10 +161,10 @@ class ChatPipeline:
         base = "You are a helpful AI assistant."
         
         # 1. Knowledge Base (RAG)
-        if context and context.get("kb_chunks"):
-            chunks = context["kb_chunks"]
+        kb_chunks = (context or {}).get("kb_chunks") or []
+        if kb_chunks:
             base += f"\n\n[KNOWLEDGE BASE]\nUse the following facts to answer the user query if relevant:\n"
-            for i, chunk in enumerate(chunks):
+            for i, chunk in enumerate(kb_chunks):
                 base += f"- {chunk}\n"
         
         # 2. Voice Profile
@@ -170,10 +174,12 @@ class ChatPipeline:
                 base += f"\n\n[VOICE INSTRUCTIONS]\n{modifier}"
 
         # 2. Sentiment Awareness
-        if sentiment["score"] < -0.4:
-            base += "\n\n[TONE ADVICE]\nThe user seems frustrated or angry. Be extra empathetic and concise."
-        elif sentiment["label"] == "excited":
-            base += "\n\n[TONE ADVICE]\nThe user is excited! Match their energy and be enthusiastic."
+        sent_score = sentiment.get("score", 0.5)
+        sent_label = sentiment.get("sentiment", sentiment.get("label", "neutral"))
+        if sent_score < 0.3 or sent_label == "negative":
+            base += "\n\n[TONE ADVICE]\nThe user seems frustrated or upset. Be extra empathetic and concise."
+        elif sent_label in ["excited", "positive"]:
+            base += "\n\n[TONE ADVICE]\nThe user is in a great mood! Match their energy and be enthusiastic."
 
         # 3. Native Language Support
         lang_name = language.get("name", "English")

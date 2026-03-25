@@ -84,7 +84,11 @@ class Memory:
     def __init__(self):
         self._http = httpx.AsyncClient(timeout=10, follow_redirects=True)
         self._training_dir = Path("training/data")
-        self._training_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self._training_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            logger.warning("Memory: training/data not writable (non-critical, skipping)")
+            self._training_dir = None
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 1. CACHE (absorbs cache_engine.py)

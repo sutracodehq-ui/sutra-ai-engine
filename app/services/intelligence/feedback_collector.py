@@ -62,7 +62,10 @@ class FeedbackCollector:
     def __init__(self, db: AsyncSession):
         self._db = db
         self._training_dir = Path("training/data")
-        self._training_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self._training_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            self._training_dir = None
 
     async def record(
         self,

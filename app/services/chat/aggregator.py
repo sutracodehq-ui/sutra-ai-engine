@@ -45,7 +45,8 @@ class ContextAggregator:
         
         # Add intelligence tasks if prompt is provided
         if prompt:
-            tasks.append(SentimentService.analyze(prompt))
+            guardian = get_guardian()
+            tasks.append(guardian.analyze_sentiment(prompt))
             tasks.append(LanguageService.detect(prompt))
         else:
             tasks.append(self._empty_sentiment())

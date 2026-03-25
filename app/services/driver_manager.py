@@ -146,7 +146,8 @@ class DriverManager:
         opts = self._clean_options(options, model_override)
 
         # Support both (system, user) and (messages) formats
-        if messages is None:
+        # CRITICAL: check `not messages` (catches None AND []) — pipeline sends [] for new conversations
+        if not messages:
             messages = [
                 {"role": "system", "content": system_prompt or "You are a helpful assistant."},
                 {"role": "user", "content": user_prompt or ""}

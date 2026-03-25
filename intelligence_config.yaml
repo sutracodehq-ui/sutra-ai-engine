@@ -759,13 +759,13 @@ smart_router:
   # Driver chains per complexity tier (first available wins)
   driver_chains:
     english:
-      simple: [sarvam, groq, ollama, openai, gemini]
-      moderate: [sarvam, groq, ollama, openai, gemini, anthropic]
-      complex: [sarvam, groq, ollama, openai, anthropic, gemini]
+      simple: [ollama, groq, sarvam, openai, gemini]
+      moderate: [ollama, groq, sarvam, openai, gemini, anthropic]
+      complex: [ollama, groq, sarvam, openai, anthropic, gemini]
     indic:
-      simple: [sarvam, groq, ollama, openai, gemini]
-      moderate: [sarvam, groq, ollama, openai, gemini, anthropic]
-      complex: [sarvam, groq, ollama, openai, anthropic, gemini]
+      simple: [ollama, groq, sarvam, openai, gemini]
+      moderate: [ollama, groq, sarvam, openai, gemini, anthropic]
+      complex: [ollama, groq, sarvam, openai, anthropic, gemini]
 
   # Model tiers per driver per complexity
   model_tiers:
