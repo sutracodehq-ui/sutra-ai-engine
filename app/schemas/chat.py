@@ -8,7 +8,9 @@ class ChatRequest(BaseModel):
 
     agent_type: str = Field(..., description="Agent to use: copywriter, seo, social_media, email_campaign, etc.")
     prompt: str = Field(..., min_length=1, max_length=10000, description="The prompt to send to the agent")
+    conversation_id: int | None = Field(None, description="Optional conversation thread ID for context continuity")
     voice_profile_id: int | None = Field(None, description="Optional voice profile for tone/style")
+    voice_profile_name: str | None = Field(None, description="Optional voice profile name lookup")
     options: dict | None = Field(default_factory=dict, description="Driver-level options (temperature, max_tokens, etc.)")
     external_user_id: str | None = Field(None, description="Your app's user ID for tracking")
     metadata: dict | None = Field(default_factory=dict, description="Arbitrary metadata to attach to the task")
