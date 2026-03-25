@@ -107,6 +107,7 @@ class ChatPipeline:
         route = brain.route(safe_prompt, agent_type=agent_type)
         driver = route["driver"]
         model = route["model"]
+        fallback_chain = route.get("chain")  # full YAML driver chain for resilient fallback
 
         # Step 5: Execution
         service = get_llm_service()
@@ -117,6 +118,7 @@ class ChatPipeline:
                 messages=messages,
                 driver=driver,
                 model=model,
+                fallback_chain=fallback_chain,
                 **kwargs
             )
         else:

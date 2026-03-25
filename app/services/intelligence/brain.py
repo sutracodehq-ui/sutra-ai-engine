@@ -335,10 +335,13 @@ class Brain:
         settings = get_settings()
         if not settings.ai_smart_router_enabled:
             return {"driver": settings.ai_driver, "model": None, "complexity": "moderate",
-                    "language": "english", "reason": "smart router disabled"}
+                    "language": "english", "reason": "smart router disabled", "chain": None}
 
         language = detect_language(prompt)
         complexity = self._assess_complexity(prompt, agent_type)
+
+        # Get the full driver chain for fallback (before picking the winner)
+        chain = self._get_driver_chain(complexity, language)
         driver = self._pick_driver(complexity, language, circuit_breaker)
         model = self._pick_model(driver, complexity)
 
@@ -349,10 +352,17 @@ class Brain:
         if model:
             parts.append(f"({model})")
         reason = " ".join(parts)
-        logger.info(f"Brain.route: {reason}")
+        logger.info(f"Brain.route: {reason} (chain={chain})")
 
         return {"driver": driver, "model": model, "complexity": complexity,
-                "language": language, "reason": reason}
+                "language": language, "reason": reason, "chain": chain}
+
+    def _get_driver_chain(self, complexity: str, language: str) -> list[str]:
+        """Return the full ordered driver chain from YAML for a given complexity/language."""
+        sr = _cfg("smart_router", default={})
+        lang_key = "english" if language == "english" else "indic"
+        chains = sr.get("driver_chains", {})
+        return chains.get(lang_key, {}).get(complexity, ["ollama", "groq"])
 
     def _assess_complexity(self, prompt: str, agent_type: str) -> str:
         _ensure_sets()

@@ -45,9 +45,10 @@ class LlmService:
         messages: list[dict] | None = None,
         driver: str | None = None,
         model: str | None = None,
+        fallback_chain: list[str] | None = None,
         **kwargs
     ) -> AsyncGenerator[str, None]:
-        """Streaming completion with explicit driver/model overrides."""
+        """Streaming completion with explicit driver/model overrides and optional fallback chain."""
         # Convert single prompt to a messages list if driver prefers it
         # Most drivers in our system handle (system, user) correctly already.
         async for chunk in self._manager.stream(
@@ -56,6 +57,7 @@ class LlmService:
             messages=messages,
             driver_override=driver,
             model_override=model,
+            fallback_chain=fallback_chain,
             **kwargs
         ):
             yield chunk

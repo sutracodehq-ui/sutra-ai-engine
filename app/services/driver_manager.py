@@ -73,7 +73,7 @@ class DriverManager:
         return chain
 
     # Keys that are routing/meta concerns and should never leak to drivers
-    _STRIP_KEYS = {"messages", "driver_override", "model_override", "driver", "model_name"}
+    _STRIP_KEYS = {"messages", "driver_override", "model_override", "driver", "model_name", "fallback_chain"}
 
     def _clean_options(self, options: dict, model_override: str | None = None) -> dict:
         """Remove routing/meta keys and inject model override."""
@@ -134,9 +134,15 @@ class DriverManager:
         messages: list[dict] | None = None,
         driver_override: str | None = None,
         model_override: str | None = None,
+        fallback_chain: list[str] | None = None,
         **options
     ) -> AsyncGenerator[str, None]:
-        """Stream through the override or fallback chain."""
+        """Stream through the override or fallback chain.
+
+        When `fallback_chain` is provided (from Brain's YAML driver_chains),
+        cascades through all providers in the chain instead of hard-failing
+        on the first pick. This enables automatic Ollama → Cloud failover.
+        """
         opts = self._clean_options(options, model_override)
 
         # Support both (system, user) and (messages) formats
@@ -146,11 +152,45 @@ class DriverManager:
                 {"role": "user", "content": user_prompt or ""}
             ]
 
+        # ── Resilient Chain Streaming ──
+        # When Brain provides a full driver chain, cascade through all providers.
+        # This is the key fix: if Ollama is busy, automatically try Sarvam → Groq → etc.
+        if fallback_chain and len(fallback_chain) > 1:
+            last_error = None
+            for i, driver_name in enumerate(fallback_chain):
+                if not self._guardian.circuit_breaker.is_available(driver_name):
+                    logger.info(f"DriverManager: {driver_name} circuit OPEN, skipping in chain")
+                    continue
+
+                try:
+                    driver = self.driver(driver_name)
+                    # Use model override only for the primary (first) driver
+                    stream_opts = {**opts}
+                    if i == 0 and model_override:
+                        stream_opts["model"] = model_override
+                    elif i > 0:
+                        # For fallback drivers, remove model override (use their default)
+                        stream_opts.pop("model", None)
+
+                    logger.info(f"DriverManager: streaming with {driver_name} (chain pos {i+1}/{len(fallback_chain)})")
+                    async for chunk in driver.stream(messages, **stream_opts):
+                        yield chunk
+                    self._guardian.circuit_breaker.record_success(driver_name)
+                    return
+                except Exception as e:
+                    self._guardian.circuit_breaker.record_failure(driver_name)
+                    last_error = e
+                    logger.warning(f"DriverManager: {driver_name} stream failed in chain: {e}, trying next...")
+
+            raise last_error or RuntimeError("All drivers in chain failed")
+
+        # ── Single Driver Override (original behavior) ──
         if driver_override:
             async for chunk in self._run_targeted_stream(driver_override, messages, **opts):
                 yield chunk
             return
 
+        # ── Default Fallback Chain (settings-based) ──
         chain = self.driver_chain()
         last_error = None
 
