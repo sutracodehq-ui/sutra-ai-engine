@@ -27,6 +27,7 @@ v1_prefix = settings.api_v1_prefix
 # router.include_router(auth_router, prefix=v1_prefix)
 router.include_router(chat_router, prefix=v1_prefix)
 router.include_router(conversations_router, prefix=v1_prefix)
+router.include_router(tenants_router, prefix=v1_prefix)
 router.include_router(agents_router, prefix=v1_prefix)
 router.include_router(clicks_router, prefix=v1_prefix)
 router.include_router(voice_router, prefix=v1_prefix)

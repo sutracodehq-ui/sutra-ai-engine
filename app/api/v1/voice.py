@@ -16,6 +16,8 @@ from app.services.voice.voice_service import (
     transcribe_audio,
     text_to_speech,
     upload_to_r2,
+    simplify_for_voice,
+    get_presigned_url,
 )
 
 router = APIRouter(prefix="/voice", tags=["voice"])
@@ -129,6 +131,7 @@ async def transcribe_only(
         "language": transcription["language"],
         "duration": transcription["duration"],
         "r2_key": r2_key,
+        "audio_url": get_presigned_url(r2_key),
     }
 
 
@@ -153,6 +156,7 @@ async def speak(
 
     return {
         "r2_key": r2_key,
+        "audio_url": get_presigned_url(r2_key),
         "voice": voice,
         "text_length": len(text),
     }
@@ -246,9 +250,13 @@ async def voice_stream(
         # 5. Optional TTS reply
         if generate_voice_reply and complete_text:
             try:
-                tts_bytes = await text_to_speech(complete_text[:4000], tts_voice)
+                # Natural Narrator: Simplify for speech
+                speech_text = await simplify_for_voice(complete_text)
+                
+                tts_bytes = await text_to_speech(speech_text, tts_voice)
                 r2_key = await upload_to_r2(tts_bytes, f"reply_{transcription.get('duration', 0):.0f}s.mp3", tenant.slug, "audio/mpeg")
-                yield f"data: {json.dumps({'type': 'voice_reply', 'r2_key': r2_key})}\n\n"
+                signed_url = get_presigned_url(r2_key)
+                yield f"data: {json.dumps({'type': 'voice_reply', 'r2_key': r2_key, 'audio_url': signed_url})}\n\n"
             except Exception as e:
                 yield f"data: {json.dumps({'type': 'tts_error', 'message': str(e)})}\n\n"
 

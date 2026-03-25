@@ -943,6 +943,27 @@ swarm:
       members: [image_generator, video_analyzer, summarizer]
       trigger_intents: [generate image, analyze video, visual]
       tools: [multimodal_engine]
+# ─── Voice: Natural Narrator ────────────────────────────────
+voice:
+  default_provider: "openai"
+  default_voice: "nova"        # nova, shimmer (expressive) | alloy (neutral)
+  max_verbatim_chars: 350      # above this, we simplify for voice
+  
+  narrator:
+    enabled: true
+    model: "qwen2.5:3b"        # fast SLM for simplification
+    max_sentences: 2
+    prompt: |
+      You are a human-like narrator. 
+      Convert the following complex text into a natural, friendly, and concise 1-2 sentence response for a voice assistant.
+      MAINTAIN THE ORIGINAL LANGUAGE (Hindi, Bhojpuri, Tamil, etc.). 
+      Do NOT state "The response is..." — just say the response directly.
+  # ─── Jarvis: Static Personas ───────────────────────────
+  personas:
+    jarvis:
+      voice: "onyx"             # deep, articulate male voice
+      greeting: "Hello. I am Sutra, your intelligent companion. Welcome to the SutraCode AI Engine. What shall we build together today?"
+      speed: 1.05                # slightly faster for that AI-snappiness
 
 # ─── Budget & Cost Configuration ───────────────────────────
 budget:
