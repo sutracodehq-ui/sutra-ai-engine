@@ -482,6 +482,7 @@ class BaseAgent:
         settings = get_settings()
         driver_override = None
         model_override = None
+        fallback_chain = None
 
         if settings.ai_smart_router_enabled:
             try:
@@ -491,11 +492,12 @@ class BaseAgent:
                 decision = brain.route(prompt, self.identifier, circuit_breaker=get_guardian().circuit_breaker)
                 driver_override = decision["driver"]
                 model_override = decision.get("model")
-                logger.info(f"Agent stream: {decision['reason']}")
+                fallback_chain = decision.get("chain")  # Full YAML driver chain for resilient fallback
+                logger.info(f"Agent stream: {decision['reason']} (chain={fallback_chain})")
             except Exception as e:
                 logger.debug(f"Brain.route fallback: {e}")
 
-        # Stream via DriverManager — with resilient fallback
+        # Stream via DriverManager — with resilient fallback chain
         manager = get_driver_manager()
         full_response = []
         clean_opts = {k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
@@ -503,41 +505,24 @@ class BaseAgent:
         actual_driver = driver_override
 
         try:
+            # Pass fallback_chain so DriverManager cascades through all providers
             raw_stream = manager.stream(
                 messages=messages,
                 driver_override=driver_override,
                 model_override=model_override,
+                fallback_chain=fallback_chain,
                 **clean_opts,
             )
             async for token in strip_cot(raw_stream):
                 full_response.append(token)
                 yield token
-        except Exception as primary_err:
-            # Primary driver failed — fall back to cloud via the full chain
-            logger.warning(
-                f"Agent stream: primary driver '{driver_override or 'default'}' failed "
-                f"for {self.identifier}: {primary_err}. Falling back to chain."
+        except Exception as chain_err:
+            # All drivers in the chain failed
+            logger.error(
+                f"Agent stream: all drivers failed for {self.identifier}: {chain_err}"
             )
-
-            try:
-                # Retry WITHOUT driver_override → uses the full fallback chain
-                fallback_stream = manager.stream(
-                    messages=messages,
-                    driver_override=None,  # let the chain handle it
-                    model_override=None,
-                    **clean_opts,
-                )
-                async for token in strip_cot(fallback_stream):
-                    full_response.append(token)
-                    yield token
-                used_fallback = True
-                actual_driver = "fallback_chain"
-            except Exception as fallback_err:
-                logger.error(
-                    f"Agent stream: all drivers failed for {self.identifier}: {fallback_err}"
-                )
-                yield f"\n[Error: {str(fallback_err)}]"
-                return
+            yield f"\n[Error: {str(chain_err)}]"
+            return
 
         # Post-stream: store in memory for self-learning
         complete_text = "".join(full_response)
