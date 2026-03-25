@@ -773,3 +773,102 @@ smart_router:
       moderate: meta/llama-3.1-70b-instruct
       complex: null               # uses config nvidia_model
 
+
+# ─── Intent Routes (moved from hub.py) ─────────────────────
+# Adding a new route = add entry here. Zero Python code changes.
+intent_routes:
+  # EdTech
+  - keywords: [quiz, mcq, question paper, test paper, question bank]
+    agent: quiz_generator
+    actions: [generate, create, make, build, prepare]
+  - keywords: [notes, revision notes, summary notes, study notes, study material]
+    agent: note_generator
+    actions: [generate, create, make, write, prepare]
+  - keywords: [flashcard, flash card]
+    agent: flashcard_creator
+    actions: [generate, create, make, build]
+  - keywords: [lecture plan, lesson plan, teaching plan, class plan]
+    agent: lecture_planner
+    actions: [generate, create, make, plan, design]
+  - keywords: [key points, important points, main points]
+    agent: key_points_extractor
+    actions: [extract, list, give, find, get]
+  # Marketing
+  - keywords: [social media post, instagram post, twitter post, facebook post, linkedin post]
+    agent: social
+    actions: [generate, create, write, make, draft]
+  - keywords: [email campaign, newsletter, marketing email]
+    agent: email_campaign
+    actions: [generate, create, write, draft]
+  - keywords: [ad copy, advertisement, ad creative]
+    agent: ad_creative
+    actions: [generate, create, write, make, design]
+  - keywords: [seo, meta title, meta description]
+    agent: seo
+    actions: [analyze, generate, optimize, create, write]
+  # Finance
+  - keywords: [stock, share price, equity]
+    agent: stock_analyzer
+    actions: [analyze, check, review]
+  # Health
+  - keywords: [diet plan, meal plan, nutrition plan]
+    agent: diet_planner
+    actions: [generate, create, make, plan, suggest]
+  - keywords: [symptoms, feeling sick, health issue]
+    agent: symptom_triage
+    actions: [check, assess, evaluate, help]
+  # Legal
+  - keywords: [contract, agreement, legal document]
+    agent: contract_analyzer
+    actions: [analyze, review, check, draft]
+  - keywords: [rti, right to information]
+    agent: rti_drafter
+    actions: [draft, write, create, file]
+
+
+# ─── Safety Configuration ──────────────────────────────────
+safety:
+  moderation:
+    enabled: true
+    provider: openai
+  pii:
+    enabled: true
+    patterns:
+      email: '[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
+      phone: '\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b'
+      credit_card: '\b(?:\d[ -]*?){13,16}\b'
+      aadhaar: '\b\d{4}\s?\d{4}\s?\d{4}\b'
+  competitor_lock:
+    enabled: false
+    # competitors loaded per-tenant from voice_profile
+
+
+# ─── Resilience Configuration ──────────────────────────────
+resilience:
+  circuit_breaker:
+    threshold: 3
+    cooldown_seconds: 60
+  retry:
+    max_retries: 2
+    base_delay: 1.0
+    backoff: exponential
+    max_delay: 30.0
+  rate_limiter:
+    default_rpm: 60
+    default_rpd: 10000
+
+
+# ─── Quality Configuration ─────────────────────────────────
+quality:
+  enabled: true
+  threshold: 6
+  weights:
+    format: 0.35
+    completeness: 0.30
+    length: 0.15
+    coherence: 0.20
+  tracking:
+    window_size: 20
+    ttl_days: 7
+    fast_path_threshold: 8.0
+    direct_cloud_threshold: 5.0

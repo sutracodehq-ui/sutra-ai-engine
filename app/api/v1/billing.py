@@ -8,7 +8,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from app.dependencies import DbSession, get_current_tenant
 from app.models.tenant import Tenant
-from app.services.intelligence.token_forecaster import TokenForecaster
+from app.services.intelligence.guardian import get_guardian
+from app.services.intelligence.guardian import get_guardian
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 

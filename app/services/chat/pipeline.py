@@ -1,5 +1,7 @@
 """
 Chat Pipeline Runner — orchestrates the high-performance AI execution flow.
+
+Updated to use the 4 core engines: Brain, Guardian, Memory, Driver.
 """
 
 import asyncio
@@ -11,8 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.tenant import Tenant
 from app.services.chat.aggregator import ContextAggregator
 from app.services.chat.pruner import ContextPruner
-from app.services.intelligence.prompt_cache import get_prompt_cache
-from app.services.intelligence.smart_router import SmartRouter
+from app.services.intelligence.brain import get_brain
+from app.services.intelligence.guardian import get_guardian
+from app.services.intelligence.memory import get_memory
 from app.services.llm_service import get_llm_service
 
 logger = logging.getLogger(__name__)
@@ -38,24 +41,26 @@ class ChatPipeline:
     ) -> Any | AsyncGenerator[str, None]:
         """
         Execute the full chat pipeline.
-        1. Aggregate Context (Parallel)
-        2. Prune/Message Conversion
-        3. Prompt Cache Lookup
-        4. Smart Routing
+        1. Input Safety (Guardian)
+        2. Aggregate Context (Parallel)
+        3. Cache Lookup (Memory)
+        4. Smart Routing (Brain)
         5. LLM Execution (Sync or Stream)
+        6. Output Safety (Guardian)
         """
-        # Step 0: Input Safety & Privacy (Shield-AI)
-        from app.services.intelligence.moderation import ModerationService
-        from app.services.intelligence.pii_redactor import PIIRedactor
-        
+        brain = get_brain()
+        guardian = get_guardian()
+        memory = get_memory()
+
+        # Step 0: Input Safety & Privacy (Guardian)
         # 0.1 Moderation check on raw input
-        mod_result = await ModerationService.check(prompt)
+        mod_result = await guardian.moderate(prompt)
         if mod_result["flagged"]:
             logger.warning(f"🚨 Input Safety Violation: {mod_result['categories']}")
             raise ValueError(f"Content safety violation: {', '.join(mod_result['categories'])}")
 
         # 0.2 Mask PII before processing
-        safe_prompt = PIIRedactor.redact(prompt)
+        safe_prompt = guardian.redact_pii(prompt)
 
         # Step 1: Parallel Context Gathering
         context = await self.aggregator.gather(
@@ -72,7 +77,7 @@ class ChatPipeline:
         sentiment = context["sentiment"]
         language = context["language"]
 
-        # Step 1.5: Knowledge Retrieval (RAG)
+        # Step 1.5: Knowledge Retrieval (RAG via Memory)
         from app.services.rag.knowledge_base import KnowledgeBaseService
         kb = KnowledgeBaseService()
         relevant_chunks = await kb.query(self.tenant.id, safe_prompt)
@@ -87,27 +92,25 @@ class ChatPipeline:
         system_prompt = self._build_system_prompt(voice_profile, sentiment, language, context=context)
         messages = self.pruner.compress_for_prompt(history)
         
-        # Step 3: Cache Lookup (only if skipping stream or during sync)
-        cache = get_prompt_cache()
+        # Step 3: Cache Lookup (Memory)
         cache_key = None
         if not stream:
-            cache_key = cache.generate_key(self.tenant.id, safe_prompt, system_prompt, messages)
-            cached_result = await cache.get(cache_key)
-            if cached_result:
-                logger.info("⚡ Prompt cache hit!")
-                return cached_result
+            cached = await memory.cache_get("chatbot", safe_prompt)
+            if cached:
+                logger.info("⚡ Cache hit via Memory!")
+                from app.services.drivers.base import LlmResponse
+                return LlmResponse(content=cached.get("response", ""), total_tokens=0,
+                                   driver="cache", model="cached", metadata={"cache": True})
 
-        # Step 4: Smart Routing
-        router = SmartRouter()
+        # Step 4: Smart Routing (Brain)
         agent_type = context.get("agent_type", "general") if context else "general"
-        route = router.route(safe_prompt, agent_type=agent_type)
+        route = brain.route(safe_prompt, agent_type=agent_type)
         driver = route["driver"]
         model = route["model"]
 
         # Step 5: Execution
         service = get_llm_service()
         if stream:
-            # For stream, we yield chunks; safety happens post-stream or via tokenizer (advanced)
             return service.stream(
                 safe_prompt,
                 system_prompt=system_prompt,
@@ -126,11 +129,9 @@ class ChatPipeline:
                 **kwargs
             )
             
-            # Step 6: Output Safety & Brand Protection
-            from app.services.intelligence.competitor_lock import CompetitorLock
-            
+            # Step 6: Output Safety & Brand Protection (Guardian)
             # 6.1 Check output moderation
-            out_mod = await ModerationService.check(result.content or "")
+            out_mod = await guardian.moderate(result.content or "")
             if out_mod["flagged"]:
                 logger.error(f"🚨 Output Safety Violation: {out_mod['categories']}")
                 result.content = "I apologize, but I cannot generate that content as it violates my safety policy."
@@ -138,12 +139,14 @@ class ChatPipeline:
             # 6.2 Competitor Lock (if profile exists)
             if voice_profile and hasattr(voice_profile, 'metadata'):
                 competitors = voice_profile.metadata.get("competitors", [])
-                if competitors:
-                    result.content = CompetitorLock.apply_guardrail(result.content, competitors)
+                if competitors and result.content:
+                    for comp in competitors:
+                        if comp.lower() in result.content.lower():
+                            result.content = result.content.replace(comp, "[COMPETITOR]")
 
-            # Save to cache if enabled
-            if cache_key:
-                await cache.set(cache_key, result.to_dict())
+            # Save to cache (Memory)
+            if result.content:
+                await memory.cache_put("chatbot", safe_prompt, result.content)
             
             return result
 

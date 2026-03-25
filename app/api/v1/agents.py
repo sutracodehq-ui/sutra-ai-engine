@@ -137,9 +137,9 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
             suggestions = []
 
             try:
-                from app.services.intelligence.response_filter import get_response_filter
-                engine = get_response_filter()
-                filtered = engine.filter(complete_text)
+                from app.services.intelligence.brain import get_brain
+                brain = get_brain()
+                filtered = brain.filter_response(complete_text)
                 suggestions = filtered.suggestions
                 result_data = filtered.data if filtered.parsed else {"content": complete_text}
             except Exception:
@@ -162,11 +162,11 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
             await db.commit()
 
     # Queue the request — emits thinking/calculating status, handles concurrency
-    from app.services.intelligence.llm_queue import get_llm_queue
-    queue = get_llm_queue()
+    from app.services.intelligence.brain import get_brain
+    brain = get_brain()
 
     return StreamingResponse(
-        queue.stream(_llm_generator, request),
+        brain.queued_stream(_llm_generator, request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

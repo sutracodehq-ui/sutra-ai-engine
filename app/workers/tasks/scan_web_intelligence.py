@@ -25,11 +25,11 @@ def scan_web_intelligence(self):
 
 
 async def _do_scan():
-    """Async implementation of the web scan."""
-    from app.services.intelligence.web_scanner import get_web_scanner
+    """Async implementation of the web scan via Memory."""
+    from app.services.intelligence.memory import get_memory
 
-    scanner = get_web_scanner()
-    result = await scanner.full_scan()
+    mem = get_memory()
+    result = await mem.full_scan()
 
     logger.info(
         f"Web scan complete: articles={result['articles']}, "

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db, get_redis, get_current_tenant
 from app.schemas.click_shield import ClickTrackRequest, ClickTrackResponse
-from app.services.intelligence.click_scorer import ClickScorerService
+from app.services.intelligence.memory import get_memory
 from app.models.click_log import ClickLog
 
 router = APIRouter(prefix="/clicks", tags=["click-shield"])

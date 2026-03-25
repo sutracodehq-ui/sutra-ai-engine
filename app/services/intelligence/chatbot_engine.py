@@ -179,10 +179,10 @@ class ChatbotEngine:
         session.add_message("user", message)
 
         # 1. Check brand knowledge base
-        from app.services.intelligence.brand_knowledge import get_brand_knowledge
-        knowledge = get_brand_knowledge()
+        from app.services.intelligence.memory import get_memory
+        mem = get_memory()
 
-        knowledge_result = await knowledge.search(brand_id, message)
+        knowledge_result = await mem.brand_search(brand_id, message)
         has_knowledge = knowledge_result.get("found", False)
         confidence = knowledge_result.get("confidence", 0.0)
 
@@ -359,10 +359,10 @@ class ChatbotEngine:
         store it in knowledge base so AI knows next time.
         """
         # 1. Store in brand knowledge base
-        from app.services.intelligence.brand_knowledge import get_brand_knowledge
-        knowledge = get_brand_knowledge()
+        from app.services.intelligence.memory import get_memory
+        mem = get_memory()
 
-        await knowledge.learn(brand_id, question, answer)
+        await mem.brand_learn(brand_id, question, answer)
 
         # 2. If session is still active, send the answer to customer
         if session_id and session_id in self._sessions:

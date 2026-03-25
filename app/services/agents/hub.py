@@ -82,47 +82,20 @@ class AiAgentHub:
         """Get metadata for all registered agents."""
         return [agent.info() for agent in self._agents.values()]
 
-    # ─── Intent-Based Smart Routing (Centralized) ────────────
-    # Config-driven: keyword + action word → specialist agent.
-    # Works for ALL execution paths: run(), run_stream(), run_in_conversation().
-    # When user says "generate a quiz on X", the hub auto-swaps to quiz_generator
-    # regardless of which agent was originally requested.
+    # ─── Intent-Based Smart Routing (Config-Driven) ─────────
+    # Software Factory: routes loaded from YAML, not hardcoded.
+    # Adding a new intent route = add YAML entry. Zero code changes.
 
-    INTENT_ROUTES: list[dict] = [
-        # EdTech
-        {"keywords": ["quiz", "mcq", "question paper", "test paper", "question bank"],
-         "agent": "quiz_generator", "actions": ["generate", "create", "make", "build", "prepare"]},
-        {"keywords": ["notes", "revision notes", "summary notes", "study notes", "study material"],
-         "agent": "note_generator", "actions": ["generate", "create", "make", "write", "prepare"]},
-        {"keywords": ["flashcard", "flash card"],
-         "agent": "flashcard_creator", "actions": ["generate", "create", "make", "build"]},
-        {"keywords": ["lecture plan", "lesson plan", "teaching plan", "class plan"],
-         "agent": "lecture_planner", "actions": ["generate", "create", "make", "plan", "design"]},
-        {"keywords": ["key points", "important points", "main points"],
-         "agent": "key_points_extractor", "actions": ["extract", "list", "give", "find", "get"]},
-        # Marketing
-        {"keywords": ["social media post", "instagram post", "twitter post", "facebook post", "linkedin post"],
-         "agent": "social", "actions": ["generate", "create", "write", "make", "draft"]},
-        {"keywords": ["email campaign", "newsletter", "marketing email"],
-         "agent": "email_campaign", "actions": ["generate", "create", "write", "draft"]},
-        {"keywords": ["ad copy", "advertisement", "ad creative"],
-         "agent": "ad_creative", "actions": ["generate", "create", "write", "make", "design"]},
-        {"keywords": ["seo", "meta title", "meta description"],
-         "agent": "seo", "actions": ["analyze", "generate", "optimize", "create", "write"]},
-        # Finance
-        {"keywords": ["stock", "share price", "equity"],
-         "agent": "stock_analyzer", "actions": ["analyze", "check", "review"]},
-        # Health
-        {"keywords": ["diet plan", "meal plan", "nutrition plan"],
-         "agent": "diet_planner", "actions": ["generate", "create", "make", "plan", "suggest"]},
-        {"keywords": ["symptoms", "feeling sick", "health issue"],
-         "agent": "symptom_triage", "actions": ["check", "assess", "evaluate", "help"]},
-        # Legal
-        {"keywords": ["contract", "agreement", "legal document"],
-         "agent": "contract_analyzer", "actions": ["analyze", "review", "check", "draft"]},
-        {"keywords": ["rti", "right to information"],
-         "agent": "rti_drafter", "actions": ["draft", "write", "create", "file"]},
-    ]
+    @staticmethod
+    def _load_intent_routes() -> list[dict]:
+        """Load intent routes from intelligence_config.yaml."""
+        import yaml
+        config_path = Path("intelligence_config.yaml")
+        if not config_path.exists():
+            return []
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+        return config.get("intent_routes", [])
 
     def _resolve_agent(self, requested_agent: str, prompt: str) -> str:
         """
@@ -132,20 +105,20 @@ class AiAgentHub:
         1. If prompt matches a specialist intent (keyword + action), use that specialist
         2. Otherwise, use the originally requested agent
 
-        This ensures "generate a quiz on X" always goes to quiz_generator,
-        even if the frontend called education_guru or chatbot_trainer.
+        Routes are loaded from intelligence_config.yaml → intent_routes.
         """
+        routes = self._load_intent_routes()
+        if not routes:
+            return requested_agent
+
         # Skip intent routing if already targeting a specialist directly
-        # (prevents re-routing quiz_generator → quiz_generator)
-        specialist_ids = {r["agent"] for r in self.INTENT_ROUTES}
+        specialist_ids = {r["agent"] for r in routes}
         if requested_agent in specialist_ids:
             return requested_agent
 
-        # Skip if in a delegation chain (prevent loops)
-        # This is checked via context in run() but we do a fast check here
         msg_lower = prompt.lower()
 
-        for route in self.INTENT_ROUTES:
+        for route in routes:
             # Only route to agents that exist
             if route["agent"] not in self._agents:
                 continue

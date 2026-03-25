@@ -35,7 +35,7 @@ class ContextAggregator:
         voice_profile_name: str | None = None
     ) -> dict[str, Any]:
         """Fetch all context in parallel."""
-        from app.services.intelligence.sentiment import SentimentService
+        from app.services.intelligence.guardian import get_guardian
         from app.services.intelligence.language import LanguageService
 
         tasks = [

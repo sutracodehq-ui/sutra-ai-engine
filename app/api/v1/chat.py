@@ -81,9 +81,9 @@ async def chat_stream(
         suggestions = []
 
         try:
-            from app.services.intelligence.response_filter import get_response_filter
-            engine = get_response_filter()
-            filtered = engine.filter(complete_text)
+            from app.services.intelligence.brain import get_brain
+            brain = get_brain()
+            filtered = brain.filter_response(complete_text)
             suggestions = filtered.suggestions
         except Exception:
             pass
@@ -93,11 +93,11 @@ async def chat_stream(
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     # Queue the request — emits thinking/calculating status, handles concurrency
-    from app.services.intelligence.llm_queue import get_llm_queue
-    queue = get_llm_queue()
+    from app.services.intelligence.brain import get_brain
+    brain = get_brain()
 
     return StreamingResponse(
-        queue.stream(_llm_generator, request),
+        brain.queued_stream(_llm_generator, request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

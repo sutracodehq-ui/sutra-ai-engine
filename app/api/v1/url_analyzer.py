@@ -8,7 +8,6 @@ from typing import Optional
 
 from app.dependencies import get_db, get_current_tenant
 from app.models.url_analysis import UrlAnalysis
-from app.services.intelligence.web_scraper import WebScraperService
 
 router = APIRouter(prefix="/url-analyzer", tags=["url-analyzer"])
 

@@ -13,8 +13,7 @@ from typing import Any, AsyncGenerator
 
 from app.config import get_settings
 from app.services.drivers.base import LlmDriver, LlmResponse
-from app.services.intelligence.circuit_breaker import CircuitBreaker
-from app.services.intelligence.retry_strategy import RetryStrategy
+from app.services.intelligence.guardian import get_guardian
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ class DriverManager:
 
     Resolves drivers by name from a config-driven map.
     Provides fallback chain execution — if primary fails, tries fallback automatically.
-    Integrates CircuitBreaker (skip dead drivers) and RetryStrategy (handle transient errors).
+    Integrates Guardian for resilience (CircuitBreaker + RetryStrategy).
     """
 
     # ─── Driver Registry (Software Factory: config → class mapping) ──
@@ -43,12 +42,11 @@ class DriverManager:
 
     def __init__(self):
         self._instances: dict[str, LlmDriver] = {}
-        self._circuit = CircuitBreaker(threshold=3, cooldown=60)
-        self._retry = RetryStrategy(max_retries=2, base_delay=1.0)
+        self._guardian = get_guardian()
 
     @property
-    def circuit_breaker(self) -> CircuitBreaker:
-        return self._circuit
+    def circuit_breaker(self):
+        return self._guardian.circuit_breaker
 
     def driver(self, name: str) -> LlmDriver:
         """Resolve a driver instance by name. Cached after first creation."""
@@ -158,7 +156,7 @@ class DriverManager:
 
         for driver_name in chain:
             # Circuit breaker check
-            if not self._circuit.is_available(driver_name):
+            if not self._guardian.circuit_breaker.is_available(driver_name):
                 logger.info(f"DriverManager: {driver_name} circuit OPEN, skipping")
                 continue
 
@@ -167,10 +165,10 @@ class DriverManager:
                 logger.info(f"DriverManager: streaming with {driver_name}")
                 async for chunk in driver.stream(messages, **opts):
                     yield chunk
-                self._circuit.record_success(driver_name)
+                self._guardian.circuit_breaker.record_success(driver_name)
                 return
             except Exception as e:
-                self._circuit.record_failure(driver_name)
+                self._guardian.circuit_breaker.record_failure(driver_name)
                 last_error = e
                 logger.warning(f"DriverManager: {driver_name} stream failed: {e}")
 
@@ -180,11 +178,11 @@ class DriverManager:
         """Run a specific driver with retry, bypasses fallback."""
         try:
             driver = self.driver(driver_name)
-            result = await self._retry.execute(callback, driver)
-            self._circuit.record_success(driver_name)
+            result = await self._guardian.with_retry(callback, driver)
+            self._guardian.circuit_breaker.record_success(driver_name)
             return result
         except Exception as e:
-            self._circuit.record_failure(driver_name)
+            self._guardian.circuit_breaker.record_failure(driver_name)
             logger.warning(f"DriverManager: targeted {driver_name} failed: {e}")
             raise
 
@@ -194,9 +192,9 @@ class DriverManager:
             driver = self.driver(driver_name)
             async for chunk in driver.stream(messages, **options):
                 yield chunk
-            self._circuit.record_success(driver_name)
+            self._guardian.circuit_breaker.record_success(driver_name)
         except Exception as e:
-            self._circuit.record_failure(driver_name)
+            self._guardian.circuit_breaker.record_failure(driver_name)
             logger.warning(f"DriverManager: targeted {driver_name} stream failed: {e}")
             raise
 
@@ -207,7 +205,7 @@ class DriverManager:
 
         for driver_name in chain:
             # Circuit breaker check — skip dead drivers
-            if not self._circuit.is_available(driver_name):
+            if not self._guardian.circuit_breaker.is_available(driver_name):
                 logger.info(f"DriverManager: {driver_name} circuit OPEN, skipping for {operation}")
                 continue
 
@@ -216,11 +214,11 @@ class DriverManager:
                 logger.info(f"DriverManager: trying {driver_name} for {operation}")
 
                 # Retry transient errors before falling back
-                result = await self._retry.execute(callback, driver)
-                self._circuit.record_success(driver_name)
+                result = await self._guardian.with_retry(callback, driver)
+                self._guardian.circuit_breaker.record_success(driver_name)
                 return result
             except Exception as e:
-                self._circuit.record_failure(driver_name)
+                self._guardian.circuit_breaker.record_failure(driver_name)
                 last_error = e
                 logger.warning(f"DriverManager: {driver_name} failed for {operation}: {e}")
 

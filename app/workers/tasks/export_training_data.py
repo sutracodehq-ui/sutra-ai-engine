@@ -28,15 +28,12 @@ def export_training_data(self, days_back: int = 7):
 
 
 async def _do_export(days_back: int):
-    """Async implementation of the training data export."""
-    from app.db.session import async_session_factory
-    from app.services.intelligence.training_collector import TrainingDataCollector
+    """Async implementation of the training data export via Memory."""
+    from app.services.intelligence.memory import get_memory
 
     since = datetime.utcnow() - timedelta(days=days_back)
-
-    async with async_session_factory() as db:
-        collector = TrainingDataCollector(db)
-        result = await collector.export_jsonl(since=since)
+    mem = get_memory()
+    result = await mem.export_jsonl(since=since)
 
     if result["total_examples"] > 0:
         logger.info(

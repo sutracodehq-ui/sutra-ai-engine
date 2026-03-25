@@ -97,6 +97,12 @@ class A2AGateway:
             ))
         return cards
 
+    async def share_context(self, source_agent: str, target_agent: str, context: str):
+        """Share context between agents via Memory."""
+        from app.services.intelligence.memory import get_memory
+        mem = get_memory()
+        await mem.remember(target_agent, f"Shared from {source_agent}", context)
+
     def can_consult(self, source_agent: str, target_agent: str) -> bool:
         """Check if source agent is allowed to consult target agent."""
         routes = _load_a2a_routes()
@@ -247,31 +253,21 @@ class A2AGateway:
     ) -> dict:
         """
         One agent teaches another by pushing a learned insight.
-
-        Uses the CrossTeacher engine to store the insight in
-        the target agent's memory for future prompt enrichment.
+        Stores the insight in the target agent's memory.
         """
         try:
-            from app.services.intelligence.cross_teacher import (
-                TeachingInsight,
-                get_cross_teacher,
+            from app.services.intelligence.memory import get_memory
+            mem = get_memory()
+            await mem.remember(
+                agent_type=target_agent,
+                prompt=f"Teaching Session: {topic}",
+                response=f"Insight from {source_agent}: {insight}",
+                quality_score=0.9
             )
 
-            teacher = get_cross_teacher()
-            teaching = TeachingInsight(
-                teacher_agent=source_agent,
-                student_agent=target_agent,
-                topic=topic,
-                insight=insight,
-                confidence=0.8,
-            )
-
-            taught = await teacher.teach(teaching, target_agent)
-            status = "success" if taught else "duplicate"
-
-            logger.info(f"A2A: {source_agent} → teach → {target_agent} ({status})")
+            logger.info(f"A2A: {source_agent} → teach → {target_agent} (success)")
             return {
-                "status": status,
+                "status": "success",
                 "source": source_agent,
                 "target": target_agent,
                 "topic": topic,

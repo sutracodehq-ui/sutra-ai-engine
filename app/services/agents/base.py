@@ -211,15 +211,15 @@ class BaseAgent:
             return self._build_from_config(context, stream=stream), None
 
         try:
-            from app.services.intelligence.prompt_engine import PromptEngine
-            engine = PromptEngine(db)
+            from app.services.intelligence.brain import get_brain
+            brain = get_brain()
 
-            prompt_text, opt_id = await engine.select_prompt(self.identifier)
+            prompt_text, opt_id = await brain.select_prompt(self.identifier, db)
             if prompt_text:
                 return prompt_text, opt_id
 
         except Exception as e:
-            logger.error(f"PromptEngine fallback for {self.identifier}: {e}")
+            logger.error(f"Brain.select_prompt fallback for {self.identifier}: {e}")
 
         # Final fallback: Static YAML with CoT/JSON injections
         return self._build_from_config(context, stream=stream), None
@@ -249,23 +249,16 @@ class BaseAgent:
         settings = get_settings()
         if settings.ai_agent_memory_enabled:
             try:
-                from app.services.intelligence.agent_memory import get_agent_memory
-                memory = get_agent_memory()
-                examples = await memory.recall(self.identifier, prompt)
+                from app.services.intelligence.memory import get_memory
+                mem = get_memory()
+                examples = await mem.recall(self.identifier, prompt)
 
-                # Cross-agent learning: if no own memories, check peers
-                if not examples:
-                    cross_examples = await memory.recall_cross_agent(self.identifier, prompt)
-                    for ex in cross_examples:
-                        source = ex.get("source_agent", "peer")
-                        messages.append({"role": "user", "content": ex["prompt"]})
-                        messages.append({"role": "assistant", "content": f"[Insight from {source}]: {ex['response']}"})
-                else:
-                    for ex in examples:
-                        messages.append({"role": "user", "content": ex["prompt"]})
-                        messages.append({"role": "assistant", "content": ex["response"]})
+                for ex in examples:
+                    messages.append({"role": "user", "content": ex.get("content", "").split("\nA: ")[0].replace("Q: ", "")})
+                    parts = ex.get("content", "").split("\nA: ")
+                    messages.append({"role": "assistant", "content": parts[1] if len(parts) > 1 else parts[0]})
             except Exception as e:
-                logger.warning(f"AgentMemory recall skipped: {e}")
+                logger.warning(f"Memory recall skipped: {e}")
 
         # ─── Data Source Enrichment: Brand Knowledge + Web Intel ─────
         context_chunks = []
@@ -274,32 +267,27 @@ class BaseAgent:
         tenant_id = (context or {}).get("tenant_id")
         if tenant_id:
             try:
-                from app.services.intelligence.brand_knowledge import get_brand_knowledge
-                bk = get_brand_knowledge()
-                result = await bk.search(str(tenant_id), prompt, n_results=3)
+                from app.services.intelligence.memory import get_memory
+                mem = get_memory()
+                result = await mem.brand_search(str(tenant_id), prompt, n=3)
                 if result.get("found") and result.get("confidence", 0) > 0.3:
                     context_chunks.append(
                         f"[BRAND KNOWLEDGE (confidence: {result['confidence']:.0%})]\n{result['context']}"
                     )
             except Exception as e:
-                logger.debug(f"BrandKnowledge search skipped: {e}")
+                logger.debug(f"Memory.brand_search skipped: {e}")
 
         # 2. Web Intelligence (latest news, trends, market data)
         try:
-            from app.services.intelligence.web_scanner import get_web_scanner
-            scanner = get_web_scanner()
+            from app.services.intelligence.memory import get_memory
+            mem = get_memory()
 
-            # Search across web intelligence collections
+            # Search across web intelligence collections via Memory RAG
             for collection in ["web_intelligence", "web_ai_trends", "web_stock_market", "web_crypto"]:
                 try:
-                    items = await scanner.get_context(prompt, collection_name=collection, n_results=3)
+                    items = await mem.retrieve(prompt, collections=[collection], n=3)
                     if items:
-                        snippets = []
-                        for item in items[:3]:
-                            title = item.get("title", item.get("symbol", ""))
-                            desc = item.get("description", item.get("name", ""))
-                            if title:
-                                snippets.append(f"- {title}: {desc}")
+                        snippets = [f"- {item.get('content', '')[:200]}" for item in items[:3]]
                         if snippets:
                             context_chunks.append(
                                 f"[LATEST DATA — {collection.replace('web_', '').upper()}]\n" + "\n".join(snippets)
@@ -307,7 +295,7 @@ class BaseAgent:
                 except Exception:
                     pass  # Collection may not exist yet
         except Exception as e:
-            logger.debug(f"WebScanner context skipped: {e}")
+            logger.debug(f"Memory.retrieve context skipped: {e}")
 
         # Inject all collected context as a system message
         if context_chunks:
@@ -321,11 +309,11 @@ class BaseAgent:
         # ─── Web Search: Real-time internet data ──────────────
         if settings.ai_web_search_enabled:
             try:
-                from app.services.intelligence.web_search import get_web_search
-                ws = get_web_search()
+                from app.services.intelligence.memory import get_memory
+                mem = get_memory()
 
-                if ws.should_search(prompt):
-                    search_result = await ws.search(prompt, max_results=5)
+                if mem.should_search(prompt):
+                    search_result = await mem.web_search(prompt, max_results=5)
 
                     if search_result.get("results"):
                         search_context = f"[WEB SEARCH RESULTS for: '{prompt[:100]}']\n"
@@ -376,15 +364,18 @@ class BaseAgent:
 
         settings = get_settings()
 
-        # ─── Response Cache: check before calling LLM ─────────
+        # ─── Cache: check before calling LLM (Memory) ─────────
+        from app.services.intelligence.brain import get_brain
+        from app.services.intelligence.memory import get_memory
+        brain = get_brain()
+        mem = get_memory()
+
         try:
-            from app.services.intelligence.response_cache import get_response_cache
-            cache = get_response_cache()
-            cached = await cache.get(self.identifier, prompt)
+            cached = await mem.cache_get(self.identifier, prompt)
             if cached:
                 return LlmResponse(
-                    content=cached["content"],
-                    metadata={**(cached.get("metadata", {})), "cache_hit": True},
+                    content=cached.get("response", ""),
+                    metadata={"cache_hit": True},
                 )
         except Exception as e:
             logger.debug(f"Cache check skipped: {e}")
@@ -395,11 +386,8 @@ class BaseAgent:
         system_msg = next((m for m in messages if m["role"] == "system"), None)
         system_prompt = system_msg["content"] if system_msg else None
 
-        # ─── Hybrid Routing: local-first → quality gate → cloud ─────
+        # ─── Hybrid Routing: local-first → quality gate → cloud (Brain) ─
         if settings.ai_hybrid_routing:
-            from app.services.intelligence.hybrid_router import get_hybrid_router
-            router = get_hybrid_router()
-
             # Extract expected fields from agent config for quality scoring
             expected_fields = None
             if self._config and "response_schema" in self._config:
@@ -409,7 +397,7 @@ class BaseAgent:
                 elif isinstance(schema, list):
                     expected_fields = schema
 
-            response = await router.execute(
+            response = await brain.execute(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 agent_type=self.identifier,
@@ -425,21 +413,17 @@ class BaseAgent:
                 **options
             )
 
-            # Store in memory when not using hybrid (hybrid handles its own)
+            # Store in memory (Memory)
             if settings.ai_agent_memory_enabled and response.content:
                 try:
-                    from app.services.intelligence.agent_memory import get_agent_memory
-                    memory = get_agent_memory()
-                    await memory.remember(self.identifier, prompt, response.content)
+                    await mem.remember(self.identifier, prompt, response.content)
                 except Exception as e:
-                    logger.warning(f"AgentMemory store skipped: {e}")
+                    logger.warning(f"Memory store skipped: {e}")
 
-        # ─── Response Cache: store successful response ────────
+        # ─── Cache: store successful response (Memory) ────────
         if response.content:
             try:
-                from app.services.intelligence.response_cache import get_response_cache
-                cache = get_response_cache()
-                await cache.put(self.identifier, prompt, response.content)
+                await mem.cache_put(self.identifier, prompt, response.content)
             except Exception as e:
                 logger.debug(f"Cache store skipped: {e}")
 
@@ -461,14 +445,14 @@ class BaseAgent:
         so the API layer can directly use the structured data.
         """
         try:
-            from app.services.intelligence.response_filter import get_response_filter
-            engine = get_response_filter()
-            result = engine.filter(response.content or "", self._config)
+            from app.services.intelligence.brain import get_brain
+            brain = get_brain()
+            result = brain.filter_response(response.content or "", self._config)
 
             response.metadata = response.metadata or {}
             response.metadata["filtered_result"] = result.model_dump()
         except Exception as e:
-            logger.warning(f"ResponseFilter skipped: {e}")
+            logger.warning(f"Brain.filter skipped: {e}")
 
         return response
 
@@ -501,14 +485,15 @@ class BaseAgent:
 
         if settings.ai_smart_router_enabled:
             try:
-                from app.services.intelligence.smart_router import SmartRouter
-                cb = get_driver_manager().circuit_breaker
-                decision = SmartRouter(enabled=True).route(prompt, self.identifier, circuit_breaker=cb)
+                from app.services.intelligence.brain import get_brain
+                from app.services.intelligence.guardian import get_guardian
+                brain = get_brain()
+                decision = brain.route(prompt, self.identifier, circuit_breaker=get_guardian().circuit_breaker)
                 driver_override = decision["driver"]
                 model_override = decision.get("model")
                 logger.info(f"Agent stream: {decision['reason']}")
             except Exception as e:
-                logger.debug(f"SmartRouter fallback: {e}")
+                logger.debug(f"Brain.route fallback: {e}")
 
         # Stream via DriverManager — with resilient fallback
         manager = get_driver_manager()
@@ -558,9 +543,9 @@ class BaseAgent:
         complete_text = "".join(full_response)
         if settings.ai_agent_memory_enabled and complete_text:
             try:
-                from app.services.intelligence.agent_memory import get_agent_memory
-                memory = get_agent_memory()
-                await memory.remember(self.identifier, prompt, complete_text)
+                from app.services.intelligence.memory import get_memory
+                mem = get_memory()
+                await mem.remember(self.identifier, prompt, complete_text)
             except Exception as e:
                 logger.debug(f"Post-stream memory store skipped: {e}")
 

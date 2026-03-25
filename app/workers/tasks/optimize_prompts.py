@@ -27,13 +27,13 @@ def optimize_prompts(self):
 
 
 async def _do_optimize():
-    """Async implementation of the prompt optimization."""
+    """Async implementation of the prompt optimization via Brain."""
     from app.db.session import async_session_factory
-    from app.services.intelligence.meta_prompt_optimizer import MetaPromptOptimizer
+    from app.services.intelligence.brain import get_brain
 
     async with async_session_factory() as db:
-        optimizer = MetaPromptOptimizer(db)
-        result = await optimizer.run_optimization_cycle()
+        brain = get_brain()
+        result = await brain.run_optimization_cycle(db)
 
     if result["optimized"]:
         logger.info(

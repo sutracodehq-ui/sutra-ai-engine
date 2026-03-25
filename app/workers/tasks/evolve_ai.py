@@ -28,11 +28,13 @@ def evolve_ai(self):
 
 
 async def _do_evolve():
-    """Async implementation of the evolution cycle."""
-    from app.services.intelligence.evolution_engine import get_evolution_engine
+    """Legacy evolution redirected to Brain optimization."""
+    from app.db.session import async_session_factory
+    from app.services.intelligence.brain import get_brain
 
-    engine = get_evolution_engine()
-    result = await engine.evolve()
+    async with async_session_factory() as db:
+        brain = get_brain()
+        result = await brain.run_optimization_cycle(db)
 
     if result["upgraded"]:
         logger.info(

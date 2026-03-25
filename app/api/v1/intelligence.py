@@ -6,10 +6,10 @@ from typing import Optional
 
 from app.dependencies import DbSession, get_current_tenant
 from app.models.tenant import Tenant
-from app.services.intelligence.sentiment import SentimentService
+from app.services.intelligence.guardian import get_guardian
 from app.services.intelligence.language import LanguageService
 from app.services.rag.brand_extractor import BrandExtractor
-from app.services.intelligence.web_scraper import WebScraperService
+from app.services.intelligence.memory import get_memory
 from app.services.intelligence.multilingual import list_languages_summary, get_supported_languages
 from app.services.agents.hub import get_agent_hub
 

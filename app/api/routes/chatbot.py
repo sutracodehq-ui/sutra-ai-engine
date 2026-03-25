@@ -142,12 +142,12 @@ async def whatsapp_webhook(request: WebhookRequest):
 @router.post("/knowledge")
 async def import_knowledge(request: FAQImportRequest):
     """Bulk import FAQ items into a brand's knowledge base."""
-    from app.services.intelligence.brand_knowledge import get_brand_knowledge
-    knowledge = get_brand_knowledge()
+    from app.services.intelligence.memory import get_memory
+    mem = get_memory()
 
-    result = await knowledge.import_faq(
+    result = await mem.brand_import_faq(
         brand_id=request.brand_id,
-        faq_items=request.items,
+        items=request.items,
     )
 
     return result
@@ -164,6 +164,16 @@ async def list_escalations(brand_id: Optional[str] = None):
 @router.get("/knowledge/stats")
 async def knowledge_stats(brand_id: str = Query(...)):
     """Get knowledge base stats for a brand."""
-    from app.services.intelligence.brand_knowledge import get_brand_knowledge
-    knowledge = get_brand_knowledge()
-    return await knowledge.get_stats(brand_id)
+    from app.services.intelligence.memory import get_memory
+    mem = get_memory()
+    # Stats: count documents in brand collection
+    try:
+        chroma = mem._get_chroma() if hasattr(mem, '_get_chroma') else None
+        from app.services.intelligence.memory import _get_chroma
+        client = _get_chroma()
+        if client:
+            coll = client.get_or_create_collection(name=f"brand_{brand_id}_knowledge")
+            return {"brand_id": brand_id, "total_entries": coll.count()}
+    except Exception:
+        pass
+    return {"brand_id": brand_id, "total_entries": 0}
