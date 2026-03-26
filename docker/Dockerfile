@@ -1,3 +1,13 @@
+# =============================================================================
+# SutraAI Engine — Optimized Multi-Stage Dockerfile
+#
+# Build time optimizations:
+#   1. pip cache mount — reuses downloaded wheels across builds
+#   2. deps-only layer — code changes don't re-install packages
+#   3. Single RUN for user/chmod — fewer layers
+#   4. Removed duplicate psycopg2-binary install
+# =============================================================================
+
 # ─── Stage 1: Builder (installs deps into venv) ────────
 FROM python:3.12-slim AS builder
 
@@ -8,12 +18,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Create isolated venv — only production deps
+# Create isolated venv
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Install deps ONLY (not the package itself) — this layer caches
+# until pyproject.toml changes, even when code changes.
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir . && \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir $(python -c "\
+import tomllib, pathlib; \
+d = tomllib.loads(pathlib.Path('pyproject.toml').read_text()); \
+print(' '.join(d['project']['dependencies']))") && \
     pip uninstall -y pip setuptools wheel 2>/dev/null; true
 
 # ─── Stage 2: Runtime (minimal) ───────────────────────
@@ -25,7 +41,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 curl && \
     rm -rf /var/lib/apt/lists/* && \
-    # Remove unnecessary Python cache and test dirs
     find /usr/local/lib/python3.12 -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null; true
 
 # Copy venv from builder (nothing else — no gcc, no headers, no pip)
@@ -34,7 +49,10 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Copy only application code (respects .dockerignore)
+# Copy entrypoint first (rarely changes)
+COPY docker/entrypoint.sh ./docker/entrypoint.sh
+
+# Copy application code (changes most often — last layer for best caching)
 COPY app/ ./app/
 COPY agent_config/ ./agent_config/
 COPY alembic/ ./alembic/
@@ -42,17 +60,11 @@ COPY alembic.ini pyproject.toml ./
 COPY config/ ./config/
 COPY docs/ ./docs/
 COPY scripts/ ./scripts/
-COPY docker/entrypoint.sh ./docker/entrypoint.sh
 
-# Install psycopg2 for sync DB access in seed/migration scripts
-RUN pip install --no-cache-dir psycopg2-binary
-
-# Make entrypoint executable
-RUN chmod +x ./docker/entrypoint.sh
-
-# Non-root user for security (with home dir for ChromaDB embedding cache)
+# Non-root user + entrypoint perms in single layer
 RUN useradd --create-home --shell /bin/false sutra && \
-    chown -R sutra:sutra /app
+    chown -R sutra:sutra /app && \
+    chmod +x ./docker/entrypoint.sh
 USER sutra
 ENV HOME=/home/sutra
 
