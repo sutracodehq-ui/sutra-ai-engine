@@ -972,6 +972,9 @@ voice:
       fable: "en-GB-SoniaNeural"          # British female
       onyx: "en-US-ChristopherNeural"     # American male (deep)
       shimmer: "en-US-JennyNeural"        # American female
+      # Hindi/Hinglish specific
+      madhur: "hi-IN-MadhurNeural"       # Hindi male (natural)
+      swara: "hi-IN-SwararaNeural"       # Hindi female
     default_edge_voice: "en-IN-NeerjaNeural"
   
   narrator:

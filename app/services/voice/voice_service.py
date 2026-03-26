@@ -204,10 +204,21 @@ async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[
         config = _load_voice_config()
         edge_config = config.get("edge", {})
         voice_map = edge_config.get("voice_map", {})
-        default_edge_voice = edge_config.get("default_edge_voice", "en-IN-NeerjaNeural")
-
-        edge_voice = voice_map.get(voice or config.get("default_voice", "nova"), default_edge_voice)
+        # 1. Detect if text contains Hindi (Devnagari) characters
+        has_hindi = any('\u0900' <= char <= '\u097F' for char in text)
         
+        # 2. Determine voice name
+        requested_voice = voice or config.get("default_voice", "nova")
+        
+        # 3. Auto-switch to Hindi voice if Devnagari detected
+        if has_hindi:
+            if requested_voice in ["nova", "shimmer", "fable"]:
+                edge_voice = voice_map.get("swara") # Hindi Female
+            else:
+                edge_voice = voice_map.get("madhur") # Hindi Male
+        else:
+            edge_voice = voice_map.get(requested_voice, default_edge_voice)
+
         # Get granular voice settings
         rate = edge_config.get("rate", "+0%")
         pitch = edge_config.get("pitch", "+0Hz")
@@ -388,11 +399,10 @@ def clean_for_tts(text: str) -> str:
     # 7. Remove links [text](url) → KEEP text, DROP url
     text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
     
-    # 8. Remove ALL non-ASCII characters (This kills all emojis, icons, and 🚀 rocket)
-    # We keep standard punctuation and spaces. 
-    # NOTE: If we need Hindi support, we'd keep [\u0900-\u097F], but Edge TTS 
-    # for Indian English (Neerja) prefers clean ASCII for English parts.
-    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
+    # 8. Remove non-ASCII characters BUT KEEP Hindi (Devnagari range)
+    # Range: \u0900-\u097F
+    # This kills emojis, icons, and symbols while sparing English and Hindi text.
+    text = re.sub(r'[^\x00-\x7F\u0900-\u097F]+', ' ', text)
     
     # 9. Collapse multiple newlines/spaces
     text = re.sub(r'\s+', ' ', text)
