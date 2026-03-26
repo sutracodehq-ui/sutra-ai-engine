@@ -144,11 +144,16 @@ async def speak(
     """
     Convert text to speech (TTS).
 
+    Text is auto-cleaned: markdown, emojis, code blocks are stripped.
+    Long text is simplified by local AI for natural voice output.
+
     **Returns:** Audio file URL stored in R2.
 
     **Voices:** alloy, echo, fable, onyx, nova, shimmer
     """
-    audio_bytes = await text_to_speech(text, voice)
+    # Clean & simplify text for natural voice output
+    clean_text = await simplify_for_voice(text)
+    audio_bytes = await text_to_speech(clean_text, voice)
 
     import uuid
     filename = f"tts_{uuid.uuid4().hex[:8]}.mp3"
@@ -159,6 +164,7 @@ async def speak(
         "audio_url": get_presigned_url(r2_key),
         "voice": voice,
         "text_length": len(text),
+        "clean_text_length": len(clean_text),
     }
 
 

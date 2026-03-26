@@ -347,18 +347,61 @@ async def sarvam_tts(text: str) -> Optional[bytes]:
         logger.error(f"Sarvam TTS error: {e}")
         return None
 
+import re
+
+
+def clean_for_tts(text: str) -> str:
+    """
+    Strip markdown, emojis, and formatting noise from text so TTS sounds natural.
+    This is a fast regex-based pass — no AI needed.
+    """
+    # Remove code blocks (```...```)
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    # Remove inline code (`...`)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    # Remove markdown headers (## Header)
+    text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+    # Remove bold/italic markers (**, *, __, _)
+    text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', text)
+    text = re.sub(r'_{1,3}([^_]+)_{1,3}', r'\1', text)
+    # Remove bullet points (- item, * item, • item)
+    text = re.sub(r'^\s*[-*•]\s+', '', text, flags=re.MULTILINE)
+    # Remove numbered lists (1. item)
+    text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
+    # Remove links [text](url) → text
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    # Remove emojis (Unicode emoji ranges)
+    text = re.sub(
+        r'[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF'
+        r'\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF'
+        r'\U00002702-\U000027B0\U0000FE00-\U0000FE0F\U0000200D]+',
+        '', text
+    )
+    # Remove HTML tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # Remove horizontal rules (--- or ***)
+    text = re.sub(r'^[-*]{3,}$', '', text, flags=re.MULTILINE)
+    # Collapse multiple newlines/spaces
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'  +', ' ', text)
+    return text.strip()
+
 
 async def simplify_for_voice(text: str) -> str:
     """
-    Convert complex text into natural, human-like voice dialogue.
-    Uses a fast model and the prompt defined in intelligence_config.yaml.
+    Two-stage text cleaning for natural TTS:
+    1. Regex strip: Remove markdown, emojis, formatting (instant)
+    2. AI narration: Simplify long text via local Ollama (if enabled)
     """
+    # Stage 1: Always strip markdown/emojis (instant, no AI)
+    text = clean_for_tts(text)
+
     config = _load_voice_config()
     narrator = config.get("narrator", {})
     if not narrator.get("enabled", True):
         return text
 
-    # Only simplify if it's longer than threshold
+    # Stage 2: AI narration for long text only
     threshold = config.get("max_verbatim_chars", 350)
     if len(text) <= threshold:
         return text
@@ -366,24 +409,25 @@ async def simplify_for_voice(text: str) -> str:
     try:
         from app.services.intelligence.brain import get_brain
         brain = get_brain()
-        
+
         prompt_tmpl = narrator.get("prompt", "Simplify for voice: {text}")
         prompt = prompt_tmpl.format(text=text)
-        
-        # Use fast model for narration logic
+
         response = await brain.execute(
             prompt=prompt,
             system_prompt="You are a friendly, natural voice synthesizer.",
             agent_type="summarizer",
             model_override=narrator.get("model", "qwen2.5:3b")
         )
-        
+
         natural_text = response.content.strip()
-        logger.info(f"🎤 Natural Narrator: Simplified {len(text)} → {len(natural_text)} chars")
+        # Clean the AI output too (it might add markdown)
+        natural_text = clean_for_tts(natural_text)
+        logger.info(f"Voice narrator: {len(text)} → {len(natural_text)} chars")
         return natural_text
     except Exception as e:
         logger.warning(f"Voice simplification failed: {e}")
-        return text[:threshold] + "..." # basic truncate fallback
+        return text[:threshold] + "..."
 
 
 # ─── Full Pipeline ───────────────────────────────────────────
