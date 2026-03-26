@@ -207,7 +207,19 @@ async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[
         default_edge_voice = edge_config.get("default_edge_voice", "en-IN-NeerjaNeural")
 
         edge_voice = voice_map.get(voice or config.get("default_voice", "nova"), default_edge_voice)
-        communicate = edge_tts.Communicate(text, edge_voice)
+        
+        # Get granular voice settings
+        rate = edge_config.get("rate", "+0%")
+        pitch = edge_config.get("pitch", "+0Hz")
+        volume = edge_config.get("volume", "+0%")
+        
+        communicate = edge_tts.Communicate(
+            text, 
+            edge_voice,
+            rate=rate,
+            pitch=pitch,
+            volume=volume
+        )
 
         audio_buffer = io.BytesIO()
         async for chunk in communicate.stream():
@@ -216,7 +228,7 @@ async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[
 
         audio_bytes = audio_buffer.getvalue()
         if len(audio_bytes) > 0:
-            logger.info(f"Edge TTS success: {len(audio_bytes)} bytes, voice={edge_voice}")
+            logger.info(f"Edge TTS success: {len(audio_bytes)} bytes, voice={edge_voice}, rate={rate}, pitch={pitch}")
             return audio_bytes
 
         logger.warning("Edge TTS returned empty audio")
