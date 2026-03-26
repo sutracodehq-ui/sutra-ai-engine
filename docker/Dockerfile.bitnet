@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y \
     git \
     clang-18 \
     llvm-18 \
+    python3 \
+    python3-pip \
+    python3-venv \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -15,14 +18,16 @@ RUN apt-get update && apt-get install -y \
 ENV CC=clang-18
 ENV CXX=clang++-18
 
-# Clone and build bitnet.cpp
+# Clone and build bitnet.cpp manually (more robust than setup_env.py)
 WORKDIR /opt/bitnet
 RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
-    mkdir build && cd build && \
-    cmake .. && \
-    make -j$(nproc)
+    mkdir -p include && \
+    find 3rdparty/llama.cpp -name "*.h" -exec cp {} include/ \; && \
+    cmake -B build -DBITNET_DEBUG=OFF && \
+    cmake --build build -j$(nproc)
 
-# Download model directly into image
+# Verify build
+RUN ls -l /opt/bitnet/build/bin/bitnet-cli
 RUN mkdir -p /opt/bitnet/models && \
     curl -L "https://huggingface.co/1bitLLM/bitnet_b1_58-3B/resolve/main/bitnet_b1_58-3B-Q8_0.gguf" \
     -o /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
