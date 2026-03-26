@@ -22,29 +22,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Config Loader ───────────────────────────────────────────
 
-_voice_config: dict | None = None
-
-
-def get_voice_config() -> dict:
-    global _voice_config
-    if _voice_config is None:
-        # Load from main intelligence_config.yaml first
-        from app.services.intelligence.brain import _cfg
-        try:
-            _voice_config = _cfg("voice", default={})
-            if not _voice_config:
-                # Fallback to legacy path if not in main yaml
-                config_path = Path(__file__).resolve().parent.parent.parent / "config" / "voice.yaml"
-                with open(config_path, "r") as f:
-                    _voice_config = yaml.safe_load(f)
-        except Exception:
-            logger.warning("Voice config not found, using defaults")
-            _voice_config = {
-                "stt": {"provider": "openai", "model": "whisper-1"},
-                "tts": {"provider": "openai", "model": "tts-1", "default_voice": "nova"},
-                "max_verbatim_chars": 350
-            }
-    return _voice_config
+from app.services.voice.config import get_voice_config
 
 
 # ─── R2 Storage ──────────────────────────────────────────────
@@ -194,45 +172,29 @@ async def transcribe_audio(
 async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[bytes]:
     """
     Free TTS via Microsoft Edge's speech service.
-    No API key needed. Supports 400+ voices including Hindi, Tamil, etc.
-    Voice map is configured in intelligence_config.yaml under voice.edge.voice_map.
     """
+    from app.services.voice.router import get_voice_router
+    router = get_voice_router()
+
     try:
         import edge_tts
         import io
 
-        config = get_voice_config()
-        edge_config = config.get("edge", {})
-        default_edge_voice = edge_config.get("default_edge_voice", "en-IN-NeerjaNeural")
+        # 1. Use the Smart Voice Router to decide voice and settings
+        routing = router.route(text, requested_voice=voice)
+        edge_voice = routing["voice_id"]
+        settings = routing["edge_settings"]
         
-        # 1. Detect if text contains Hindi (Devnagari) characters
-        has_hindi = any('\u0900' <= char <= '\u097F' for char in text)
-        
-        # 2. Determine voice name
-        requested_voice = voice or config.get("default_voice", "nova")
-        
-        # 3. Auto-switch to Hindi voice if Devnagari detected
-        if has_hindi:
-            if requested_voice in ["nova", "shimmer", "fable"]:
-                edge_voice = voice_map.get("swara") # Hindi Female
-            else:
-                edge_voice = voice_map.get("madhur") # Hindi Male
-        else:
-            edge_voice = voice_map.get(requested_voice, default_edge_voice)
-            
-        logger.info(f"🎤 [Edge-TTS] Requested: {requested_voice}, Final Selection: {edge_voice}, Has Hindi: {has_hindi}")
+        if not edge_voice:
+            logger.warning("SmartVoiceRouter returned no voice_id, using default")
+            edge_voice = "en-IN-NeerjaNeural"
 
-        # Get granular voice settings
-        rate = edge_config.get("rate", "+0%")
-        pitch = edge_config.get("pitch", "+0Hz")
-        volume = edge_config.get("volume", "+0%")
-        
         communicate = edge_tts.Communicate(
             text, 
             edge_voice,
-            rate=rate,
-            pitch=pitch,
-            volume=volume
+            rate=settings.get("rate", "+0%"),
+            pitch=settings.get("pitch", "+0Hz"),
+            volume=settings.get("volume", "+0%")
         )
 
         audio_buffer = io.BytesIO()
@@ -444,16 +406,21 @@ async def simplify_for_voice(text: str, tone_override: Optional[str] = None) -> 
         else:
             prompt = prompt_tmpl.format(text=text)
 
-        response = await brain.execute(
+        response = await brain._call_local(
             prompt=prompt,
             system_prompt="You are a professional, helpful, and sophisticated AI assistant.",
-            agent_type="summarizer",
             model=narrator.get("model", "qwen2.5:3b")
         )
 
         natural_text = response.content.strip()
         # Clean the AI output too (it might add markdown)
         natural_text = clean_for_tts(natural_text)
+        
+        # Fallback to original text if AI returns empty or nonsense
+        if not natural_text or len(natural_text) < 2:
+            logger.warning("AI narrator returned empty/too-short text, falling back to original")
+            return text
+            
         logger.info(f"Voice narrator: {len(text)} → {len(natural_text)} chars")
         return natural_text
     except Exception as e:
