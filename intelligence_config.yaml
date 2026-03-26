@@ -974,7 +974,16 @@ voice:
       shimmer: "en-US-JennyNeural"        # American female
       # Hindi/Hinglish specific
       madhur: "hi-IN-MadhurNeural"       # Hindi male (natural)
-      swara: "hi-IN-SwaraNeural"       # Hindi female
+      swara: "hi-IN-SwaraNeural"        # Hindi female
+      # Regional Indian
+      tamil: "ta-IN-PallaviNeural"
+      telugu: "te-IN-ShrutiNeural"
+      kannada: "kn-IN-SapnaNeural"
+      malayalam: "ml-IN-SobhanaNeural"
+      marathi: "mr-IN-AarohiNeural"
+      gujarati: "gu-IN-DhwaniNeural"
+      bengali: "bn-IN-TanishaaNeural"
+      urdu: "ur-PK-UzmaNeural"
     metadata:
       nova: { name: "Neerja (Female, Indian Accent)", lang: "en-IN" }
       alloy: { name: "Prabhat (Male, Indian Accent)", lang: "en-IN" }
@@ -984,6 +993,14 @@ voice:
       fable: { name: "Sonia (Female, British Accent)", lang: "en-GB" }
       onyx: { name: "Christopher (Male, Deep American)", lang: "en-US" }
       shimmer: { name: "Jenny (Female, American Accent)", lang: "en-US" }
+      tamil: { name: "Pallavi (Tamil)", lang: "ta-IN" }
+      telugu: { name: "Shruti (Telugu)", lang: "te-IN" }
+      kannada: { name: "Sapna (Kannada)", lang: "kn-IN" }
+      malayalam: { name: "Sobhana (Malayalam)", lang: "ml-IN" }
+      marathi: { name: "Aarohi (Marathi)", lang: "mr-IN" }
+      gujarati: { name: "Dhwani (Gujarati)", lang: "gu-IN" }
+      bengali: { name: "Tanishaa (Bengali)", lang: "bn-IN" }
+      urdu: { name: "Uzma (Urdu)", lang: "ur-PK" }
     recommended_tones:
       - professional
       - friendly
