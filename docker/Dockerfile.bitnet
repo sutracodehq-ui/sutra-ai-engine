@@ -21,8 +21,9 @@ ENV CXX=clang++-18
 # Clone and build bitnet.cpp manually (more robust than setup_env.py)
 WORKDIR /opt/bitnet
 RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
-    mkdir -p include && \
-    find 3rdparty/llama.cpp -name "*.h" -exec cp {} include/ \; && \
+    # The llama.cpp submodule expects headers 4 levels up in /include/
+    # (relative to 3rdparty/llama.cpp/ggml/src/)
+    ln -s 3rdparty/llama.cpp/spm-headers include && \
     cmake -B build -DBITNET_DEBUG=OFF && \
     cmake --build build -j$(nproc)
 
