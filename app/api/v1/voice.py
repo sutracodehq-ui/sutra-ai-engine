@@ -18,6 +18,7 @@ from app.services.voice.voice_service import (
     upload_to_r2,
     simplify_for_voice,
     get_presigned_url,
+    get_voice_config,
 )
 
 router = APIRouter(prefix="/voice", tags=["voice"])
@@ -135,10 +136,40 @@ async def transcribe_only(
     }
 
 
+@router.get("/voices", summary="List Available Voices & Tones")
+async def list_voices():
+    """
+    Returns a list of available voice nicknames and recommended tones.
+    
+    This metadata is useful for populating dropdowns in the frontend.
+    """
+    config = get_voice_config()
+    edge_config = config.get("edge", {})
+    voice_map = edge_config.get("voice_map", {})
+    
+    # 1. Available Voices (Dynamic from Config)
+    metadata = edge_config.get("metadata", {})
+    voices = [{"id": k, **v} for k, v in metadata.items()]
+    
+    # 2. Recommended Tones (Dynamic from Config)
+    recommended_tones = edge_config.get("recommended_tones", [])
+    
+    return {
+        "success": True,
+        "data": {
+            "voices": voices,
+            "recommended_tones": recommended_tones,
+            "default_voice": config.get("default_voice", "alloy"),
+            "provider_chain": ["Edge-TTS (Free)", "OpenAI (Premium)", "Sarvam (Indian)"]
+        }
+    }
+
+
 @router.post("/speak", summary="Text-to-Speech")
 async def speak(
     text: str = Form(..., description="Text to convert to speech"),
     voice: Optional[str] = Form(default="alloy", description="Voice: alloy, echo, fable, onyx, nova, shimmer"),
+    tone: Optional[str] = Form(default=None, description="Tone: professional, excited, empathetic, urgent, etc."),
     tenant: Tenant = Depends(get_current_tenant),
 ):
     """
@@ -151,8 +182,8 @@ async def speak(
 
     **Voices:** alloy, echo, fable, onyx, nova, shimmer
     """
-    # Clean & simplify text for natural voice output
-    clean_text = await simplify_for_voice(text)
+    # Clean & simplify text for natural voice output (pass the dynamic tone)
+    clean_text = await simplify_for_voice(text, tone_override=tone)
     audio_bytes = await text_to_speech(clean_text, voice)
 
     import uuid
@@ -163,6 +194,7 @@ async def speak(
         "r2_key": r2_key,
         "audio_url": get_presigned_url(r2_key),
         "voice": voice,
+        "tone": tone or "default",
         "text_length": len(text),
         "clean_text_length": len(clean_text),
     }

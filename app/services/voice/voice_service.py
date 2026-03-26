@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 _voice_config: dict | None = None
 
 
-def _load_voice_config() -> dict:
+def get_voice_config() -> dict:
     global _voice_config
     if _voice_config is None:
         # Load from main intelligence_config.yaml first
@@ -63,7 +63,7 @@ async def upload_to_r2(
         return ""
 
     date_prefix = datetime.now(timezone.utc).strftime("%Y/%m/%d")
-    config = _load_voice_config()
+    config = get_voice_config()
     bucket_prefix = config.get("storage", {}).get("bucket_prefix", "voice")
     object_key = f"{bucket_prefix}/{tenant_slug}/{date_prefix}/{filename}"
 
@@ -147,7 +147,7 @@ async def transcribe_audio(
         }
     """
     settings = get_settings()
-    config = _load_voice_config()
+    config = get_voice_config()
     stt_config = config.get("stt", {})
 
     api_key = settings.openai_api_key
@@ -201,9 +201,10 @@ async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[
         import edge_tts
         import io
 
-        config = _load_voice_config()
+        config = get_voice_config()
         edge_config = config.get("edge", {})
-        voice_map = edge_config.get("voice_map", {})
+        default_edge_voice = edge_config.get("default_edge_voice", "en-IN-NeerjaNeural")
+        
         # 1. Detect if text contains Hindi (Devnagari) characters
         has_hindi = any('\u0900' <= char <= '\u097F' for char in text)
         
@@ -218,6 +219,8 @@ async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[
                 edge_voice = voice_map.get("madhur") # Hindi Male
         else:
             edge_voice = voice_map.get(requested_voice, default_edge_voice)
+            
+        logger.info(f"🎤 [Edge-TTS] Requested: {requested_voice}, Final Selection: {edge_voice}, Has Hindi: {has_hindi}")
 
         # Get granular voice settings
         rate = edge_config.get("rate", "+0%")
@@ -261,7 +264,7 @@ async def text_to_speech(
     from fastapi import HTTPException
 
     settings = get_settings()
-    config = _load_voice_config()
+    config = get_voice_config()
     tts_config = config.get("tts", {})
     errors = []
 
@@ -410,7 +413,7 @@ def clean_for_tts(text: str) -> str:
     return text.strip()
 
 
-async def simplify_for_voice(text: str) -> str:
+async def simplify_for_voice(text: str, tone_override: Optional[str] = None) -> str:
     """
     Two-stage text cleaning for natural TTS:
     1. Regex strip: Remove markdown, emojis, formatting (instant)
@@ -419,14 +422,14 @@ async def simplify_for_voice(text: str) -> str:
     # Stage 1: Always strip markdown/emojis (instant, no AI)
     text = clean_for_tts(text)
 
-    config = _load_voice_config()
+    config = get_voice_config()
     narrator = config.get("narrator", {})
     if not narrator.get("enabled", True):
         return text
 
     # Stage 2: AI narration for long text only
     threshold = config.get("max_verbatim_chars", 350)
-    if len(text) <= threshold:
+    if not tone_override and len(text) <= threshold:
         return text
 
     try:
@@ -434,13 +437,18 @@ async def simplify_for_voice(text: str) -> str:
         brain = get_brain()
 
         prompt_tmpl = narrator.get("prompt", "Simplify for voice: {text}")
-        prompt = prompt_tmpl.format(text=text)
+        
+        # Inject tone override into the prompt if provided
+        if tone_override:
+            prompt = f"Convert this text to a {tone_override} tone for voice output. STRICTLY preserve the original language and script (Hindi, Maithili, etc.). Do not translate to English: {text}"
+        else:
+            prompt = prompt_tmpl.format(text=text)
 
         response = await brain.execute(
             prompt=prompt,
-            system_prompt="You are a friendly, natural voice synthesizer.",
+            system_prompt="You are a professional, helpful, and sophisticated AI assistant.",
             agent_type="summarizer",
-            model_override=narrator.get("model", "qwen2.5:3b")
+            model=narrator.get("model", "qwen2.5:3b")
         )
 
         natural_text = response.content.strip()

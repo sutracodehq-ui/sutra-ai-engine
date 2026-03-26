@@ -974,7 +974,24 @@ voice:
       shimmer: "en-US-JennyNeural"        # American female
       # Hindi/Hinglish specific
       madhur: "hi-IN-MadhurNeural"       # Hindi male (natural)
-      swara: "hi-IN-SwararaNeural"       # Hindi female
+      swara: "hi-IN-SwaraNeural"       # Hindi female
+    metadata:
+      nova: { name: "Neerja (Female, Indian Accent)", lang: "en-IN" }
+      alloy: { name: "Prabhat (Male, Indian Accent)", lang: "en-IN" }
+      swara: { name: "Swara (Female, Hindi Native)", lang: "hi-IN" }
+      madhur: { name: "Madhur (Male, Hindi Native)", lang: "hi-IN" }
+      echo: { name: "Guy (Male, American Accent)", lang: "en-US" }
+      fable: { name: "Sonia (Female, British Accent)", lang: "en-GB" }
+      onyx: { name: "Christopher (Male, Deep American)", lang: "en-US" }
+      shimmer: { name: "Jenny (Female, American Accent)", lang: "en-US" }
+    recommended_tones:
+      - professional
+      - friendly
+      - empathetic
+      - excited
+      - urgent
+      - authoritative
+      - calm
     default_edge_voice: "en-IN-NeerjaNeural"
   
   narrator:
@@ -982,9 +999,11 @@ voice:
     model: "qwen2.5:3b"        # fast SLM for simplification
     max_sentences: 2
     prompt: |
-      You are a human-like narrator. 
-      Convert the following complex text into a natural, friendly, and concise 1-2 sentence response for a voice assistant.
-      MAINTAIN THE ORIGINAL LANGUAGE (Hindi, Bhojpuri, Tamil, etc.). 
+      You are a professional, helpful, and sophisticated AI assistant. 
+      Your goal is to convert the provided information into a clear, polite, and well-structured voice response.
+      Wait, do not use casual slang or internal jargon. Use natural, polished sentence structures suitable for a professional business context.
+      Keep the response to 1-2 smooth, dignified sentences. 
+      MAINTAIN THE ORIGINAL LANGUAGE (Hindi, Bhojpuri, Tamil, etc.) but with a formal tone.
       Do NOT state "The response is..." — just say the response directly.
   # ─── Jarvis: Static Personas ───────────────────────────
   personas:
