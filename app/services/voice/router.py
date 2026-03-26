@@ -19,43 +19,64 @@ class SmartVoiceRouter:
         Routes the request to the optimal voice and provider.
         Returns: {provider, voice_id, settings}
         """
-        # 1. Language Detection (Devnagari check)
-        has_hindi = any('\u0900' <= char <= '\u097F' for char in text)
-        
-        # 2. Base Configuration
+        # 1. Base Configuration
         edge_config = self.config.get("edge", {})
         voice_map = edge_config.get("voice_map", {})
-        default_voice_nickname = requested_voice or self.config.get("default_voice", "nova")
+        requested_nickname = requested_voice or self.config.get("default_voice", "nova")
         
-        # 3. Provider Selection (Currently defaulting to Edge, with fallback in service)
-        # In a more advanced version, this would check circuit breakers
-        provider = self.config.get("default_provider", "edge")
+        # 2. Script-based Auto-Detection
+        lang_detected = None
+        scripts = {
+            "tamil": r"[\u0B80-\u0BFF]",
+            "telugu": r"[\u0C00-\u0C7F]",
+            "kannada": r"[\u0C80-\u0CFF]",
+            "malayalam": r"[\u0D00-\u0D7F]",
+            "gujarati": r"[\u0A80-\u0AFF]",
+            "bengali": r"[\u0980-\u09FF]",
+            "marathi": r"[\u0900-\u097F]", # Devnagari (handled below)
+            "hindi": r"[\u0900-\u097F]"   # Devnagari
+        }
 
-        # 4. Voice ID Mapping
+        for lang, pattern in scripts.items():
+            if re.search(pattern, text):
+                lang_detected = lang
+                break
+
+        # 3. Gender Mapping
+        gender = "female" # default for nova/shimmer/swara
+        if requested_nickname in ["alloy", "echo", "onyx", "madhur"]:
+            gender = "male"
+
+        # 4. Final Voice Selection
         final_voice_id = None
         
-        if has_hindi:
-            # Smart Gender Switching for Hindi
-            if default_voice_nickname in ["nova", "shimmer", "fable"]:
-                final_voice_id = voice_map.get("swara", "hi-IN-SwaraNeural")
+        if lang_detected:
+            if lang_detected == "hindi" or lang_detected == "marathi":
+                # Smart Gender Switching for Devnagari based languages
+                if gender == "female":
+                    final_voice_id = voice_map.get("swara", "hi-IN-SwaraNeural")
+                else:
+                    final_voice_id = voice_map.get("madhur", "hi-IN-MadhurNeural")
             else:
-                final_voice_id = voice_map.get("madhur", "hi-IN-MadhurNeural")
-        else:
-            # Map nickname to specific neural model
-            final_voice_id = voice_map.get(default_voice_nickname, edge_config.get("default_edge_voice"))
+                # Direct regional mapping (Pallavi, Shruti, etc.)
+                final_voice_id = voice_map.get(lang_detected)
+        
+        # Fallback if no script detected or mapping failed (English/Global)
+        if not final_voice_id:
+            final_voice_id = voice_map.get(requested_nickname, edge_config.get("default_edge_voice"))
 
         # 5. Metadata for logging/frontend
         metadata = {
-            "requested_nickname": default_voice_nickname,
-            "has_hindi": has_hindi,
-            "provider": provider,
+            "requested_nickname": requested_nickname,
+            "detected_lang": lang_detected,
+            "provider": self.config.get("default_provider", "edge"),
             "voice_id": final_voice_id,
         }
 
         logger.info(f"SmartVoiceRouter: {metadata}")
         
         return {
-            "provider": provider,
+            "provider": metadata["provider"],
             "voice_id": final_voice_id,
             "metadata": metadata,
             "edge_settings": {
