@@ -477,6 +477,7 @@ class BaseAgent:
         from app.lib.stream_filter import strip_cot
 
         messages, opt_id = await self.build_messages(prompt, None, db, context, stream=True)
+        manager = get_driver_manager()
 
         # Auto-detect language + complexity → pick best driver + model
         settings = get_settings()
@@ -487,42 +488,69 @@ class BaseAgent:
         if settings.ai_smart_router_enabled:
             try:
                 from app.services.intelligence.brain import get_brain
-                from app.services.intelligence.guardian import get_guardian
                 brain = get_brain()
-                decision = brain.route(prompt, self.identifier, circuit_breaker=get_guardian().circuit_breaker)
+                # Use DriverManager's own circuit breaker (isolated from Guardian)
+                decision = brain.route(prompt, self.identifier, circuit_breaker=manager.circuit_breaker)
                 driver_override = decision["driver"]
                 model_override = decision.get("model")
-                fallback_chain = decision.get("chain")  # Full YAML driver chain for resilient fallback
-                logger.info(f"Agent stream: {decision['reason']} (chain={fallback_chain})")
+                fallback_chain = decision.get("chain")
+                logger.info(f"Agent stream: {decision['reason']}")
             except Exception as e:
-                logger.debug(f"Brain.route fallback: {e}")
+                logger.debug(f"SmartRouter fallback: {e}")
 
-        # Stream via DriverManager — with resilient fallback chain
-        manager = get_driver_manager()
+        # Stream via DriverManager — with resilient two-stage fallback
         full_response = []
         clean_opts = {k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
         used_fallback = False
         actual_driver = driver_override
 
         try:
-            # Pass fallback_chain so DriverManager cascades through all providers
+            # Stage 1: Try the SmartRouter-selected driver directly
             raw_stream = manager.stream(
                 messages=messages,
                 driver_override=driver_override,
                 model_override=model_override,
-                fallback_chain=fallback_chain,
                 **clean_opts,
             )
             async for token in strip_cot(raw_stream):
                 full_response.append(token)
                 yield token
-        except Exception as chain_err:
-            # All drivers in the chain failed
-            logger.error(
-                f"Agent stream: all drivers failed for {self.identifier}: {chain_err}"
+        except Exception as primary_err:
+            # Stage 2: Primary driver failed — fall back to the full chain
+            # Remove the already-failed driver from the chain to avoid retrying it
+            remaining_chain = [d for d in (fallback_chain or []) if d != driver_override]
+            logger.warning(
+                f"Agent stream: primary driver '{driver_override or 'default'}' failed "
+                f"for {self.identifier}: {primary_err}. Falling back to chain: {remaining_chain}"
             )
-            yield f"\n[Error: {str(chain_err)}]"
-            return
+
+            try:
+                if remaining_chain:
+                    # Use the YAML fallback chain (minus the failed driver)
+                    fallback_stream = manager.stream(
+                        messages=messages,
+                        fallback_chain=remaining_chain,
+                        **clean_opts,
+                    )
+                else:
+                    # No chain available — use settings-based fallback
+                    fallback_stream = manager.stream(
+                        messages=messages,
+                        driver_override=None,
+                        model_override=None,
+                        **clean_opts,
+                    )
+                async for token in strip_cot(fallback_stream):
+                    full_response.append(token)
+                    yield token
+                used_fallback = True
+                actual_driver = "fallback_chain"
+            except Exception as fallback_err:
+                logger.error(
+                    f"Agent stream: all drivers failed for {self.identifier}: {fallback_err}"
+                )
+                yield f"\n[Error: {str(fallback_err)}]"
+                return
 
         # Post-stream: store in memory for self-learning
         complete_text = "".join(full_response)
