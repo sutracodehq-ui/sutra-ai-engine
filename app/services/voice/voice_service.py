@@ -190,26 +190,72 @@ async def transcribe_audio(
 
 # ─── Text-to-Speech (Voice Response) ────────────────────────
 
+
+async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[bytes]:
+    """
+    Free TTS via Microsoft Edge's speech service.
+    No API key needed. Supports 400+ voices including Hindi, Tamil, etc.
+    Voice map is configured in intelligence_config.yaml under voice.edge.voice_map.
+    """
+    try:
+        import edge_tts
+        import io
+
+        config = _load_voice_config()
+        edge_config = config.get("edge", {})
+        voice_map = edge_config.get("voice_map", {})
+        default_edge_voice = edge_config.get("default_edge_voice", "en-IN-NeerjaNeural")
+
+        edge_voice = voice_map.get(voice or config.get("default_voice", "nova"), default_edge_voice)
+        communicate = edge_tts.Communicate(text, edge_voice)
+
+        audio_buffer = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_buffer.write(chunk["data"])
+
+        audio_bytes = audio_buffer.getvalue()
+        if len(audio_bytes) > 0:
+            logger.info(f"Edge TTS success: {len(audio_bytes)} bytes, voice={edge_voice}")
+            return audio_bytes
+
+        logger.warning("Edge TTS returned empty audio")
+        return None
+    except Exception as e:
+        logger.warning(f"Edge TTS error: {e}")
+        return None
+
+
 async def text_to_speech(
     text: str,
     voice: Optional[str] = None,
 ) -> bytes:
     """
-    Convert text to speech. 
-    Tries OpenAI first (expressive), falls back to Sarvam AI (native Indian) if OpenAI fails.
+    Convert text to speech.
+    Chain: Edge-TTS (free) → OpenAI (premium) → Sarvam (Indian).
+    Raises HTTPException(503) if ALL providers fail — never unhandled 500.
     """
+    from fastapi import HTTPException
+
     settings = get_settings()
     config = _load_voice_config()
     tts_config = config.get("tts", {})
-    
-    # 1. Attempt OpenAI TTS
+    errors = []
+
+    # 1. Edge-TTS (FREE — no API key needed, always available)
+    result = await edge_tts_generate(text, voice)
+    if result:
+        return result
+    errors.append("Edge TTS: unavailable")
+
+    # 2. OpenAI TTS (premium, expressive)
     try:
         api_key = settings.openai_api_key
         if not api_key:
             raise ValueError("OpenAI API key missing")
 
         voice_name = voice or tts_config.get("default_voice", "nova")
-        
+
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 "https://api.openai.com/v1/audio/speech",
@@ -228,29 +274,45 @@ async def text_to_speech(
 
             if response.status_code == 200:
                 return response.content
-            
-            error_data = response.json() if response.status_code == 401 else {}
-            if response.status_code == 401:
-                logger.warning(f"OpenAI TTS Auth failed: {error_data.get('error', {}).get('message')}. Trying Sarvam fallback...")
-            else:
-                logger.error(f"OpenAI TTS failed ({response.status_code}): {response.text}")
+
+            err_msg = f"OpenAI TTS ({response.status_code}): {response.text[:200]}"
+            errors.append(err_msg)
+            logger.warning(f"{err_msg}. Trying Sarvam fallback...")
 
     except Exception as e:
-        logger.warning(f"OpenAI TTS encountered error: {e}. Attempting Sarvam fallback...")
+        errors.append(f"OpenAI TTS: {e}")
+        logger.warning(f"OpenAI TTS error: {e}. Attempting Sarvam fallback...")
 
-    # 2. Fallback to Sarvam AI
-    return await sarvam_tts(text)
+    # 3. Sarvam AI (Indian languages)
+    try:
+        result = await sarvam_tts(text)
+        if result:
+            return result
+        errors.append("Sarvam TTS: returned empty audio")
+    except Exception as e:
+        errors.append(f"Sarvam TTS: {e}")
+        logger.error(f"Sarvam TTS fallback also failed: {e}")
+
+    # 4. All providers failed — return 503 (not 500)
+    error_detail = " | ".join(errors)
+    logger.error(f"All TTS providers failed: {error_detail}")
+    raise HTTPException(
+        status_code=503,
+        detail=f"All TTS providers unavailable. Errors: {error_detail}"
+    )
 
 
-async def sarvam_tts(text: str) -> bytes:
+async def sarvam_tts(text: str) -> Optional[bytes]:
     """
     Convert text to speech using Sarvam AI (Bulbul v3).
     Excellent for Indian accents and regional languages.
+    Returns None on failure (caller handles fallback).
     """
     settings = get_settings()
     api_key = settings.sarvam_api_key
     if not api_key:
-        raise ValueError("Neither OpenAI nor Sarvam API keys are configured for TTS")
+        logger.warning("Sarvam API key not configured, skipping")
+        return None
 
     try:
         import base64
@@ -263,27 +325,27 @@ async def sarvam_tts(text: str) -> bytes:
                 },
                 json={
                     "inputs": [text],
-                    "target_language_code": "en-IN", # default to Indian English
+                    "target_language_code": "en-IN",
                     "speaker": "aditya",
                     "model": "bulbul:v3",
                 },
             )
 
             if response.status_code != 200:
-                logger.error(f"Sarvam TTS failed ({response.status_code}): {response.text}")
-                raise ValueError(f"Sarvam TTS failed: {response.text}")
+                logger.error(f"Sarvam TTS failed ({response.status_code}): {response.text[:200]}")
+                return None
 
             result = response.json()
             audio_base64 = result.get("audio_content") or (result.get("audios", [None])[0] if result.get("audios") else None)
-            
+
             if not audio_base64:
                 logger.error(f"Sarvam TTS returned unexpected JSON: {result}")
-                raise ValueError("Sarvam TTS returned empty audio content")
+                return None
 
             return base64.b64decode(audio_base64)
     except Exception as e:
-        logger.error(f"Sarvam TTS critical failure: {e}")
-        raise ValueError(f"Full TTS pipeline failed: {e}")
+        logger.error(f"Sarvam TTS error: {e}")
+        return None
 
 
 async def simplify_for_voice(text: str) -> str:

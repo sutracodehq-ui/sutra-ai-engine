@@ -43,6 +43,9 @@ dependencies = [
 
     # Sync DB (entrypoint scripts — seed tenant, healthchecks)
     "psycopg2-binary>=2.9",
+
+    # Voice — free local TTS (no API key needed)
+    "edge-tts>=6.1",
 ]
 
 [project.optional-dependencies]

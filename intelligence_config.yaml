@@ -956,9 +956,20 @@ swarm:
       tools: [multimodal_engine]
 # ─── Voice: Natural Narrator ────────────────────────────────
 voice:
-  default_provider: "openai"
-  default_voice: "nova"        # nova, shimmer (expressive) | alloy (neutral)
-  max_verbatim_chars: 350      # above this, we simplify for voice
+  default_provider: "edge"       # edge (free) | openai (premium) | sarvam (Indian)
+  default_voice: "nova"          # nova, shimmer (expressive) | alloy (neutral)
+  max_verbatim_chars: 350        # above this, we simplify for voice
+
+  # Edge-TTS — free, no API key needed (Microsoft Edge neural voices)
+  edge:
+    voice_map:
+      nova: "en-IN-NeerjaNeural"          # Indian English female (natural)
+      alloy: "en-IN-PrabhatNeural"        # Indian English male
+      echo: "en-US-GuyNeural"             # American male
+      fable: "en-GB-SoniaNeural"          # British female
+      onyx: "en-US-ChristopherNeural"     # American male (deep)
+      shimmer: "en-US-JennyNeural"        # American female
+    default_edge_voice: "en-IN-NeerjaNeural"
   
   narrator:
     enabled: true
