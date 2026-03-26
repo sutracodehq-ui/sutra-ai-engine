@@ -4,7 +4,8 @@ Driver Manager — Software Factory registry for LLM providers.
 Config-driven: reads `AI_DRIVER` and `AI_FALLBACK_DRIVER` from settings,
 resolves driver instances by name, and provides automatic fallback chains.
 
-Integrates CircuitBreaker (skip dead drivers) and RetryStrategy (transient fault handling).
+Integrates CircuitBreaker (skip dead drivers), RetryStrategy (transient fault handling),
+and LoadBalancer (per-driver concurrency + smart overflow).
 """
 
 import asyncio
@@ -12,7 +13,10 @@ import logging
 import random
 import threading
 import time
+from pathlib import Path
 from typing import Any, AsyncGenerator, Callable
+
+import yaml
 
 from app.config import get_settings
 from app.services.drivers.base import LlmDriver, LlmResponse
@@ -68,6 +72,166 @@ class _CircuitBreaker:
 
     def reset(self, driver: str):
         self._states.pop(driver, None)
+
+
+# ─── Load Balancer (per-driver concurrency + smart overflow) ────
+# Tracks active requests per driver and enables instant overflow
+# to the next available driver when a driver hits its limit.
+
+def _load_driver_limits() -> dict[str, int]:
+    """Load per-driver concurrency limits from intelligence_config.yaml."""
+    try:
+        path = Path("intelligence_config.yaml")
+        if path.exists():
+            cfg = yaml.safe_load(open(path)) or {}
+            return cfg.get("load_balancer", {}).get("driver_limits", {})
+    except Exception:
+        pass
+    return {}
+
+
+# Default concurrency limits per driver (conservative for local, generous for cloud)
+_DEFAULT_DRIVER_LIMITS = {
+    "ollama": 2,       # CPU-bound, matches OLLAMA_NUM_PARALLEL
+    "groq": 20,        # Cloud API, virtually unlimited
+    "sarvam": 10,      # Cloud API
+    "openai": 20,      # Cloud API
+    "anthropic": 10,   # Cloud API
+    "gemini": 20,      # Cloud API
+    "nvidia": 10,      # Cloud API
+}
+
+
+class _DriverLoadBalancer:
+    """Per-driver concurrency tracker with smart overflow.
+
+    Tracks:
+    - Active requests per driver (via asyncio.Semaphore)
+    - Average latency per driver (exponential moving average)
+    - Error rate per driver (rolling window)
+
+    When a driver's slots are full, `pick_first_available()` reorders the
+    fallback chain to skip overloaded drivers and route to the next one.
+    """
+
+    def __init__(self):
+        yaml_limits = _load_driver_limits()
+        self._limits: dict[str, int] = {**_DEFAULT_DRIVER_LIMITS, **yaml_limits}
+        self._semaphores: dict[str, asyncio.Semaphore] = {}
+        self._active: dict[str, int] = {}
+        self._lock = asyncio.Lock()
+
+        # Health tracking
+        self._latency: dict[str, float] = {}     # EMA of latency per driver
+        self._error_count: dict[str, int] = {}    # Error count in current window
+        self._request_count: dict[str, int] = {}  # Total requests in current window
+        self._window_start: float = time.time()
+        self._window_size: float = 300.0          # 5 minute rolling window
+
+    def _get_semaphore(self, driver: str) -> asyncio.Semaphore:
+        if driver not in self._semaphores:
+            limit = self._limits.get(driver, 10)
+            self._semaphores[driver] = asyncio.Semaphore(limit)
+            self._active[driver] = 0
+        return self._semaphores[driver]
+
+    def has_capacity(self, driver: str) -> bool:
+        """Check if a driver has available slots without acquiring."""
+        sem = self._get_semaphore(driver)
+        return sem._value > 0
+
+    async def acquire(self, driver: str, timeout: float = 0.0) -> bool:
+        """Try to acquire a slot for a driver. Returns False if full (non-blocking)."""
+        sem = self._get_semaphore(driver)
+        if timeout <= 0:
+            # Non-blocking: check immediately
+            if sem._value > 0:
+                await sem.acquire()
+                self._active[driver] = self._active.get(driver, 0) + 1
+                return True
+            return False
+        else:
+            try:
+                await asyncio.wait_for(sem.acquire(), timeout=timeout)
+                self._active[driver] = self._active.get(driver, 0) + 1
+                return True
+            except asyncio.TimeoutError:
+                return False
+
+    def release(self, driver: str):
+        """Release a slot back to the pool."""
+        sem = self._get_semaphore(driver)
+        self._active[driver] = max(0, self._active.get(driver, 0) - 1)
+        sem.release()
+
+    def record_latency(self, driver: str, latency_ms: float):
+        """Record response latency (exponential moving average)."""
+        alpha = 0.3  # Weight for new observation
+        old = self._latency.get(driver, latency_ms)
+        self._latency[driver] = alpha * latency_ms + (1 - alpha) * old
+
+    def record_request(self, driver: str, success: bool):
+        """Record a completed request for error rate tracking."""
+        self._maybe_reset_window()
+        self._request_count[driver] = self._request_count.get(driver, 0) + 1
+        if not success:
+            self._error_count[driver] = self._error_count.get(driver, 0) + 1
+
+    def _maybe_reset_window(self):
+        """Reset counters if the rolling window has elapsed."""
+        if time.time() - self._window_start > self._window_size:
+            self._error_count.clear()
+            self._request_count.clear()
+            self._window_start = time.time()
+
+    def error_rate(self, driver: str) -> float:
+        """Get error rate for a driver (0.0 - 1.0)."""
+        total = self._request_count.get(driver, 0)
+        if total == 0:
+            return 0.0
+        return self._error_count.get(driver, 0) / total
+
+    def pick_first_available(self, chain: list[str], circuit: _CircuitBreaker) -> list[str]:
+        """Reorder chain: available drivers first, overloaded drivers last.
+
+        Priority: has_capacity AND circuit_ok > circuit_ok but full > rest
+        Within each group, sort by error rate (lowest first).
+        """
+        available = []
+        full_but_ok = []
+        unavailable = []
+
+        for d in chain:
+            if not circuit.is_available(d):
+                unavailable.append(d)
+            elif self.has_capacity(d):
+                available.append(d)
+            else:
+                full_but_ok.append(d)
+
+        # Sort available by error rate (healthiest first)
+        available.sort(key=lambda d: self.error_rate(d))
+
+        reordered = available + full_but_ok + unavailable
+        if reordered != list(chain):
+            logger.info(
+                f"LoadBalancer: reordered chain {chain} → {reordered} "
+                f"(active: {dict((d, self._active.get(d, 0)) for d in chain)})"
+            )
+        return reordered
+
+    def stats(self) -> dict:
+        """Get load balancer stats for monitoring."""
+        return {
+            driver: {
+                "active": self._active.get(driver, 0),
+                "limit": self._limits.get(driver, 10),
+                "has_capacity": self.has_capacity(driver),
+                "avg_latency_ms": round(self._latency.get(driver, 0), 1),
+                "error_rate": round(self.error_rate(driver), 3),
+            }
+            for driver in set(list(self._active.keys()) + list(self._limits.keys()))
+        }
 
 
 # ─── Retry Strategy (transient errors only) ─────────────────────
@@ -127,7 +291,8 @@ class DriverManager:
 
     Resolves drivers by name from a config-driven map.
     Provides fallback chain execution — if primary fails, tries fallback automatically.
-    Integrates CircuitBreaker (skip dead drivers) and RetryStrategy (handle transient errors).
+    Integrates CircuitBreaker (skip dead drivers), RetryStrategy (transient handling),
+    and LoadBalancer (per-driver concurrency + smart overflow).
     """
 
     # ─── Driver Registry (Software Factory: config → class mapping) ──
@@ -146,10 +311,15 @@ class DriverManager:
     def __init__(self):
         self._instances: dict[str, LlmDriver] = {}
         self._circuit = _CircuitBreaker(threshold=3, cooldown=60)
+        self._lb = _DriverLoadBalancer()
 
     @property
     def circuit_breaker(self) -> _CircuitBreaker:
         return self._circuit
+
+    @property
+    def load_balancer(self) -> _DriverLoadBalancer:
+        return self._lb
 
     def driver(self, name: str) -> LlmDriver:
         """Resolve a driver instance by name. Cached after first creation."""
@@ -243,47 +413,58 @@ class DriverManager:
         """Stream through the override or fallback chain.
 
         When `fallback_chain` is provided (from Brain's YAML driver_chains),
-        cascades through all providers in the chain instead of hard-failing
-        on the first pick. This enables automatic Ollama → Cloud failover.
+        cascades through all providers in the chain. The LoadBalancer
+        reorders the chain to skip overloaded drivers (smart overflow).
         """
         opts = self._clean_options(options, model_override)
 
         # Support both (system, user) and (messages) formats
-        # CRITICAL: check `not messages` (catches None AND []) — pipeline sends [] for new conversations
         if not messages:
             messages = [
                 {"role": "system", "content": system_prompt or "You are a helpful assistant."},
                 {"role": "user", "content": user_prompt or ""}
             ]
 
-        # ── Resilient Chain Streaming ──
-        # When Brain provides a full driver chain, cascade through all providers.
+        # ── Resilient Chain Streaming (with LoadBalancer) ──
         if fallback_chain and len(fallback_chain) > 1:
+            # Reorder chain based on capacity + health
+            smart_chain = self._lb.pick_first_available(fallback_chain, self._circuit)
+
             last_error = None
-            for i, driver_name in enumerate(fallback_chain):
+            for i, driver_name in enumerate(smart_chain):
                 if not self._circuit.is_available(driver_name):
-                    logger.info(f"DriverManager: {driver_name} circuit OPEN, skipping in chain")
                     continue
 
+                # Try to acquire a load balancer slot (non-blocking)
+                acquired = await self._lb.acquire(driver_name)
+                if not acquired:
+                    logger.info(f"LoadBalancer: {driver_name} at capacity, skipping to next")
+                    continue
+
+                t0 = time.time()
                 try:
                     driver = self.driver(driver_name)
-                    # Use model override only for the primary (first) driver
                     stream_opts = {**opts}
                     if i == 0 and model_override:
                         stream_opts["model"] = model_override
                     elif i > 0:
-                        # For fallback drivers, remove model override (use their default)
                         stream_opts.pop("model", None)
 
-                    logger.info(f"DriverManager: streaming with {driver_name} (chain pos {i+1}/{len(fallback_chain)})")
+                    logger.info(f"DriverManager: streaming with {driver_name} (chain pos {i+1}/{len(smart_chain)})")
                     async for chunk in driver.stream(messages, **stream_opts):
                         yield chunk
                     self._circuit.record_success(driver_name)
+                    self._lb.record_request(driver_name, success=True)
+                    self._lb.record_latency(driver_name, (time.time() - t0) * 1000)
                     return
                 except Exception as e:
                     self._circuit.record_failure(driver_name)
+                    self._lb.record_request(driver_name, success=False)
+                    self._lb.record_latency(driver_name, (time.time() - t0) * 1000)
                     last_error = e
                     logger.warning(f"DriverManager: {driver_name} stream failed in chain: {e}, trying next...")
+                finally:
+                    self._lb.release(driver_name)
 
             raise last_error or RuntimeError("All drivers in chain failed")
 
@@ -298,72 +479,101 @@ class DriverManager:
         last_error = None
 
         for driver_name in chain:
-            # Circuit breaker check
             if not self._circuit.is_available(driver_name):
                 logger.info(f"DriverManager: {driver_name} circuit OPEN, skipping")
                 continue
 
+            acquired = await self._lb.acquire(driver_name)
+            if not acquired:
+                logger.info(f"LoadBalancer: {driver_name} at capacity, skipping")
+                continue
+
+            t0 = time.time()
             try:
                 driver = self.driver(driver_name)
                 logger.info(f"DriverManager: streaming with {driver_name}")
                 async for chunk in driver.stream(messages, **opts):
                     yield chunk
                 self._circuit.record_success(driver_name)
+                self._lb.record_request(driver_name, success=True)
+                self._lb.record_latency(driver_name, (time.time() - t0) * 1000)
                 return
             except Exception as e:
                 self._circuit.record_failure(driver_name)
+                self._lb.record_request(driver_name, success=False)
                 last_error = e
                 logger.warning(f"DriverManager: {driver_name} stream failed: {e}")
+            finally:
+                self._lb.release(driver_name)
 
         raise last_error or RuntimeError("All AI drivers failed")
 
     async def _run_targeted(self, driver_name: str, callback, operation: str) -> LlmResponse:
         """Run a specific driver with retry, bypasses fallback."""
+        acquired = await self._lb.acquire(driver_name, timeout=5.0)
         try:
             driver = self.driver(driver_name)
             result = await _retry_transient(callback, driver)
             self._circuit.record_success(driver_name)
+            self._lb.record_request(driver_name, success=True)
             return result
         except Exception as e:
             self._circuit.record_failure(driver_name)
+            self._lb.record_request(driver_name, success=False)
             logger.warning(f"DriverManager: targeted {driver_name} failed: {e}")
             raise
+        finally:
+            if acquired:
+                self._lb.release(driver_name)
 
     async def _run_targeted_stream(self, driver_name: str, messages: list[dict], **options) -> AsyncGenerator[str, None]:
         """Run a specific driver for streaming, bypasses fallback."""
+        acquired = await self._lb.acquire(driver_name, timeout=5.0)
         try:
             driver = self.driver(driver_name)
             async for chunk in driver.stream(messages, **options):
                 yield chunk
             self._circuit.record_success(driver_name)
+            self._lb.record_request(driver_name, success=True)
         except Exception as e:
             self._circuit.record_failure(driver_name)
+            self._lb.record_request(driver_name, success=False)
             logger.warning(f"DriverManager: targeted {driver_name} stream failed: {e}")
             raise
+        finally:
+            if acquired:
+                self._lb.release(driver_name)
 
     async def _run_with_fallback(self, callback, operation: str) -> LlmResponse:
-        """Execute callback across the driver fallback chain with circuit breaker + retry."""
+        """Execute callback across the driver fallback chain with circuit breaker + retry + load balancer."""
         chain = self.driver_chain()
         last_error = None
 
         for driver_name in chain:
-            # Circuit breaker check — skip dead drivers
             if not self._circuit.is_available(driver_name):
                 logger.info(f"DriverManager: {driver_name} circuit OPEN, skipping for {operation}")
+                continue
+
+            acquired = await self._lb.acquire(driver_name)
+            if not acquired:
+                logger.info(f"LoadBalancer: {driver_name} at capacity for {operation}, skipping")
                 continue
 
             try:
                 driver = self.driver(driver_name)
                 logger.info(f"DriverManager: trying {driver_name} for {operation}")
 
-                # Retry transient errors before falling back
                 result = await _retry_transient(callback, driver)
                 self._circuit.record_success(driver_name)
+                self._lb.record_request(driver_name, success=True)
                 return result
             except Exception as e:
                 self._circuit.record_failure(driver_name)
+                self._lb.record_request(driver_name, success=False)
                 last_error = e
                 logger.warning(f"DriverManager: {driver_name} failed for {operation}: {e}")
+            finally:
+                self._lb.release(driver_name)
 
         logger.error(f"DriverManager: all drivers failed for {operation}", extra={"drivers_tried": chain})
         raise last_error or RuntimeError("All AI drivers failed")
@@ -383,4 +593,5 @@ def get_driver_manager() -> DriverManager:
             if _manager is None:
                 _manager = DriverManager()
     return _manager
+
 

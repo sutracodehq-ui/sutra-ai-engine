@@ -2,6 +2,17 @@
 # All configurable constants for the AI intelligence pipeline.
 # Never hardcode these in Python — edit this file instead.
 
+# ─── Load Balancer (per-driver concurrency limits) ──────────
+load_balancer:
+  driver_limits:
+    ollama: 2          # CPU-bound — matches OLLAMA_NUM_PARALLEL
+    groq: 20           # Cloud API — high concurrency
+    sarvam: 10         # Cloud API
+    openai: 20         # Cloud API
+    anthropic: 10      # Cloud API
+    gemini: 20         # Cloud API
+    nvidia: 10         # Cloud API
+
 # ─── Stock Market ───────────────────────────────────────────
 stock_symbols:
   - AAPL
