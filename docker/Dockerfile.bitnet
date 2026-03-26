@@ -1,0 +1,57 @@
+# --- Build Stage ---
+FROM ubuntu:24.04 AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    clang-18 \
+    llvm-18 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Clang as default compiler
+ENV CC=clang-18
+ENV CXX=clang++-18
+
+# Clone and build bitnet.cpp
+WORKDIR /opt/bitnet
+RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
+    mkdir build && cd build && \
+    cmake .. && \
+    make -j$(nproc)
+
+# Download model directly into image
+RUN mkdir -p /opt/bitnet/models && \
+    curl -L "https://huggingface.co/1bitLLM/bitnet_b1_58-3B/resolve/main/bitnet_b1_58-3B-Q8_0.gguf" \
+    -o /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
+
+# --- Runtime Stage ---
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install runtime tools
+RUN apt-get update && apt-get install -y \
+    libstdc++6 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built engine
+COPY --from=builder /opt/bitnet/build/bin/bitnet-cli /opt/bitnet/build/bin/bitnet-cli
+COPY --from=builder /opt/bitnet/models /opt/bitnet/models
+
+# Install Python requirements
+RUN pip install --no-cache-dir fastapi uvicorn pydantic
+
+# Copy server wrapper
+COPY scripts/bitnet_server.py /app/server.py
+
+# Env vars
+ENV BITNET_CLI=/opt/bitnet/build/bin/bitnet-cli
+ENV BITNET_MODEL=/opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
+
+EXPOSE 8081
+
+CMD ["python", "server.py"]

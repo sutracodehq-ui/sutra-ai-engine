@@ -12,6 +12,22 @@ load_balancer:
     anthropic: 10      # Cloud API
     gemini: 20         # Cloud API
     nvidia: 10         # Cloud API
+    bitnet: 5          # Local 1-bit service
+
+# ─── Provider Metadata (Base URLs & Models) ────────────────
+providers:
+  openai:
+    base_url: "https://api.openai.com/v1"
+  groq:
+    base_url: "https://api.groq.com/openai/v1"
+  nvidia:
+    base_url: "https://integrate.api.nvidia.com/v1"
+  sarvam:
+    base_url: "https://api.sarvam.ai/v1"
+  bitnet:
+    base_url: "http://sutra-ai-bitnet:8081/v1"
+  ollama:
+    base_url: "http://sutra-ai-ollama:11434/v1"
 
 # ─── Stock Market ───────────────────────────────────────────
 stock_symbols:
@@ -770,7 +786,7 @@ smart_router:
   # Driver chains per complexity tier (first available wins)
   driver_chains:
     english:
-      simple: [ollama, groq, sarvam, openai, gemini]
+      simple: [bitnet, ollama, groq, sarvam, openai, gemini]
       moderate: [ollama, groq, sarvam, openai, gemini, anthropic]
       complex: [groq, ollama, sarvam, openai, anthropic, gemini]
     indic:
@@ -798,6 +814,12 @@ smart_router:
       complex: llama-3.3-70b-versatile
     ollama:
       simple: llama3.2:1b
+      moderate: qwen2.5:3b
+      complex: llama3.1:8b
+    bitnet:
+      simple: bitnet-2b
+      moderate: bitnet-2b
+      complex: bitnet-2b
       moderate: qwen2.5:3b
       complex: gemma3:12b
     sarvam:
