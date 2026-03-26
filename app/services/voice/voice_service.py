@@ -204,7 +204,7 @@ async def edge_tts_generate(text: str, voice: Optional[str] = None) -> Optional[
 
         audio_bytes = audio_buffer.getvalue()
         if len(audio_bytes) > 0:
-            logger.info(f"Edge TTS success: {len(audio_bytes)} bytes, voice={edge_voice}, rate={rate}, pitch={pitch}")
+            logger.info(f"Edge TTS success: {len(audio_bytes)} bytes, voice={edge_voice}, settings={settings}")
             return audio_bytes
 
         logger.warning("Edge TTS returned empty audio")

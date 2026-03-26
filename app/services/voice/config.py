@@ -12,7 +12,7 @@ def get_voice_config() -> dict:
     # Dynamic path injection for Edge-TTS (ensures global install is visible to venv)
     import sys
     import os
-    global_path = "/usr/local/lib/python3.12/site-packages"
+    global_path = "/home/sutra/.local/lib/python3.12/site-packages"
     if os.path.exists(global_path) and global_path not in sys.path:
         sys.path.append(global_path)
         
