@@ -17,7 +17,7 @@ logger = logging.getLogger("bitnet-server")
 app = FastAPI(title="BitNet 1.58-bit Inference Server")
 
 # --- Config ---
-BITNET_CLI = os.environ.get("BITNET_CLI", "/opt/bitnet/build/bin/bitnet-cli")
+BITNET_CLI = os.environ.get("BITNET_CLI", "/opt/bitnet/build/bin/llama-cli")
 BITNET_MODEL = os.environ.get("BITNET_MODEL", "/opt/bitnet/models/BitNet-b1.58-2B-4T.gguf")
 DEFAULT_MAX_TOKENS = 512
 
