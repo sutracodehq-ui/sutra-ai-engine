@@ -495,6 +495,8 @@ class Brain:
         from app.services.llm_service import get_llm_service
         svc = get_llm_service()
         agent_type = opts.pop("agent_type", "unknown")
+        model_selection = opts.pop("model", None) # Pop explicit model if provided
+        
         model_overrides = {}
         settings = get_settings()
         if settings.ai_smart_router_enabled:
@@ -505,10 +507,14 @@ class Brain:
                         model_overrides[drv] = m
             except Exception:
                 pass
+        
         tiers = [("groq", "Tier1:Free"), ("gemini", "Tier2:Smart"), ("anthropic", "Tier3:Premium")]
         for driver, label in tiers:
             try:
-                mo = model_overrides.get(driver)
+                # Intelligently route model override: only apply if it matches the driver prefix or is a generic model
+                # e.g. 'gemini-2.0-flash' only goes to 'gemini' driver.
+                mo = model_selection if (model_selection and driver in model_selection.lower()) else model_overrides.get(driver)
+                
                 resp = await svc.complete(prompt=prompt, system_prompt=system_prompt, driver=driver, model=mo, **opts)
                 resp.metadata = resp.metadata or {}
                 resp.metadata["cloud_tier"] = label

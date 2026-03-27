@@ -165,7 +165,7 @@ class LoraTrainer:
         """
         config = _load_training_config()
         settings = get_settings()
-        ollama_url = settings.ollama_url
+        ollama_url = settings.ollama_base_url
         base_model = settings.ollama_model
 
         # Read training examples
@@ -238,15 +238,55 @@ PARAMETER top_p 0.9
                 "base_model": base_model,
             }
 
-    # ─── Step 5: Full Pipeline ──────────────────────────────
+    # ─── Step 5: Self-Improvement Cycle ─────────────────────
+    
+    async def run_self_improvement_cycle(self, domain: str, query: str) -> dict:
+        """
+        Run a complete search-driven self-improvement cycle:
+        1. Search & Distill (non-blocking via LiveKnowledgeCycle)
+        2. Validate & Filter
+        3. Local Fine-Tune (Few-shot injection)
+        4. Benchmark & Gate
+        """
+        from app.services.intelligence.live_knowledge import get_live_knowledge_cycle
+        cycle = get_live_knowledge_cycle()
+        
+        logger.info(f"LoraTrainer: starting self-improvement for [{domain}]")
+        
+        # 1. Search and Distill (Creates and saves new JSONL data)
+        new_examples_count = await cycle.run_cycle(domain, query)
+        if new_examples_count == 0:
+            return {"status": "skipped", "reason": "No new knowledge found/distilled", "domain": domain}
+            
+        # 2. Run the standard pipeline (which now picks up the new live knowledge files)
+        result = await self.run_pipeline()
+        result["domain"] = domain
+        result["new_knowledge_count"] = new_examples_count
+        
+        # 3. Benchmark Gate (Optional: Verify performance improved)
+        try:
+            from app.services.intelligence.domain_evolution import get_domain_evolution
+            evo = get_domain_evolution()
+            # Benchmark the new model variant
+            bench = await evo.benchmark_domain(domain, model_name=result.get("new_model"))
+            result["benchmark"] = {
+                "quality": bench.get("avg_quality"),
+                "pass_rate": bench.get("pass_rate")
+            }
+        except Exception as e:
+            logger.warning(f"LoraTrainer: benchmark gate failed: {e}")
+            
+        return result
+
+    # ─── Step 6: Full Pipeline ──────────────────────────────
 
     async def run_pipeline(self) -> dict:
         """
         Run the complete LoRA fine-tuning pipeline:
-        1. Collect all training data
+        1. Collect all training data (including live_knowledge_*.jsonl)
         2. Validate and filter
         3. Create merged training file
-        4. Fine-tune the model
+        4. Fine-tune the model (Ollama context injection)
         """
         config = _load_training_config()
         min_examples = config.get("min_examples_for_training", 20)
@@ -302,10 +342,11 @@ PARAMETER top_p 0.9
         """Extract assistant message from a training example."""
         messages = example.get("messages", [])
         assistant_msg = next((m for m in messages if m.get("role") == "assistant"), {})
-        return assistant_msg.get("content", "")[:500]
+        return assistant_msg.get("content", "")[:1000] # Allow longer assistant context
 
     async def close(self):
         await self._client.aclose()
+
 
 
 # ─── Singleton ──────────────────────────────────────────────
