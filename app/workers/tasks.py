@@ -41,8 +41,25 @@ def training_data_sync():
 @celery_app.task(name="app.workers.ollama_finetune_job.ollama_fine_tune")
 def ollama_fine_tune():
     """Weekly: Regenerate fine-tuned Ollama Modelfiles from training data."""
-    # TODO: Phase 3 — OllamaFineTune implementation
-    pass
+    import asyncio
+    from app.services.intelligence.lora_trainer import get_lora_trainer
+    
+    trainer = get_lora_trainer()
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(trainer.run_pipeline())
+    return result
+
+
+@celery_app.task(name="app.workers.self_improvement_job.run_self_improvement_cycle")
+def run_self_improvement_cycle(domain: str, query: str):
+    """Search & Learn Cycle: Proactively find and ingest new field knowledge."""
+    import asyncio
+    from app.services.intelligence.lora_trainer import get_lora_trainer
+    
+    trainer = get_lora_trainer()
+    loop = asyncio.get_event_loop()
+    result = loop.run_until_complete(trainer.run_self_improvement_cycle(domain, query))
+    return result
 
 
 @celery_app.task(name="app.workers.token_aggregator_job.token_usage_aggregate")

@@ -24,6 +24,7 @@ from typing import Optional
 import yaml
 
 from app.config import get_settings
+from app.services.intelligence.config_loader import get_intelligence_config
 
 logger = logging.getLogger(__name__)
 
@@ -36,25 +37,9 @@ _CONFIG_TTL: float = 60.0  # reload YAML every 60s
 
 
 def _load_config() -> dict:
-    """Load smart_router config from YAML. Cached with 60s TTL."""
-    global _config_cache, _config_loaded_at
-    import time as _time
-
-    now = _time.monotonic()
-    if _config_cache is not None and (now - _config_loaded_at) < _CONFIG_TTL:
-        return _config_cache
-
-    config_path = Path("intelligence_config.yaml")
-    if not config_path.exists():
-        _config_cache = {}
-        _config_loaded_at = now
-        return _config_cache
-
-    with open(config_path) as f:
-        full = yaml.safe_load(f) or {}
-
-    _config_cache = full.get("smart_router", {})
-    _config_loaded_at = now
+    """Load smart_router section from the shared intelligence config."""
+    full = get_intelligence_config()
+    return full.get("smart_router", {})
 
     # Reset precomputed sets so they rebuild from new config
     global _indic_scripts, _hinglish_words, _complex_signals, _simple_signals
@@ -199,6 +184,7 @@ def _driver_has_key(driver: str) -> bool:
         "groq": settings.groq_api_key,
         "sarvam": settings.sarvam_api_key,
         "nvidia": settings.nvidia_api_key,
+        "bitnet": "always_available",
         "ollama": "always_available",
     }
     return bool(key_map.get(driver, ""))

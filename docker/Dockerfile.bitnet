@@ -1,0 +1,73 @@
+# --- Build Stage ---
+FROM ubuntu:24.04 AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    clang-18 \
+    llvm-18 \
+    python3 \
+    python3-pip \
+    python3-venv \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Clang as default compiler
+ENV CC=clang-18
+ENV CXX=clang++-18
+
+# Clone and build bitnet.cpp (replicating setup_env.py pipeline exactly)
+WORKDIR /opt/bitnet
+RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
+    # Step 1: Install gguf package (override PEP 668 for builder stage)
+    pip3 install --break-system-packages 3rdparty/llama.cpp/gguf-py && \
+    # Step 2: Generate bitnet-lut-kernels.h into include/ (gen_code in setup_env.py)
+    # This is the ONLY file missing from root include/ — ggml-bitnet.h already ships there.
+    # Do NOT copy other headers: CMake adds BOTH ../include/ AND ../../../../include/
+    # as include paths, so duplicating ggml.h into root include/ causes redefinitions.
+    python3 utils/codegen_tl1.py --model bitnet_b1_58-large \
+        --BM 256,128,256 --BK 128,64,128 --bm 32,64,32 && \
+    # Step 3: CMake configure with official aarch64 flags (compile in setup_env.py)
+    cmake -B build \
+        -DBITNET_ARM_TL1=OFF \
+        -DCMAKE_C_COMPILER=clang-18 \
+        -DCMAKE_CXX_COMPILER=clang++-18 && \
+    # Step 4: Build
+    cmake --build build --config Release -j$(nproc)
+
+# Verify build
+RUN ls -l /opt/bitnet/build/bin/llama-cli
+RUN mkdir -p /opt/bitnet/models && \
+    curl -L "https://huggingface.co/1bitLLM/bitnet_b1_58-3B/resolve/main/bitnet_b1_58-3B-Q8_0.gguf" \
+    -o /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
+
+# --- Runtime Stage ---
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install runtime tools
+RUN apt-get update && apt-get install -y \
+    libstdc++6 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built engine
+COPY --from=builder /opt/bitnet/build/bin/llama-cli /opt/bitnet/build/bin/llama-cli
+COPY --from=builder /opt/bitnet/models /opt/bitnet/models
+
+# Install Python requirements
+RUN pip install --no-cache-dir fastapi uvicorn pydantic
+
+# Copy server wrapper
+COPY scripts/bitnet_server.py /app/server.py
+
+# Env vars
+ENV BITNET_CLI=/opt/bitnet/build/bin/llama-cli
+ENV BITNET_MODEL=/opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
+
+EXPOSE 8081
+
+CMD ["python", "server.py"]

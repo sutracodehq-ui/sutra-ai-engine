@@ -26,6 +26,7 @@ from typing import AsyncGenerator, Optional
 import httpx
 
 from app.config import get_settings
+from app.services.intelligence.config_loader import get_provider_config
 from app.services.drivers.base import LlmDriver, LlmResponse
 
 logger = logging.getLogger(__name__)
@@ -275,41 +276,59 @@ class DriverRegistry:
         self._instances: dict[str, LlmDriver] = {}
 
     def _create_driver(self, name: str) -> LlmDriver:
-        """Create a driver instance from env settings."""
+        """Create a driver instance using a polymorphic hashmap pattern."""
         s = get_settings()
 
-        if name == "ollama":
-            return OllamaAdapter(
-                base_url=s.ollama_base_url, model=s.ollama_model,
-                max_tokens=s.ollama_max_tokens, temperature=s.ollama_temperature,
-            )
-        if name == "gemini":
-            return GeminiAdapter(
-                api_key=s.gemini_api_key, model=s.gemini_model,
-                max_tokens=s.gemini_max_tokens, temperature=s.gemini_temperature,
-            )
-        if name == "anthropic":
-            return AnthropicAdapter(
-                api_key=s.anthropic_api_key, model=s.anthropic_model,
-                max_tokens=s.anthropic_max_tokens, temperature=s.anthropic_temperature,
-            )
-
-        # All OpenAI-compatible providers
-        provider_config = {
-            "openai": {"api_key": s.openai_api_key, "base_url": "https://api.openai.com/v1",
-                        "model": s.openai_model, "max_tokens": s.openai_max_tokens, "temperature": s.openai_temperature},
-            "groq": {"api_key": s.groq_api_key, "base_url": "https://api.groq.com/openai/v1",
-                      "model": s.groq_model, "max_tokens": s.groq_max_tokens, "temperature": s.groq_temperature},
-            "nvidia": {"api_key": s.nvidia_api_key, "base_url": "https://integrate.api.nvidia.com/v1",
-                        "model": s.nvidia_model, "max_tokens": s.nvidia_max_tokens, "temperature": s.nvidia_temperature},
-            "sarvam": {"api_key": s.sarvam_api_key, "base_url": "https://api.sarvam.ai/v1",
-                        "model": s.sarvam_model, "max_tokens": s.sarvam_max_tokens, "temperature": s.sarvam_temperature},
+        # 1. Specialized Adapters (Polymorphic Registry)
+        # Software Factory Principle: Prefer hashmap over anything.
+        adapters = {
+            "ollama": lambda: OllamaAdapter(
+                base_url=get_provider_config("ollama").get("base_url", s.ollama_base_url),
+                model=s.ollama_model,
+                max_tokens=s.ollama_max_tokens,
+                temperature=s.ollama_temperature,
+            ),
+            "gemini": lambda: GeminiAdapter(
+                api_key=s.gemini_api_key, 
+                model=s.gemini_model,
+                max_tokens=s.gemini_max_tokens, 
+                temperature=s.gemini_temperature,
+            ),
+            "anthropic": lambda: AnthropicAdapter(
+                api_key=s.anthropic_api_key, 
+                model=s.anthropic_model,
+                max_tokens=s.anthropic_max_tokens, 
+                temperature=s.anthropic_temperature,
+            ),
         }
 
-        cfg = provider_config.get(name)
-        if not cfg:
-            raise ValueError(f"Unknown driver: {name}")
-        return OpenAICompatDriver(name, **cfg)
+        if name in adapters:
+            return adapters[name]()
+
+        # 2. Generic OpenAI-Compatible (Hashmap-driven)
+        auth_keys = {
+            "openai": s.openai_api_key,
+            "groq": s.groq_api_key,
+            "nvidia": s.nvidia_api_key,
+            "sarvam": s.sarvam_api_key,
+            "bitnet": "local",
+        }
+
+        api_key = auth_keys.get(name)
+        meta = get_provider_config(name)
+
+        if not api_key or not meta:
+            raise ValueError(f"Unknown driver or missing configuration: {name}")
+
+        full_cfg = {
+            **meta,    # base_url from YAML
+            "api_key": api_key,
+            "model": getattr(s, f"{name}_model", None),
+            "max_tokens": getattr(s, f"{name}_max_tokens", 512),
+            "temperature": getattr(s, f"{name}_temperature", 0.7),
+        }
+
+        return OpenAICompatDriver(name, **full_cfg)
 
     def driver(self, name: str) -> LlmDriver:
         """Get or create a driver instance (cached)."""

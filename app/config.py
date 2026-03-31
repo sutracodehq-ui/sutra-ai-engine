@@ -155,6 +155,12 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/2"
 
 
+    # ─── BitNet (1-bit ultra-light local) ─────
+    bitnet_api_url: str = "http://sutra-ai-bitnet:8081/v1"
+    bitnet_model: str = "bitnet-2b"
+    bitnet_max_tokens: int = 512
+    bitnet_temperature: float = 0.3
+
 @lru_cache
 def get_settings() -> Settings:
     """Cached settings instance — parsed once per process."""

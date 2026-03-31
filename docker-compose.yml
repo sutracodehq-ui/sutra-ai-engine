@@ -176,6 +176,27 @@ services:
     restart: "no"
 
 
+  # ─── BitNet (1-bit Ultra-Light LLM) ────────────────────
+  sutra-ai-bitnet:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bitnet
+    container_name: sutra-ai-bitnet
+    ports:
+      - "8081:8081"
+    volumes:
+      - bitnet_models:/opt/bitnet/models
+    environment:
+      BITNET_MODEL: /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
   # ─── Adminer (DB Management UI) ───────────────────────
   sutra-ai-adminer:
     image: adminer:latest
@@ -197,6 +218,7 @@ volumes:
   redis_data:
   chromadb_data:
   ollama_data:
+  bitnet_models:
   sutra_home:          # /home/sutra — ChromaDB embedding cache
   training_data:       # /app/training — chat logs, escalations, training data
 
