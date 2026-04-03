@@ -142,7 +142,7 @@ class Settings(BaseSettings):
     ai_edit_analysis: bool = True
     ai_ab_testing: bool = True
     ai_explore_rate: float = 0.2
-    ai_agent_memory_enabled: bool = True
+    ai_agent_memory_enabled: bool = False
 
     # ─── Hybrid Routing ──────────────────────────────
     ai_hybrid_routing: bool = True

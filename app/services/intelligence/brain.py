@@ -84,7 +84,6 @@ def _cfg(section: str, key: str = None, default=None):
 def _ensure_sets():
     """Build frozensets and lookup tables from YAML lists on first use."""
     global _indic_scripts, _hinglish_words, _complex_signals, _simple_signals
-    global _indic_ranges, _script_labels
     if _indic_scripts is not None:
         return
     sr = _cfg("smart_router", default={})
@@ -93,61 +92,8 @@ def _ensure_sets():
     _complex_signals = frozenset(sr.get("complex_signals", []))
     _simple_signals = frozenset(sr.get("simple_signals", []))
 
-    # Build Indic char ranges from YAML config (never hardcoded)
-    raw_ranges = sr.get("indic_ranges", {})
-    _indic_ranges = [(v[0], v[1], k) for k, v in raw_ranges.items() if isinstance(v, list) and len(v) == 2]
-    _script_labels = sr.get("script_labels", {})
 
-
-# Precomputed at first use from YAML
-_indic_ranges: list[tuple] | None = None
-_script_labels: dict[str, str] | None = None
-
-
-def _detect_script_fast(char: str) -> str | None:
-    """O(1) script detection using config-driven Unicode code point ranges."""
-    cp = ord(char)
-    # Fast reject: ASCII range (most common case)
-    if cp < 0x0900:
-        return None
-    for lo, hi, script in _indic_ranges:
-        if lo <= cp <= hi:
-            return script
-    return None
-
-
-def detect_language(text: str) -> str:
-    """
-    O(1) language detection with regional Indic script identification.
-    Uses Unicode code point ranges (no unicodedata.name() calls).
-
-    Returns: specific language ('tamil', 'bengali', 'hindi', 'hinglish', 'english')
-    """
-    if not text:
-        return "english"
-    _ensure_sets()
-    sr = _cfg("smart_router", default={})
-    sample = text[:sr.get("sample_chars", 100)]
-    alpha_count = indic_count = 0
-    script_counts: dict[str, int] = {}
-    for char in sample:
-        if not char.isalpha():
-            continue
-        alpha_count += 1
-        script = _detect_script_fast(char)
-        if script:
-            indic_count += 1
-            script_counts[script] = script_counts.get(script, 0) + 1
-    if alpha_count > 0 and (indic_count / alpha_count) > sr.get("indic_threshold", 0.3):
-        # Return the specific dominant script
-        if script_counts:
-            dominant = max(script_counts, key=script_counts.get)
-            return _script_labels.get(dominant, "indic")
-        return "indic"
-    words = text.lower().split()[:sr.get("sample_words", 10)]
-    if sum(1 for w in words if w in _hinglish_words) >= sr.get("hinglish_min_matches", 2):
-        return "hinglish"
-    return "english"
+from app.services.intelligence.multilingual import detect_language
 
 
 # ─── Response Filter ──────────────────────────────────────────

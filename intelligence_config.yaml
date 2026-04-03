@@ -793,15 +793,16 @@ smart_router:
   default_complexity: moderate
 
   # Driver chains per complexity tier (first available wins)
+  # Hardware Factory preference: Local Execution -> Free Cloud -> Paid Cloud
   driver_chains:
     english:
       simple: [bitnet, ollama, groq, sarvam, openai, gemini]
-      moderate: [ollama, groq, sarvam, openai, gemini, anthropic]
-      complex: [groq, ollama, sarvam, openai, anthropic, gemini]
+      moderate: [ollama, bitnet, groq, sarvam, openai, gemini, anthropic]
+      complex: [ollama, bitnet, groq, sarvam, openai, anthropic, gemini]
     indic:
-      simple: [ollama, groq, sarvam, openai, gemini]
-      moderate: [ollama, groq, sarvam, openai, gemini, anthropic]
-      complex: [groq, ollama, sarvam, openai, anthropic, gemini]
+      simple: [ollama, bitnet, groq, sarvam, openai, gemini]
+      moderate: [ollama, bitnet, groq, sarvam, openai, gemini, anthropic]
+      complex: [ollama, bitnet, groq, sarvam, openai, anthropic, gemini]
 
   # Model tiers per driver per complexity
   model_tiers:
@@ -943,7 +944,6 @@ quality:
     # Use for complex, structured-JSON agents — local models can't reliably
     # produce complete multi-key JSON under time pressure.
     direct_cloud_agents:
-      - quiz_generator
       - note_generator
       - flashcard_creator
       - lecture_planner

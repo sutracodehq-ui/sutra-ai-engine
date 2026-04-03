@@ -92,6 +92,7 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
     except Exception as e:
         task.status = "failed"
         task.error = str(e)
+        logger.error(f"Agent execution failed: {e}")
         raise
 
 

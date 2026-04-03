@@ -365,6 +365,8 @@ class DriverRegistry:
         clean = self._clean(opts, model_override)
 
         if driver_override:
+            if not guardian.circuit_breaker.is_available(driver_override):
+                raise RuntimeError(f"Requested driver {driver_override} is currently unavailable (circuit OPEN)")
             d = self.driver(driver_override)
             result = await guardian.with_retry(d.complete, system_prompt, user_prompt, **clean)
             guardian.circuit_breaker.record_success(driver_override)
@@ -381,6 +383,8 @@ class DriverRegistry:
         clean = self._clean(opts, model_override)
 
         if driver_override:
+            if not guardian.circuit_breaker.is_available(driver_override):
+                raise RuntimeError(f"Requested driver {driver_override} is currently unavailable (circuit OPEN)")
             d = self.driver(driver_override)
             result = await guardian.with_retry(d.chat, messages, **clean)
             guardian.circuit_breaker.record_success(driver_override)
@@ -400,6 +404,8 @@ class DriverRegistry:
                         {"role": "user", "content": user_prompt or ""}]
 
         if driver_override:
+            if not guardian.circuit_breaker.is_available(driver_override):
+                raise RuntimeError(f"Requested driver {driver_override} is currently unavailable (circuit OPEN)")
             d = self.driver(driver_override)
             async for chunk in d.stream(messages, **clean):
                 yield chunk

@@ -262,7 +262,7 @@ class AiAgentHub:
     # ─── Safe Inter-Agent Delegation ──────────────────────────
 
     MAX_DELEGATION_DEPTH = 3     # Max hops: A → B → C → D (stops)
-    DELEGATION_TIMEOUT = 30      # Seconds before a delegation times out
+    DELEGATION_TIMEOUT = 60      # Seconds before a delegation times out (safe for complex cloud tasks)
 
     async def delegate(
         self,

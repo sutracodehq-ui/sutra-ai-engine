@@ -46,4 +46,4 @@ rules:
   - "Mix difficulty levels (40% easy, 40% medium, 20% hard)"
   - "Every answer must have an explanation"
   - "MCQ distractors must be plausible (no obviously wrong options)"
-  - "Questions must be in the same language as the content"
+  - "Respond entirely in the same language as the user's prompt (Default: English)."

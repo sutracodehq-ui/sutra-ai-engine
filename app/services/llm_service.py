@@ -8,7 +8,7 @@ Software Factory: consumers use LlmService, never drivers directly.
 import logging
 from typing import AsyncGenerator
 
-from app.services.driver_manager import get_driver_manager
+from app.services.intelligence.driver import get_driver_registry
 from app.services.drivers.base import LlmResponse
 
 logger = logging.getLogger(__name__)
@@ -17,20 +17,19 @@ logger = logging.getLogger(__name__)
 class LlmService:
     """Unified LLM interface with explicit driver/model control."""
 
-    def __init__(self, manager=None):
-        self._manager = manager or get_driver_manager()
+    def __init__(self, registry=None):
+        self._registry = registry or get_driver_registry()
 
     async def complete(
         self,
         prompt: str,
         system_prompt: str = "You are a helpful assistant.",
-        messages: list[dict] | None = None,
         driver: str | None = None,
         model: str | None = None,
         **kwargs
     ) -> LlmResponse:
-        """Single-turn completion with explicit driver/model overrides."""
-        return await self._manager.complete(
+        """Single-turn completion via hardened registry."""
+        return await self._registry.complete(
             system_prompt,
             prompt,
             driver_override=driver,
@@ -38,26 +37,41 @@ class LlmService:
             **kwargs
         )
 
+    async def chat(
+        self,
+        messages: list[dict],
+        system_prompt: str | None = None,
+        driver: str | None = None,
+        model: str | None = None,
+        **kwargs
+    ) -> LlmResponse:
+        """Chat completion via hardened registry."""
+        if system_prompt and not any(m["role"] == "system" for m in messages):
+            messages.insert(0, {"role": "system", "content": system_prompt})
+            
+        return await self._registry.chat(
+            messages,
+            driver_override=driver,
+            model_override=model,
+            **kwargs
+        )
+
     async def stream(
         self,
-        prompt: str,
+        prompt: str | None = None,
         system_prompt: str = "You are a helpful assistant.",
         messages: list[dict] | None = None,
         driver: str | None = None,
         model: str | None = None,
-        fallback_chain: list[str] | None = None,
         **kwargs
     ) -> AsyncGenerator[str, None]:
-        """Streaming completion with explicit driver/model overrides and optional fallback chain."""
-        # Convert single prompt to a messages list if driver prefers it
-        # Most drivers in our system handle (system, user) correctly already.
-        async for chunk in self._manager.stream(
-            system_prompt,
-            prompt,
+        """Streaming completion via hardened registry."""
+        async for chunk in self._registry.stream(
+            system_prompt=system_prompt,
+            user_prompt=prompt,
             messages=messages,
             driver_override=driver,
             model_override=model,
-            fallback_chain=fallback_chain,
             **kwargs
         ):
             yield chunk

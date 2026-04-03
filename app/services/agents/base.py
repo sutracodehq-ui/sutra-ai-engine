@@ -41,20 +41,28 @@ class BaseAgent:
         with open(self.config_path, "r") as f:
             return yaml.safe_load(f)
 
-    def _build_from_config(self, context: dict | None = None, stream: bool = False) -> str:
-        """
-        Build a system prompt from the static YAML config.
-        
-        Auto-injections:
-        1. Brand/Org Context: Injects brand, product, and organization info when available
-        2. Chain-of-Thought: Adds reasoning instructions for better output quality
-        3. Output Format: JSON for REST (/run), markdown for SSE (/stream)
-        4. Rules: Appends any agent-specific rules from YAML
-        """
-        prompt = self._config.get("system_prompt", "You are a helpful AI assistant.")
+    def _get_core_prompt(self) -> str:
+        """Get the base system prompt from YAML."""
+        return self._config.get("system_prompt", "You are a helpful AI assistant.")
 
-        # ─── Smart Context Injection (Polymorphic — config-driven) ────
-        # Map: (context_key_or_fallback, display_label)
+    def _get_peer_summary(self) -> str:
+        """Build a compact summary of peer agents for system prompt injection."""
+        try:
+            from app.services.agents.hub import get_agent_hub
+            hub = get_agent_hub()
+            lines = []
+            for info in hub.agent_info():
+                if info["identifier"] != self.identifier:
+                    lines.append(f"- **{info['identifier']}**: {info.get('description', info.get('domain', ''))}")
+            return "\n".join(lines[:30])
+        except Exception:
+            return ""
+
+    def _apply_injections(self, base_prompt: str, context: dict | None = None, stream: bool = False) -> str:
+        """Apply universal Software Factory injections to a core prompt string."""
+        prompt = base_prompt
+
+        # ─── Smart Context Injection (Brand/Org) ──────────
         CONTEXT_FIELDS = {
             ("brand_name", "organization_name"): "Organization/Brand",
             ("brand_description", "organization_description"): "About",
@@ -74,156 +82,73 @@ class BaseAgent:
                 for value in [next((context[k] for k in keys if context.get(k)), None)]
                 if value
             ]
-
             if context_parts:
                 ctx_text = "\n".join(context_parts)
-                prompt += (
-                    f"\n\n## Brand & Organization Context"
-                    f"\nYou are representing this brand/organization. Use this information to give specific, "
-                    f"contextual responses — never give generic advice that ignores this context."
-                    f"\n{ctx_text}"
-                )
+                prompt += f"\n\n## Brand & Organization Context\n{ctx_text}"
 
         # ─── Chain-of-Thought Injection ───────────────────
-        cot_instruction = (
+        prompt += (
             "\n\n## CRITICAL: Internal Reasoning Only"
-            "\nThink carefully before answering, but NEVER show your reasoning "
-            "in the output. Do NOT include phrases like 'Let me think', "
-            "'THINKING PROCESS', 'Step 1:', or any internal reasoning. "
-            "Your output must contain ONLY the final, polished response "
-            "— nothing else."
+            "\nThink carefully before answering, but NEVER show your reasoning in the output. "
+            "Your output must contain ONLY the final response."
         )
-        prompt += cot_instruction
 
-        # ─── Output Format (mode-aware) ───────────────────
+        # ─── Output Format & Suggestions ──────────────────
         schema = self._config.get("response_schema", {})
-
         if stream:
-            # STREAM mode → conversational markdown for real-time display
             prompt += (
                 "\n\n## Output Format"
-                "\nRespond in **conversational markdown** — NOT JSON."
-                "\nUse bold headings, bullet points, numbered steps, and emoji for clarity."
-                "\nDo NOT wrap your response in ```json``` code blocks."
-                "\nAt the very end of your response, add 2-3 follow-up suggestions "
-                "as a bullet list under a '**Suggestions:**' heading."
+                "\nRespond in **conversational markdown**. Use bold, bullets, and emoji."
+                "\nAt the very end, add 2-3 follow-up suggestions under a '**Suggestions:**' heading."
             )
         else:
-            # RUN mode → structured JSON for programmatic consumption
-            if isinstance(schema, dict) and schema.get("format") == "json":
-                fields = schema.get("fields", [])
-                fields_str = ", ".join(f'"{f}"' for f in fields) if fields else "relevant fields"
+            if isinstance(schema, (dict, list)):
+                fields = []
+                if isinstance(schema, dict) and schema.get("format") == "json":
+                    fields = schema.get("fields", []).copy()
+                elif isinstance(schema, list):
+                    fields = schema.copy()
+                
+                if "suggestions" not in fields:
+                    fields.append("suggestions")
+                
+                fields_str = ", ".join(f'"{f}"' for f in fields)
                 prompt += (
-                    f"\n\n## Output Format"
-                    f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
-                    f"\nRequired top-level keys: {fields_str}"
-                    f"\nEnsure all values are properly typed (strings, numbers, arrays as appropriate)."
-                )
-            elif isinstance(schema, list) and schema:
-                fields_str = ", ".join(f'"{f}"' for f in schema)
-                prompt += (
-                    f"\n\n## Output Format"
-                    f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
+                    f"\n\n## Output Format (STRICT JSON)"
+                    f"\nYou MUST respond with valid JSON only. No markdown code fences. No explanations."
                     f"\nRequired top-level keys: {fields_str}"
                 )
 
-        # ─── Rules Injection ──────────────────────────────
+        # ─── Specialist Peer Delegation ──────────────
+        peer_info = self._get_peer_summary()
+        if peer_info:
+            prompt += f"\n\n## Specialist Peers\nIf a query is outside your expertise, suggest delegating to one of these:\n{peer_info}"
+
+        # ─── Agent-Specific Rules (Static YAML) ───────────
         rules = self._config.get("rules", [])
         if rules:
             rules_text = "\n".join(f"- {r}" for r in rules)
-            prompt += f"\n\n## Rules\n{rules_text}"
-
-        # ─── Capabilities Context ─────────────────────────
-        capabilities = self._config.get("capabilities", [])
-        if capabilities:
-            caps_text = "\n".join(f"- {c}" for c in capabilities)
-            prompt += f"\n\n## Your Capabilities\n{caps_text}"
-
-        # ─── Peer Awareness (Collaboration) ───────────────
-        peer_info = self._get_peer_summary()
-        if peer_info:
-            delegate_note = (
-                'include a "delegate_to" key in your JSON response'
-                if not stream else
-                "suggest delegating to the appropriate agent"
-            )
-            prompt += (
-                "\n\n## Collaboration — Your Specialist Peers"
-                "\nYou have access to these specialist agents. If a user's query is outside your expertise, "
-                f"{delegate_note} with the agent identifier."
-                "\nOnly delegate if the query is clearly better handled by another agent."
-                f"\n{peer_info}"
-            )
-
-        # ─── Proactive Suggestions ────────────────────────
-        if stream:
-            prompt += (
-                "\n\n## Proactive Suggestions"
-                "\nAt the end of your response, under '**Suggestions:**', include 2-3 specific, "
-                "actionable follow-up questions or next steps the user can take."
-            )
-        else:
-            prompt += (
-                "\n\n## Proactive Suggestions"
-                '\nAlways include a "suggestions" key in your JSON response. This must be an array of 2-3 specific, actionable '
-                "follow-up questions or next steps the user can take."
-            )
-
-        # ─── Re-enforce Output Format (JSON only) ─────────
-        if not stream and isinstance(schema, dict) and schema.get("format") == "json":
-            fields = schema.get("fields", []).copy()
-            if "suggestions" not in fields:
-                fields.append("suggestions")
-            fields_str = ", ".join(f'"{f}"' for f in fields)
-            prompt += (
-                f"\n\n## Refined Output Format"
-                f"\nYou MUST respond with valid JSON only. No markdown, no code fences, no explanations."
-                f"\nRequired top-level keys: {fields_str}"
-            )
+            prompt += f"\n\n## Agent Rules\n{rules_text}"
 
         return prompt
 
-    def _get_peer_summary(self) -> str:
-        """Build a compact summary of peer agents for system prompt injection."""
-        try:
-            from app.services.agents.hub import get_agent_hub
-            hub = get_agent_hub()
-            lines = []
-            for info in hub.agent_info():
-                if info["identifier"] != self.identifier:
-                    lines.append(f"- **{info['identifier']}**: {info.get('description', info.get('domain', ''))}")
-            # Limit to 30 peers to avoid prompt bloat
-            return "\n".join(lines[:30])
-        except Exception:
-            return ""
-
     async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None, stream: bool = False) -> Tuple[str, Optional[int]]:
-        """
-        Resolve the system prompt via the Self-Optimizing Prompt Engine.
-        
-        Strategy:
-        1. PromptEngine selects champion or candidate (with explore rate)
-        2. Fallback to YAML config if no DB prompts exist
-        
-        Returns (prompt_text, optimization_id).
-        """
-        if not db:
-            return self._build_from_config(context, stream=stream), None
+        """Resolve final system prompt via composition."""
+        core_prompt = self._get_core_prompt()
+        opt_id = None
 
-        try:
-            from app.services.intelligence.brain import get_brain
-            brain = get_brain()
+        if db:
+            try:
+                from app.services.intelligence.brain import get_brain
+                brain = get_brain()
+                prompt_text, resolved_opt_id = await brain.select_prompt(self.identifier, db)
+                if prompt_text:
+                    core_prompt = prompt_text
+                    opt_id = resolved_opt_id
+            except Exception as e:
+                logger.error(f"Brain resolution failed for {self.identifier}: {e}")
 
-            prompt_text, opt_id = await brain.select_prompt(self.identifier, db)
-            if prompt_text:
-                return prompt_text, opt_id
-
-        except Exception as e:
-            logger.error(f"Brain.select_prompt fallback for {self.identifier}: {e}")
-
-        # Final fallback: Static YAML with CoT/JSON injections
-        return self._build_from_config(context, stream=stream), None
-
+        return self._apply_injections(core_prompt, context, stream=stream), opt_id
 
     async def build_messages(
         self, 
@@ -236,37 +161,16 @@ class BaseAgent:
         """Build the full message array for the LLM."""
         system_prompt, opt_id = await self.get_system_prompt(db, context, stream=stream)
 
-        # ─── Inject Multilingual Support ──────────────────
+        # ─── Language Guard ──────────────────
         from app.services.intelligence.multilingual import get_language_instruction
-        language_code = (context or {}).get("language")  # e.g. "hi", "mai", "bho"
+        language_code = (context or {}).get("language")
         lang_instruction = get_language_instruction(language_code)
         if lang_instruction:
             system_prompt = f"{system_prompt}\n\n{lang_instruction}"
-        elif not language_code:
-            # ─── Language Guard: detect prompt language and enforce it ──
-            # Prevents memory/RAG entries in a different language (e.g. Hindi
-            # from old Ollama responses) from overriding the output language.
-            try:
-                from app.services.intelligence.brain import detect_language
-                detected = detect_language(prompt)
-                if detected == "english":
-                    system_prompt += (
-                        "\n\n## Language Enforcement"
-                        "\nYou MUST respond entirely in English. Do NOT respond in Hindi, "
-                        "Hinglish, or any other language, even if prior examples in this "
-                        "conversation are in another language. English only."
-                    )
-                elif detected in ("hindi", "hinglish"):
-                    system_prompt += (
-                        f"\n\n## Language Enforcement"
-                        f"\nRespond entirely in {detected.capitalize()}."
-                    )
-            except Exception:
-                pass
-
+        
         messages = [{"role": "system", "content": system_prompt}]
 
-        # ─── Self-Learning: Inject RAG Memory ─────────────
+        # ─── RAG Memory ──
         settings = get_settings()
         if settings.ai_agent_memory_enabled:
             try:
@@ -275,18 +179,37 @@ class BaseAgent:
                 examples = await mem.recall(self.identifier, prompt)
 
                 for ex in examples:
-                    messages.append({"role": "user", "content": ex.get("content", "").split("\nA: ")[0].replace("Q: ", "")})
-                    parts = ex.get("content", "").split("\nA: ")
-                    messages.append({"role": "assistant", "content": parts[1] if len(parts) > 1 else parts[0]})
-            except Exception as e:
-                logger.warning(f"Memory recall skipped: {e}")
+                    q_text = ex.get("content", "").split("\nA: ")[0].replace("Q: ", "")
+                    a_parts = ex.get("content", "").split("\nA: ")
+                    a_text = a_parts[1] if len(a_parts) > 1 else a_parts[0]
+                    
+                    messages.append({"role": "user", "content": f"[HISTORICAL REFERENCE QUERY]\n{q_text}"})
+                    messages.append({
+                        "role": "assistant", 
+                        "content": f"[HISTORICAL REFERENCE RESPONSE]\n{a_text}"
+                    })
+            except Exception:
+                pass
 
-        # ─── Data Source Enrichment: Brand Knowledge + Web Intel ─────
+        # ─── Language Enforcement ───
+        if not (context or {}).get("language"):
+            try:
+                from app.services.intelligence.multilingual import detect_language
+                detected = detect_language(prompt)
+                if detected == "english":
+                    messages[0]["content"] += (
+                        "\n\n## CRITICAL: Language Enforcement"
+                        "\nYou MUST respond entirely in English. Ignore any other languages in historical examples."
+                    )
+            except Exception:
+                pass
+
+        # ─── Data Source Enrichment ─────
         context_chunks = []
 
         # 1. Brand Knowledge (per-tenant ChromaDB — FAQs, product info)
         tenant_id = (context or {}).get("tenant_id")
-        if tenant_id:
+        if tenant_id and settings.ai_agent_memory_enabled:
             try:
                 from app.services.intelligence.memory import get_memory
                 mem = get_memory()
@@ -299,24 +222,25 @@ class BaseAgent:
                 logger.debug(f"Memory.brand_search skipped: {e}")
 
         # 2. Web Intelligence (latest news, trends, market data)
-        try:
-            from app.services.intelligence.memory import get_memory
-            mem = get_memory()
+        if settings.ai_agent_memory_enabled:
+            try:
+                from app.services.intelligence.memory import get_memory
+                mem = get_memory()
 
-            # Search across web intelligence collections via Memory RAG
-            for collection in ["web_intelligence", "web_ai_trends", "web_stock_market", "web_crypto"]:
-                try:
-                    items = await mem.retrieve(prompt, collections=[collection], n=3)
-                    if items:
-                        snippets = [f"- {item.get('content', '')[:200]}" for item in items[:3]]
-                        if snippets:
-                            context_chunks.append(
-                                f"[LATEST DATA — {collection.replace('web_', '').upper()}]\n" + "\n".join(snippets)
-                            )
-                except Exception:
-                    pass  # Collection may not exist yet
-        except Exception as e:
-            logger.debug(f"Memory.retrieve context skipped: {e}")
+                # Search across web intelligence collections via Memory RAG
+                for collection in ["web_intelligence", "web_ai_trends", "web_stock_market", "web_crypto"]:
+                    try:
+                        items = await mem.retrieve(prompt, collections=[collection], n=3)
+                        if items:
+                            snippets = [f"- {item.get('content', '')[:200]}" for item in items[:3]]
+                            if snippets:
+                                context_chunks.append(
+                                    f"[LATEST DATA — {collection.replace('web_', '').upper()}]\n" + "\n".join(snippets)
+                                )
+                    except Exception:
+                        pass  # Collection may not exist yet
+            except Exception as e:
+                logger.debug(f"Memory.retrieve context skipped: {e}")
 
         # Inject all collected context as a system message
         if context_chunks:
