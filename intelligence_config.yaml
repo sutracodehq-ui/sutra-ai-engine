@@ -831,10 +831,10 @@ smart_router:
       moderate: llama-3.1-8b-instant
       complex: llama-3.3-70b-versatile
     ollama:
-      simple: qwen2.5:3b
-      moderate: qwen2.5:3b
-      complex: phi4-mini:latest
-      temperature: 0.3           # Lower temp = more reliable JSON
+      simple: qwen3:4b
+      moderate: qwen3:4b
+      complex: qwen3:4b
+      temperature: 0.1           # Minimal temp for high precision JSON
     bitnet:
       simple: bitnet-2b
       moderate: bitnet-2b

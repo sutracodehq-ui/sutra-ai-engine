@@ -120,28 +120,14 @@ services:
       - sutra-ai-network
     restart: unless-stopped
 
-  # ─── ChromaDB (Vector Store) ──────────────────────────
-  sutra-ai-chromadb:
-    image: chromadb/chroma:latest
-    container_name: sutra-ai-chromadb
-    ports:
-      - "8100:8000"
-    volumes:
-      - chromadb_data:/chroma/chroma
-    environment:
-      ANONYMIZED_TELEMETRY: "false"
-    networks:
-      - sutra-ai-network
-    restart: unless-stopped
 
   # ─── Ollama (Local LLM) ──────────────────────────────
   sutra-ai-ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.5.7
     container_name: sutra-ai-ollama
     environment:
-      - OLLAMA_NUM_PARALLEL=2       # 2 concurrent inference slots
-      - OLLAMA_KEEP_ALIVE=24h       # Keep models loaded in memory (no cold starts)
-      - OLLAMA_MAX_LOADED_MODELS=3  # Up to 3 models warm in memory at once
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_KEEP_ALIVE=24h
     ports:
       - "11435:11434"
     volumes:
@@ -167,9 +153,13 @@ services:
       - |
         echo "Waiting for Ollama server..."
         sleep 5
-        echo "Pulling qwen2.5:3b..."
-        ollama pull qwen2.5:3b
-        echo "Model qwen2.5:3b ready!"
+        echo "Pulling qwen3:4b..."
+        ollama pull qwen3:4b
+        echo "Pulling qwen3:1.7b..."
+        ollama pull qwen3:1.7b
+        echo "Pulling smollm2:1.7b..."
+        ollama pull smollm2:1.7b
+        echo "Models ready!"
     depends_on:
       sutra-ai-ollama:
         condition: service_healthy
@@ -211,6 +201,26 @@ services:
     depends_on:
       sutra-ai-postgres:
         condition: service_healthy
+    networks:
+      - sutra-ai-network
+    restart: unless-stopped
+
+  # ─── ChromaDB (Vector DB for Agent Memory) ───────────
+  sutra-ai-chromadb:
+    image: chromadb/chroma:latest
+    container_name: sutra-ai-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - sutra-ai-network
     restart: unless-stopped

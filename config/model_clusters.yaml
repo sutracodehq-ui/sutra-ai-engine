@@ -196,7 +196,7 @@ clusters:
 # ─── Router Model ─────────────────────────────────────────────
 # Tiny model for intent classification + agent routing
 router:
-  base_model: "qwen2.5:0.5b"
+  base_model: "qwen3:1.7b"
   fine_tuned_model: "sutra-router:latest"
   quantization: "Q4_K_M"
   description: "Intent classification and multi-agent task decomposition"
