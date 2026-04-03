@@ -201,6 +201,12 @@ distillation:
       - "Write a marketing campaign brief for {topic}"
       - "Generate SEO-optimized content about {topic}"
       - "Design an email campaign for {topic}"
+    coding:
+      - "Refactor this code to follow the Software Factory Principle: {topic}"
+      - "Create a polymorphic AI agent for {topic}"
+      - "Write a Zod schema and React Hook Form for {topic}"
+      - "Generate a FastAPI endpoint for {topic} with type safety"
+      - "Implement a recursive search for {topic} in a large JSON structure"
     default:
       - "Create professional content about {topic}"
       - "Analyze and provide recommendations for {topic}"
@@ -243,6 +249,8 @@ lora_training:
 evolution_engine:
   # Model families to check for updates in Ollama
   tracked_model_families:
+    - "qwen2.5-coder:7b"
+    - "qwen2.5-coder:32b"
     - "qwen2.5:3b"
     - "qwen2.5:7b"
     - "llama3.2:3b"
@@ -255,6 +263,7 @@ evolution_engine:
 
   # Specific models to benchmark against current
   candidate_models:
+    - "qwen2.5-coder:7b"
     - "qwen2.5:3b"
     - "qwen2.5:7b"
     - "llama3.2:3b"
