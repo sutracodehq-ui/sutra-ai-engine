@@ -850,8 +850,10 @@ smart_router:
       complex: null               # uses config nvidia_model
 
   # A/B Testing: Gradually rollout tuned models
+  # DISABLED until tuned models are trained and loaded in Ollama.
+  # Enable after: python scripts/train_cluster_model.py --cluster edtech
   ab_testing:
-    enabled: true
+    enabled: false
     default_split: 0.1  # 10% to tuned model
     agents:
       quiz_generator:
