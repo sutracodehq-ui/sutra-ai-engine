@@ -314,9 +314,7 @@ class BaseAgent:
         settings = get_settings()
 
         # ─── Cache: check before calling LLM (Memory) ─────────
-        from app.services.intelligence.brain import get_brain
         from app.services.intelligence.memory import get_memory
-        brain = get_brain()
         mem = get_memory()
 
         try:

@@ -30,8 +30,8 @@ class LlmService:
     ) -> LlmResponse:
         """Single-turn completion via hardened registry."""
         return await self._registry.complete(
-            system_prompt,
-            prompt,
+            system_prompt=system_prompt,
+            user_prompt=prompt,
             driver_override=driver,
             model_override=model,
             **kwargs

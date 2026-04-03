@@ -108,11 +108,12 @@ class KnowledgeDistiller:
         try:
             prompt = f"Produce a training dataset from this context:\n\n{context_text}"
             
-            # Use a frontier cloud model for distillation (never local qwen/llama)
+            # Use a free cloud model for distillation (Groq = $0)
             response = await self._llm.complete(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                model="gemini-2.0-flash", # Fast, high context, great at distillation
+                driver="groq",
+                model="llama-3.3-70b-versatile",
                 temperature=0.4
             )
 

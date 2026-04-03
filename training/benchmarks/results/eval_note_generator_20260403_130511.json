@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-04-03T13:05:11.871227",
+  "agent_type": "note_generator",
+  "model": null,
+  "summary": {
+    "total_tests": 1,
+    "passed": 1,
+    "pass_rate": 100.0,
+    "avg_score": 0.0
+  },
+  "details": [
+    {
+      "test_id": 1,
+      "prompt": "Generate a high-quality response for note_generator",
+      "response": "{\n  \"title\": \"Internal Reasoning Only\",\n  \"subject\": \"Logic and Critical Thinking\",\n  \"structured_notes\": {\n    \"H1\": \"Logic Fundamentals\",\n    \"H2\": \"Types of Reasoning\",\n    \"H3\": \"Deductive Reasoning\",\n    \"text\": \"Deductive reasoning is a type of reasoning that involves drawing a conclusion based on a set of premises.\\nIt is characterized by its certainty and is often used in mathematics and science.\\nHere are some examples of deductive reasoning:\\n\ud83d\udccc If all A are B and B are C, then all A are C.\\n\ud83d\udccc If it is raining and I am outside, then I will get wet.\\n\ud83d\udccc All humans are mortal, and Socrates is a human, therefore Socrates is mortal.\\n\",\n    \"H3\": \"Inductive Reasoning\",\n    \"text\": \"Inductive reasoning is a type of reasoning that involves making a generalization based on specific observations.\\nIt is characterized by its uncertainty and is often used in science and everyday life.\\nHere are some examples of inductive reasoning:\\n\u26a0\ufe0f Most birds can fly, but there are some species that cannot.\\n\ud83d\udccc I have seen many sunrises that are orange, therefore the sun is orange.\\n\",\n    \"H3\": \"Abductive Reasoning\",\n    \"text\": \"Abductive reasoning is a type of reasoning that involves making an educated guess based on incomplete information.\\nIt is often used in science and detective work.\\nHere are some examples of abductive reasoning:\\n\ud83d\udca1 The only way to find the missing person is to search the area.\\n\ud83d\udccc The fingerprints on the crime scene match the suspect's fingerprints, therefore the suspect is involved in the crime.\\n\"\n  },\n  \"definitions\": {\n    \"Deductive Reasoning\": \"A type of reasoning that involves drawing a conclusion based on a set of premises.\",\n    \"Inductive Reasoning\": \"A type of reasoning that involves making a generalization based on specific observations.\",\n    \"Abductive Reasoning\": \"A type of reasoning that involves making an educated guess based on incomplete information.\"\n  },\n  \"formulas\": {\n    \"None\"\n  },\n  \"summary_box\": [\n    \"Deductive reasoning is a type of reasoning that involves drawing a conclusion based on a set of premises.\",\n    \"Inductive reasoning is a type of reasoning that involves making a generalization based on specific observations.\",\n    \"Abductive reasoning is a type of reasoning that involves making an educated guess based on incomplete information.\",\n    \"Deductive reasoning is certain, while inductive and abductive reasoning are uncertain.\",\n    \"Deductive reasoning is often used in mathematics and science, while inductive and abductive reasoning are used in everyday life.\"\n  ],\n  \"common_mistakes\": {\n    \"Not understanding the difference between deductive, inductive, and abductive reasoning.\",\n    \"Not considering all possible premises when using deductive reasoning.\",\n    \"Not recognizing that inductive and abductive reasoning are uncertain.\",\n    \"Not being aware of the limitations of each type of reasoning.\"\n  },\n  \"practice_questions\": [\n    \"What is an example of deductive reasoning?\",\n    \"How is inductive reasoning different from deductive reasoning?\",\n    \"What is an example of abductive reasoning?\"\n  ],\n  \"related_topics\": [\n    \"Logic\",\n    \"Critical Thinking\",\n    \"Philosophy\",\n    \"Science\",\n    \"Mathematics\"\n  ],\n  \"suggestions\": [\n    \"Practice using deductive, inductive, and abductive reasoning to improve your critical thinking skills.\",\n    \"Read philosophical texts to understand the history and development of logic and critical thinking.\",\n    \"Take online courses or attend workshops to improve your critical thinking skills and learn more about logic and philosophy.\"\n  ]\n}",
+      "eval": {
+        "schema_compliance": 1.0,
+        "keyword_score": 1.0,
+        "quality_score": 10.0,
+        "fields_present": [],
+        "fields_missing": [],
+        "passed": true
+      },
+      "latency_ms": 0,
+      "model": "llama-3.1-8b-instant"
+    }
+  ]
+}
