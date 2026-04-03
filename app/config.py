@@ -84,7 +84,7 @@ class Settings(BaseSettings):
 
     # ─── Ollama ─────────────────────────────────────
     ollama_base_url: str = "http://sutra-ai-ollama:11434"
-    ollama_model: str = "llama3.1:8b"
+    ollama_model: str = "gemma3:12b"
     ollama_max_tokens: int = 2048
     ollama_temperature: float = 0.7
 

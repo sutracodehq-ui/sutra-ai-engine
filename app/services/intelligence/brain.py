@@ -429,19 +429,25 @@ class Brain:
         return cloud_resp if cloud_score > score else local_resp
 
     async def _call_local(self, prompt: str, system_prompt: str, **opts) -> LlmResponse:
+        from app.services.intelligence.driver import get_driver_registry
         from app.services.llm_service import get_llm_service
-        from app.services.driver_manager import get_driver_manager
 
         # ── Guard: skip immediately if Ollama circuit is OPEN ──
         # Avoids a 20-30s hang waiting for a dead Ollama before cloud fallback.
-        dm = get_driver_manager()
-        if not dm.circuit_breaker.is_available("ollama"):
+        registry = get_driver_registry()
+        if not registry.circuit_breaker.is_available("ollama"):
             logger.warning("Brain: local skipped — Ollama circuit OPEN")
             fallback_model = _cfg("fallback_models", "local", default="qwen2.5:3b")
             return LlmResponse(content="", total_tokens=0, driver="ollama", model=fallback_model, metadata={"error": "circuit_open"})
 
         try:
-            return await get_llm_service().complete(prompt=prompt, system_prompt=system_prompt, driver="ollama", **opts)
+            # Shifted to unified registry for hardened path/retry logic
+            return await get_llm_service().complete(
+                prompt=prompt, 
+                system_prompt=system_prompt, 
+                driver="ollama", 
+                **opts
+            )
         except Exception as e:
             logger.warning(f"Brain: local failed: {e}")
             fallback_model = _cfg("fallback_models", "local", default="qwen2.5:3b")

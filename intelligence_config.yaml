@@ -27,7 +27,7 @@ providers:
   bitnet:
     base_url: "http://sutra-ai-bitnet:8081/v1"
   ollama:
-    base_url: "http://sutra-ai-ollama:11434/v1"
+    base_url: "http://sutra-ai-ollama:11434"
 
 # ─── Stock Market ───────────────────────────────────────────
 stock_symbols:
@@ -825,7 +825,7 @@ smart_router:
     ollama:
       simple: llama3.2:1b
       moderate: qwen2.5:3b
-      complex: llama3.1:8b
+      complex: gemma3:12b
     bitnet:
       simple: bitnet-2b
       moderate: bitnet-2b
