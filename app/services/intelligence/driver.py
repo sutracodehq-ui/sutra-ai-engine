@@ -93,6 +93,13 @@ class OllamaAdapter(LlmDriver):
     def name(self) -> str:
         return "ollama"
 
+    @staticmethod
+    def _expects_json(messages: list[dict]) -> bool:
+        """Detect if the system prompt expects JSON output."""
+        system = next((m["content"] for m in messages if m["role"] == "system"), "")
+        lower = system.lower()
+        return any(k in lower for k in ("json", "response_schema", "structured", "{", "fields:"))
+
     async def complete(self, system_prompt: str, user_prompt: str, **opts) -> LlmResponse:
         return await self.chat([{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}], **opts)
 
@@ -101,6 +108,11 @@ class OllamaAdapter(LlmDriver):
         payload = {"model": model, "messages": messages, "stream": False,
                    "options": {"num_predict": opts.get("max_tokens", self._max_tokens),
                                "temperature": opts.get("temperature", self._temperature)}}
+
+        # Enforce structured JSON output when the prompt expects it.
+        # This uses Ollama's native format constraint for reliable JSON.
+        if opts.get("format") == "json" or self._expects_json(messages):
+            payload["format"] = "json"
         # Use split timeout: fast connect (fail fast if Ollama is down),
         # generous read (local inference can take time)
         timeout = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=5.0)

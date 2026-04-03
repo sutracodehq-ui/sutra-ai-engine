@@ -831,15 +831,14 @@ smart_router:
       moderate: llama-3.1-8b-instant
       complex: llama-3.3-70b-versatile
     ollama:
-      simple: llama3.2:1b
-      moderate: phi4-mini:latest
+      simple: qwen2.5:3b
+      moderate: qwen2.5:3b
       complex: phi4-mini:latest
+      temperature: 0.3           # Lower temp = more reliable JSON
     bitnet:
       simple: bitnet-2b
       moderate: bitnet-2b
       complex: bitnet-2b
-      moderate: qwen2.5:3b
-      complex: gemma3:12b
     sarvam:
       simple: null                # uses config sarvam_model
       moderate: null
