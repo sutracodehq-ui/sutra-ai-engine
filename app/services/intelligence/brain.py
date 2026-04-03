@@ -1,7 +1,7 @@
 """
 Brain — Unified execution pipeline for the SutraCode AI Engine.
 
-Software Factory Principle: One file for all execution logic.
+Software Factory Principle:- [x] Final Verification (Local-First execution check)
 Everything is config-driven via intelligence_config.yaml.
 
 Absorbs: smart_router, hybrid_router, agent_chain, escalation_manager,
@@ -22,6 +22,7 @@ import logging
 import threading
 import time
 import unicodedata
+import importlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncGenerator, Callable, Optional, Tuple
@@ -434,8 +435,9 @@ class Brain:
 
         # ── Guard: skip immediately if Ollama circuit is OPEN ──
         # Avoids a 20-30s hang waiting for a dead Ollama before cloud fallback.
-        registry = get_driver_registry()
-        if not registry.circuit_breaker.is_available("ollama"):
+        from app.services.intelligence.guardian import get_guardian
+        guardian = get_guardian()
+        if not guardian.circuit_breaker.is_available("ollama"):
             logger.warning("Brain: local skipped — Ollama circuit OPEN")
             fallback_model = _cfg("fallback_models", "local", default="qwen2.5:3b")
             return LlmResponse(content="", total_tokens=0, driver="ollama", model=fallback_model, metadata={"error": "circuit_open"})

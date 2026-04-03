@@ -418,11 +418,11 @@ class BaseAgent:
         Skips HybridRouter + QualityGate (can't gate mid-stream).
         After stream ends, stores full response in memory for self-learning.
         """
-        from app.services.driver_manager import get_driver_manager
+        from app.services.intelligence.driver import get_driver_registry
         from app.lib.stream_filter import strip_cot
 
         messages, opt_id = await self.build_messages(prompt, None, db, context, stream=True)
-        manager = get_driver_manager()
+        registry = get_driver_registry()
 
         # Auto-detect language + complexity → pick best driver + model
         settings = get_settings()
@@ -434,8 +434,8 @@ class BaseAgent:
             try:
                 from app.services.intelligence.brain import get_brain
                 brain = get_brain()
-                # Use DriverManager's own circuit breaker (isolated from Guardian)
-                decision = brain.route(prompt, self.identifier, circuit_breaker=manager.circuit_breaker)
+                # Use Registry's own circuit breaker (consistent across app)
+                decision = brain.route(prompt, self.identifier, circuit_breaker=registry.circuit_breaker)
                 driver_override = decision["driver"]
                 model_override = decision.get("model")
                 fallback_chain = decision.get("chain")
@@ -443,7 +443,7 @@ class BaseAgent:
             except Exception as e:
                 logger.debug(f"SmartRouter fallback: {e}")
 
-        # Stream via DriverManager — with resilient two-stage fallback
+        # Stream via Registry — with resilient two-stage fallback
         full_response = []
         clean_opts = {k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
         used_fallback = False
@@ -451,7 +451,7 @@ class BaseAgent:
 
         try:
             # Stage 1: Try the SmartRouter-selected driver directly
-            raw_stream = manager.stream(
+            raw_stream = registry.stream(
                 messages=messages,
                 driver_override=driver_override,
                 model_override=model_override,
@@ -472,14 +472,14 @@ class BaseAgent:
             try:
                 if remaining_chain:
                     # Use the YAML fallback chain (minus the failed driver)
-                    fallback_stream = manager.stream(
+                    fallback_stream = registry.stream(
                         messages=messages,
                         fallback_chain=remaining_chain,
                         **clean_opts,
                     )
                 else:
                     # No chain available — use settings-based fallback
-                    fallback_stream = manager.stream(
+                    fallback_stream = registry.stream(
                         messages=messages,
                         driver_override=None,
                         model_override=None,
