@@ -112,7 +112,8 @@ class AgentChain:
         review_response = await llm.complete(
             prompt=review_input,
             system_prompt="You are a quality reviewer. Respond with JSON only.",
-            driver="ollama",  # Use local for review (free)
+            # No driver override — use default fallback chain (Groq/Gemini)
+            # Hardcoding "ollama" here causes hangs when Ollama circuit is OPEN
         )
 
         # Step 3: Parse review

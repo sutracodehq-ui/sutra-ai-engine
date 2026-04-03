@@ -254,11 +254,23 @@ class Guardian:
             logger.debug(f"Guardian: quality tracking skipped: {e}")
 
     async def get_route_hint(self, agent_type: str) -> str:
-        """Adaptive routing hint from quality history."""
+        """Adaptive routing hint from quality history.
+
+        Priority:
+        1. Agents in `direct_cloud_agents` YAML list → always skip local
+        2. Redis quality history → fast_local / standard / direct_cloud
+        3. Fallback → standard
+        """
+        # ── Static override: complex JSON agents skip Ollama entirely ──
+        cfg = _sec("quality", {}).get("tracking", {})
+        direct_cloud_agents = cfg.get("direct_cloud_agents", [])
+        if agent_type in direct_cloud_agents:
+            logger.debug(f"Guardian: {agent_type} → direct_cloud (static override)")
+            return "direct_cloud"
+
         try:
             from app.services.connectivity.webhooks import get_redis
             redis = get_redis()
-            cfg = _sec("quality", {}).get("tracking", {})
             scores = await redis.lrange(f"sutra:quality:{agent_type}", 0, -1)
             if not scores or len(scores) < 3:
                 return "standard"

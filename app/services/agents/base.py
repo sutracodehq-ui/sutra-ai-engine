@@ -242,6 +242,27 @@ class BaseAgent:
         lang_instruction = get_language_instruction(language_code)
         if lang_instruction:
             system_prompt = f"{system_prompt}\n\n{lang_instruction}"
+        elif not language_code:
+            # ─── Language Guard: detect prompt language and enforce it ──
+            # Prevents memory/RAG entries in a different language (e.g. Hindi
+            # from old Ollama responses) from overriding the output language.
+            try:
+                from app.services.intelligence.brain import detect_language
+                detected = detect_language(prompt)
+                if detected == "english":
+                    system_prompt += (
+                        "\n\n## Language Enforcement"
+                        "\nYou MUST respond entirely in English. Do NOT respond in Hindi, "
+                        "Hinglish, or any other language, even if prior examples in this "
+                        "conversation are in another language. English only."
+                    )
+                elif detected in ("hindi", "hinglish"):
+                    system_prompt += (
+                        f"\n\n## Language Enforcement"
+                        f"\nRespond entirely in {detected.capitalize()}."
+                    )
+            except Exception:
+                pass
 
         messages = [{"role": "system", "content": system_prompt}]
 

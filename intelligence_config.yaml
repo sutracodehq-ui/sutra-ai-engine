@@ -939,6 +939,20 @@ quality:
     ttl_days: 7
     fast_path_threshold: 8.0
     direct_cloud_threshold: 5.0
+    # Agents that ALWAYS go direct to cloud (skip local Ollama entirely).
+    # Use for complex, structured-JSON agents — local models can't reliably
+    # produce complete multi-key JSON under time pressure.
+    direct_cloud_agents:
+      - quiz_generator
+      - note_generator
+      - flashcard_creator
+      - lecture_planner
+      - stock_analyzer
+      - stock_predictor
+      - crypto_analyzer
+      - lab_report_interpreter
+      - symptom_triage
+      - udise_compliance_advisor
 
 # ─── RAG Auto-Cut (V2: Context Pruning) ────────────────────
 rag:

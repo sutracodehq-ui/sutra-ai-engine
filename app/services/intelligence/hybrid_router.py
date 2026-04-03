@@ -115,9 +115,20 @@ class HybridRouter:
         return local_response
 
     async def _call_local(self, prompt: str, system_prompt: str, **options) -> LlmResponse:
-        """Call the local Ollama model."""
+        """Call the local Ollama model — skips instantly if circuit is OPEN."""
         from app.services.llm_service import get_llm_service
+        from app.services.driver_manager import get_driver_manager
         service = get_llm_service()
+
+        # ── Guard: skip immediately if Ollama circuit is OPEN ──
+        dm = get_driver_manager()
+        if not dm.circuit_breaker.is_available("ollama"):
+            logger.warning("HybridRouter: local skipped — Ollama circuit OPEN")
+            return LlmResponse(
+                content="", total_tokens=0, driver="ollama", model="qwen2.5:3b",
+                metadata={"error": "circuit_open"},
+            )
+
         try:
             return await service.complete(
                 prompt=prompt,
@@ -127,12 +138,8 @@ class HybridRouter:
             )
         except Exception as e:
             logger.warning(f"HybridRouter: local call failed: {e}")
-            # Return a dummy response so escalation can proceed
             return LlmResponse(
-                content="",
-                total_tokens=0,
-                driver="ollama",
-                model="qwen2.5:3b",
+                content="", total_tokens=0, driver="ollama", model="qwen2.5:3b",
                 metadata={"error": str(e)},
             )
 
