@@ -77,8 +77,8 @@ class KnowledgeDistiller:
 
     def __init__(self):
         self._settings = get_settings()
-        from app.services.intelligence.brain import get_brain
-        self._brain = get_brain()
+        from app.services.llm_service import get_llm_service
+        self._llm = get_llm_service()
 
     async def distill(self, domain: str, search_results: list[dict]) -> list[dict]:
         """
@@ -109,7 +109,7 @@ class KnowledgeDistiller:
             prompt = f"Produce a training dataset from this context:\n\n{context_text}"
             
             # Use a frontier cloud model for distillation (never local qwen/llama)
-            response = await self._brain._call_cloud(
+            response = await self._llm.complete(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 model="gemini-2.0-flash", # Fast, high context, great at distillation

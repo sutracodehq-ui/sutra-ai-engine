@@ -63,14 +63,17 @@ class QualityEngine:
     def score(self, response: LlmResponse, expected_fields: list[str] | None = None) -> dict:
         """
         Score a response on multiple dimensions.
-
-        Returns: {total: float, dimensions: {name: score}, passed: bool}
         """
+        from app.services.intelligence.response_filter import get_response_filter
+        refilter = get_response_filter()
+        
+        # Use ResponseFilter to get structured data (handles cleaning/parsing)
+        result = refilter.filter(response.content or "", {"response_schema": expected_fields})
         content = response.content.strip()
         dimensions = {}
 
-        dimensions["format"] = self._score_format(content)
-        dimensions["completeness"] = self._score_completeness(content, expected_fields)
+        dimensions["format"] = 1.0 if result.parsed else self._score_format_hint(content)
+        dimensions["completeness"] = self._score_completeness_from_result(result, expected_fields)
         dimensions["length"] = self._score_length(content)
         dimensions["coherence"] = self._score_coherence(content)
 
@@ -91,46 +94,21 @@ class QualityEngine:
 
         return result
 
-    def _clean_content(self, content: str) -> str:
-        """Strip markdown code fences if present."""
-        content = content.strip()
-        if content.startswith("```"):
-            lines = content.split("\n")
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            content = "\n".join(lines).strip()
-        return content
+    def _score_format_hint(self, content: str) -> float:
+        """Score likely JSON-ness even if parsing failed (0.0-1.0)."""
+        if "{" in content and "}" in content:
+            return 0.5
+        return 0.3
 
-    def _score_format(self, content: str) -> float:
-        """Score JSON validity (0.0-1.0)."""
-        content = self._clean_content(content)
-        try:
-            parsed = json.loads(content)
-            if isinstance(parsed, dict) and len(parsed) > 0:
-                return 1.0
-            return 0.7
-        except json.JSONDecodeError:
-            if len(content) > 50 and not content.startswith("{"):
-                return 0.6
-            return 0.3
-
-    def _score_completeness(self, content: str, expected_fields: list[str] | None) -> float:
-        """Score field coverage (0.0-1.0)."""
+    def _score_completeness_from_result(self, result, expected_fields: list[str] | None) -> float:
+        """Score field coverage from already-parsed result (0.0-1.0)."""
         if not expected_fields:
             return 0.8
-
-        content = self._clean_content(content)
-        try:
-            parsed = json.loads(content)
-            if not isinstance(parsed, dict):
-                return 0.5
-
-            present = sum(1 for f in expected_fields if f in parsed)
-            return present / len(expected_fields)
-        except json.JSONDecodeError:
-            return 0.5
+        if not result.parsed or not isinstance(result.data, dict):
+            return 0.3
+        
+        present = sum(1 for f in expected_fields if f in result.data)
+        return present / len(expected_fields)
 
     def _score_length(self, content: str) -> float:
         """Score response length — penalize too short or empty."""

@@ -14,6 +14,9 @@ Key Concepts:
 - Consult: Ask another agent for input (synchronous)
 - Delegate: Hand off a sub-task to another agent (async-capable)
 - Broadcast: Ask multiple agents and merge results
+- Sequential: A -> B -> C pipeline
+- Map-Reduce: Parallel execution + aggregation
+- Review-Chain: Producer -> Reviewer -> Producer (loop)
 """
 
 import logging
@@ -63,6 +66,7 @@ class A2AGateway:
     2. Consult another agent (ask for input, get response)
     3. Delegate a sub-task (hand off work entirely)
     4. Broadcast to multiple agents and merge results
+    5. Execute complex pipelines (Sequential, Map-Reduce, Review-Chain)
     """
 
     def __init__(self):
@@ -209,6 +213,117 @@ class A2AGateway:
         except Exception as e:
             logger.error(f"A2A: consult {target_agent} failed: {e}")
             return {"status": "error", "reason": str(e)}
+
+    # ─── Advanced Pipelines ─────────────────────────────────
+
+    async def pipeline_sequential(
+        self,
+        source_agent: str,
+        agents: list[str],
+        initial_prompt: str,
+        db=None,
+    ) -> dict:
+        """
+        Execute a sequential pipeline: Agent 1 -> Agent 2 -> Agent 3.
+        Each agent receives the output of the previous agent as context.
+        """
+        current_input = initial_prompt
+        history = []
+
+        for i, agent_id in enumerate(agents):
+            logger.info(f"A2A Sequential: [{i+1}/{len(agents)}] running {agent_id}")
+            res = await self.consult(source_agent, agent_id, current_input, db=db)
+            
+            if res.get("status") != "success":
+                return {"status": "pipeline_failed", "at_step": i, "agent": agent_id, "error": res.get("reason")}
+            
+            current_output = res.get("response", "")
+            history.append({"agent": agent_id, "output": current_output})
+            current_input = f"Context from previous agent ({agent_id}):\n{current_output}\n\nTask: Process this further."
+
+        return {
+            "status": "success",
+            "final_output": current_input.split("Task:")[0].strip(), # Get last output
+            "history": history
+        }
+
+    async def pipeline_map_reduce(
+        self,
+        source_agent: str,
+        mapping_agents: list[str],
+        reduction_agent: str,
+        prompt: str,
+        db=None,
+    ) -> dict:
+        """
+        Parallel execution (Map) followed by a final aggregation (Reduce).
+        Example: 3 Analysts (Map) -> 1 Strategist (Reduce).
+        """
+        import asyncio
+        
+        # 1. Map Phase (Parallel)
+        logger.info(f"A2A Map-Reduce: Mapping to {len(mapping_agents)} agents")
+        map_results = await self.broadcast(source_agent, mapping_agents, prompt, db=db)
+        
+        # Collect successful mappings
+        insights = []
+        for r in map_results:
+            if r.get("status") == "success":
+                insights.append(f"Insight from {r['target']}:\n{r.get('response')}")
+
+        if not insights:
+            return {"status": "map_failed", "reason": "No successful map results"}
+
+        # 2. Reduce Phase
+        logger.info(f"A2A Map-Reduce: Reducing via {reduction_agent}")
+        reduce_prompt = f"Aggregate and synthesize the following insights into a unified strategy:\n\n" + "\n\n".join(insights)
+        
+        res = await self.consult(source_agent, reduction_agent, reduce_prompt, db=db)
+        return res
+
+    async def pipeline_review_chain(
+        self,
+        source_agent: str,
+        producer_agent: str,
+        reviewer_agent: str,
+        prompt: str,
+        max_iterations: int = 2,
+        db=None,
+    ) -> dict:
+        """
+        Iterative refinement: Producer generates -> Reviewer critiques -> Producer improves.
+        """
+        current_draft = ""
+        feedback = ""
+        
+        for i in range(max_iterations):
+            logger.info(f"A2A Review-Chain: Iteration [{i+1}/{max_iterations}]")
+            
+            # 1. Produce
+            prod_prompt = prompt if i == 0 else f"Original Request: {prompt}\n\nPrevious Draft: {current_draft}\n\nReviewer Feedback: {feedback}\n\nPlease improve the draft based on the feedback."
+            prod_res = await self.consult(source_agent, producer_agent, prod_prompt, db=db)
+            if prod_res.get("status") != "success":
+                return prod_res
+            
+            current_draft = prod_res.get("response", "")
+            
+            # 2. Review
+            rev_prompt = f"Review the following output from {producer_agent} for accuracy, tone, and compliance:\n\n{current_draft}\n\nProvide constructive feedback or say 'APPROVED' if it is perfect."
+            rev_res = await self.consult(source_agent, reviewer_agent, rev_prompt, db=db)
+            if rev_res.get("status") != "success":
+                return rev_res
+            
+            feedback = rev_res.get("response", "")
+            if "APPROVED" in feedback.upper():
+                logger.info(f"A2A Review-Chain: Approved after {i+1} iterations.")
+                break
+
+        return {
+            "status": "success",
+            "final_draft": current_draft,
+            "reviews_done": i + 1,
+            "last_feedback": feedback
+        }
 
     # ─── Delegate (hand off task) ───────────────────────────
 

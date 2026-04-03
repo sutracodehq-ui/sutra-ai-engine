@@ -1,0 +1,260 @@
+# ─── Model Cluster Configuration ──────────────────────────────
+# Maps 192 agents into domain clusters, each served by one fine-tuned model.
+# This avoids per-agent model proliferation and keeps Ollama memory usage sane.
+#
+# On Apple Silicon (16-32 GB unified memory):
+#   - Router model (~300 MB) stays loaded permanently
+#   - 1-2 domain models (~2 GB each Q4) loaded on demand
+#   - Ollama OLLAMA_MAX_LOADED_MODELS=3 recommended
+
+# ─── Cluster Definitions ─────────────────────────────────────
+clusters:
+  marketing:
+    base_model: "qwen2.5:3b"
+    fine_tuned_model: "sutra-marketing:latest"
+    quantization: "Q4_K_M"
+    description: "SEO, copywriting, social media, ads, email campaigns"
+    agents:
+      - seo
+      - copywriter
+      - social_media
+      - email_campaign
+      - campaign_strategist
+      - ad_creative
+      - content_grader
+      - caption_generator
+      - brand_advisor
+      - brand_auditor
+      - audience_segmenter
+      - audience_growth_strategist
+      - ab_test_advisor
+      - auto_publisher
+      - auto_scheduler
+      - influencer_matchmaker
+      - performance_reporter
+      - attribution_analyst
+      - competitor_analyst
+      - cold_call_scripter
+      - persona_builder
+      - content_repurposer
+      - hashtag_generator
+      - newsletter_writer
+      - landing_page_writer
+      - press_release_writer
+      - podcast_show_notes
+      - testimonial_generator
+      - ugc_prompt_writer
+      - referral_program_designer
+
+  finance:
+    base_model: "qwen2.5:3b"
+    fine_tuned_model: "sutra-finance:latest"
+    quantization: "Q4_K_M"
+    description: "Stock analysis, crypto, budgets, ROI, pricing, tax"
+    agents:
+      - stock_analyzer
+      - stock_predictor
+      - market_trend_analyzer
+      - crypto_analyzer
+      - budget_optimizer
+      - roi_calculator
+      - pricing_strategist
+      - invoice_generator
+      - expense_tracker
+      - tax_advisor
+      - cap_table_manager
+      - revenue_forecaster
+      - unit_economics
+      - financial_model_builder
+      - funding_readiness
+      - investor_update_writer
+
+  edtech:
+    base_model: "qwen2.5:3b"
+    fine_tuned_model: "sutra-edtech:latest"
+    quantization: "Q4_K_M"
+    description: "Quizzes, notes, lectures, flashcards, curriculum"
+    agents:
+      - quiz_generator
+      - note_generator
+      - lecture_planner
+      - flashcard_creator
+      - study_planner
+      - concept_explainer
+      - exam_paper_setter
+      - rubric_generator
+      - learning_path_designer
+      - curriculum_mapper
+      - doubt_resolver
+      - assignment_grader
+
+  health:
+    base_model: "qwen2.5:3b"
+    fine_tuned_model: "sutra-health:latest"
+    quantization: "Q4_K_M"
+    description: "Symptom triage, diet, fitness, lab reports, mental health"
+    agents:
+      - symptom_triage
+      - diet_planner
+      - fitness_coach
+      - lab_report_interpreter
+      - mental_health_companion
+      - sleep_optimizer
+      - ayurveda_advisor
+      - child_nutrition
+      - child_milestone_tracker
+      - caregiver_guide
+      - medication_reminder
+      - health_risk_scorer
+
+  legal:
+    base_model: "qwen2.5:3b"
+    fine_tuned_model: "sutra-legal:latest"
+    quantization: "Q4_K_M"
+    description: "Contracts, GST, compliance, legal docs, RTI"
+    agents:
+      - contract_analyzer
+      - legal_doc_drafter
+      - gst_compliance
+      - rti_drafter
+      - privacy_policy_generator
+      - terms_generator
+      - ip_advisor
+      - regulatory_tracker
+      - dispute_resolver
+      - compliance_checker
+
+  ecommerce:
+    base_model: "qwen2.5:3b"
+    fine_tuned_model: "sutra-ecommerce:latest"
+    quantization: "Q4_K_M"
+    description: "Product listings, pricing, inventory, logistics, returns"
+    agents:
+      - product_description_writer
+      - dynamic_pricing
+      - catalog_enricher
+      - warehouse_planner
+      - delivery_optimizer
+      - return_analyzer
+      - review_responder
+      - churn_predictor
+      - churn_reversal
+      - loyalty_program_designer
+      - customer_feedback_analyzer
+      - demand_forecaster
+
+  coding:
+    base_model: "qwen2.5-coder:3b"
+    fine_tuned_model: "sutra-coding:latest"
+    quantization: "Q4_K_M"
+    description: "Code generation, ML pipelines, data curation"
+    agents:
+      - ml_pipeline
+      - data_curator
+      - dataset_optimizer
+      - code_reviewer
+      - api_doc_generator
+      - schema_designer
+      - test_generator
+      - devops_advisor
+
+  general:
+    base_model: "phi4-mini:latest"
+    fine_tuned_model: "sutra-general:latest"
+    quantization: "Q4_K_M"
+    description: "Catch-all for productivity, travel, parenting, misc agents"
+    agents:
+      - chatbot_trainer
+      - ai_trend_tracker
+      - anomaly_alerter
+      - area_comparator
+      - battery_health
+      - carbon_footprint
+      - charging_station_planner
+      - travel_planner
+      - itinerary_builder
+      - packing_assistant
+      - recipe_generator
+      - meal_prep_planner
+      - event_planner
+      - gift_recommender
+      - resume_builder
+      - cover_letter_writer
+      - interview_prep
+      - salary_negotiator
+      - habit_tracker
+      - goal_setter
+      - journal_prompt_generator
+      - gratitude_generator
+      - parenting_advisor
+      - story_generator
+      - call_summarizer
+      - call_sentiment_analyzer
+      - survey_agent
+      - feedback_analyzer
+
+# ─── Router Model ─────────────────────────────────────────────
+# Tiny model for intent classification + agent routing
+router:
+  base_model: "qwen2.5:0.5b"
+  fine_tuned_model: "sutra-router:latest"
+  quantization: "Q4_K_M"
+  description: "Intent classification and multi-agent task decomposition"
+  max_tokens: 256
+  temperature: 0.1
+
+# ─── Training Configuration Per Cluster ───────────────────────
+training_defaults:
+  lora_rank: 8
+  lora_alpha: 16
+  learning_rate: 0.0002
+  epochs: 3
+  batch_size: 4
+  max_seq_length: 2048
+  warmup_ratio: 0.1
+  min_examples: 2            # Reduced for testing
+  retrain_threshold: 50      # Cloud-wins before auto-retrain
+
+# ─── Distillation Teacher Models Per Domain ───────────────────
+distillation_teachers:
+  marketing:
+    primary: "groq"          # Free, good at creative content
+    fallback: "gemini"
+  finance:
+    primary: "anthropic"     # Best at structured JSON, risk analysis
+    fallback: "groq"
+  edtech:
+    primary: "gemini"        # Good at educational content
+    fallback: "groq"
+  health:
+    primary: "gemini"        # Knowledge breadth
+    fallback: "anthropic"
+  legal:
+    primary: "anthropic"     # Precision, safety
+    fallback: "gemini"
+  ecommerce:
+    primary: "groq"          # Cost-effective
+    fallback: "gemini"
+  coding:
+    primary: "anthropic"     # Best code quality
+    fallback: "groq"
+  general:
+    primary: "groq"          # Free tier, good enough
+    fallback: "gemini"
+
+# ─── A/B Testing Configuration ────────────────────────────────
+ab_testing:
+  enabled: false             # Enable after first cluster is trained
+  split_ratio: 0.5           # 50/50 traffic split
+  min_samples: 100           # Min samples before auto-promote
+  auto_promote_threshold: 0.5  # New model must be >= 0.5 points better
+  metrics:
+    - schema_compliance
+    - response_quality
+    - latency_ms
+
+# ─── Regression Thresholds ────────────────────────────────────
+regression:
+  max_score_drop: 1.0        # Block deploy if any agent drops > 1.0 point
+  min_schema_compliance: 0.8  # 80% of responses must have all required fields
+  max_latency_increase_pct: 50

@@ -42,7 +42,8 @@ class OllamaDriver(LlmDriver):
         }
 
         # Split timeout: fail fast on connect (dead Ollama), generous read for inference
-        timeout = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=5.0)
+        # Increased read to 180s to handle slow CPU-only Podman environments for first load
+        timeout = httpx.Timeout(connect=10.0, read=180.0, write=10.0, pool=5.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(f"{self._base_url}/api/chat", json=payload)
             resp.raise_for_status()

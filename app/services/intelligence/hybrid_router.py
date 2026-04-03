@@ -11,13 +11,18 @@ The brain of the SutraAI self-learning pipeline:
 Result: The more you use cloud, the smarter local gets, the less you need cloud.
 """
 
+import json
 import logging
+import random
 import time
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from app.config import get_settings
 from app.services.drivers.base import LlmResponse
 from app.services.intelligence.quality_engine import QualityEngine, get_quality_engine
+from app.services.intelligence.driver import get_driver_registry
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +58,29 @@ class HybridRouter:
         """
         settings = get_settings()
 
-        if not settings.ai_hybrid_routing:
+        if not get_settings().ai_hybrid_routing:
             # Hybrid disabled — fall through to default driver
             return await self._call_driver(prompt, system_prompt, **options)
+
+        # ─── New: A/B Testing Gate ─────────────────────────
+        try:
+            from app.services.intelligence.config_loader import get_intelligence_config
+            cfg = get_intelligence_config()
+            ab = cfg.get("smart_router", {}).get("ab_testing", {})
+            
+            if ab.get("enabled", False):
+                agent_ab = ab.get("agents", {}).get(agent_type, {})
+                split = agent_ab.get("split", ab.get("default_split", 0.0))
+                
+                if random.random() < split:
+                    tuned_model = agent_ab.get("tuned_model")
+                    if tuned_model:
+                        logger.info(f"HybridRouter: AB_TEST (tuned) for {agent_type} -> {tuned_model}")
+                        options["model"] = tuned_model
+                        # When testing tuned model, we skip the normal hybrid flow to see how it performs solo
+                        return await self._call_local(prompt, system_prompt, **options)
+        except Exception as e:
+            logger.debug(f"HybridRouter: AB_TEST skipped: {e}")
 
         # Get routing hint from quality history
         route_hint = await self._engine.get_route_hint(agent_type)
@@ -91,6 +116,8 @@ class HybridRouter:
 
         # ─── Step 3: Escalate to Cloud ─────────────────────
         logger.info(f"HybridRouter: ESCALATING {agent_type} to cloud (local_score={local_score})")
+        
+        # Select cloud driver via SmartRouter or Tiered escalation
         cloud_response = await self._call_cloud(prompt, system_prompt, _agent_type=agent_type, **options)
 
         # Quality-check cloud response too
@@ -111,18 +138,18 @@ class HybridRouter:
 
         # Both failed — return the better one
         if cloud_score > local_score:
+            # Even if cloud "failed" quality gate, if it's better than local, we should log it for distillation
+            if cloud_score > local_score + 1.0:
+                 await self._save_to_training_log(agent_type, prompt, cloud_response, "cloud_win")
             return cloud_response
         return local_response
 
     async def _call_local(self, prompt: str, system_prompt: str, **options) -> LlmResponse:
-        """Call the local Ollama model — skips instantly if circuit is OPEN."""
-        from app.services.llm_service import get_llm_service
-        from app.services.driver_manager import get_driver_manager
-        service = get_llm_service()
+        """Call the local Ollama model via Registry."""
+        registry = get_driver_registry()
 
         # ── Guard: skip immediately if Ollama circuit is OPEN ──
-        dm = get_driver_manager()
-        if not dm.circuit_breaker.is_available("ollama"):
+        if not registry.circuit_breaker.is_available("ollama"):
             logger.warning("HybridRouter: local skipped — Ollama circuit OPEN")
             return LlmResponse(
                 content="", total_tokens=0, driver="ollama", model="qwen2.5:3b",
@@ -130,10 +157,10 @@ class HybridRouter:
             )
 
         try:
-            return await service.complete(
-                prompt=prompt,
+            return await registry.complete(
                 system_prompt=system_prompt,
-                driver="ollama",
+                user_prompt=prompt,
+                driver_override="ollama",
                 **options
             )
         except Exception as e:
@@ -144,14 +171,8 @@ class HybridRouter:
             )
 
     async def _call_cloud(self, prompt: str, system_prompt: str, **options) -> LlmResponse:
-        """
-        Call cloud with tiered escalation + SmartRouter model selection:
-        Tier 1: Groq (free, fast — Llama 3.3 70B)
-        Tier 2: Gemini (cheap, smart — Flash or Pro based on complexity)
-        Tier 3: Anthropic (premium, smartest — Haiku or Sonnet based on complexity)
-        """
-        from app.services.llm_service import get_llm_service
-        service = get_llm_service()
+        """Call cloud with tiered escalation via Registry."""
+        registry = get_driver_registry()
 
         # SmartRouter: pick optimal model per driver based on complexity
         agent_type = options.pop("_agent_type", "unknown")
@@ -178,11 +199,11 @@ class HybridRouter:
         for driver, tier_label in cloud_tiers:
             try:
                 model_override = model_overrides.get(driver)
-                response = await service.complete(
-                    prompt=prompt,
+                response = await registry.complete(
                     system_prompt=system_prompt,
-                    driver=driver,
-                    model=model_override,
+                    user_prompt=prompt,
+                    driver_override=driver,
+                    model_override=model_override,
                     **options
                 )
                 response.metadata = response.metadata or {}
@@ -208,12 +229,11 @@ class HybridRouter:
         )
 
     async def _call_driver(self, prompt: str, system_prompt: str, **options) -> LlmResponse:
-        """Default call — uses whatever driver is configured."""
-        from app.services.llm_service import get_llm_service
-        service = get_llm_service()
-        return await service.complete(
-            prompt=prompt,
+        """Default call via Registry."""
+        registry = get_driver_registry()
+        return await registry.complete(
             system_prompt=system_prompt,
+            user_prompt=prompt,
             **options
         )
 
@@ -229,6 +249,7 @@ class HybridRouter:
             return
 
         try:
+            # 1. Store in Memory
             from app.services.intelligence.agent_memory import get_agent_memory
             memory = get_agent_memory()
             await memory.remember(
@@ -237,9 +258,50 @@ class HybridRouter:
                 response=response.content,
                 quality_score=1.0,  # Cloud-validated, high quality
             )
+            
+            # 2. Log for LoRA Training
+            await self._save_to_training_log(agent_type, prompt, response, "distillation")
+            
             logger.info(f"HybridRouter: auto-trained {agent_type} from cloud response")
         except Exception as e:
             logger.warning(f"HybridRouter: auto-train failed: {e}")
+
+    async def _save_to_training_log(self, agent_type: str, prompt: str, response: LlmResponse, source: str) -> None:
+        """Save a high-quality (prompt, response) pair for LoRA training."""
+        try:
+            from app.services.intelligence.config_loader import get_intelligence_config
+            cfg = get_intelligence_config()
+            distill_cfg = cfg.get("distillation", {})
+            
+            if not distill_cfg.get("enabled", True):
+                return
+
+            save_path = Path(distill_cfg.get("save_path", "training/data/per_agent"))
+            save_path.mkdir(parents=True, exist_ok=True)
+            
+            log_file = save_path / f"{agent_type}.jsonl"
+            
+            # Create training example in chat format
+            example = {
+                "messages": [
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": response.content}
+                ],
+                "metadata": {
+                    "agent_type": agent_type,
+                    "source": source,
+                    "model": response.model,
+                    "driver": response.driver,
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+            
+            # Append in a single atomic write (approx)
+            with open(log_file, "a") as f:
+                f.write(json.dumps(example, ensure_ascii=False) + "\n")
+                
+        except Exception as e:
+            logger.warning(f"HybridRouter: failed to save training log: {e}")
 
 
 # ─── Singleton ──────────────────────────────────────────────

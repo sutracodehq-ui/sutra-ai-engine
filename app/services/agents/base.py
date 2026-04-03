@@ -139,6 +139,10 @@ class BaseAgent:
 
         if db:
             try:
+                from app.services.intelligence.hybrid_router import get_hybrid_router
+                router = get_hybrid_router()
+                # Use HybridRouter instead of Brain for prompt selection/A/B test
+                # (Assuming router will eventually absorb this, for now keep it as is or move to a shared utility)
                 from app.services.intelligence.brain import get_brain
                 brain = get_brain()
                 prompt_text, resolved_opt_id = await brain.select_prompt(self.identifier, db)
@@ -342,7 +346,9 @@ class BaseAgent:
                 elif isinstance(schema, list):
                     expected_fields = schema
 
-            response = await brain.execute(
+            from app.services.intelligence.hybrid_router import get_hybrid_router
+            router = get_hybrid_router()
+            response = await router.execute(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 agent_type=self.identifier,
@@ -384,20 +390,18 @@ class BaseAgent:
 
     def _filter_response(self, response: LlmResponse) -> LlmResponse:
         """
-        Run raw LLM output through the Response Filtration Engine.
-
-        Attaches a clean AgentResult to response.metadata["filtered_result"]
-        so the API layer can directly use the structured data.
+        Run raw LLM output through the new standalone ResponseFilter.
+        Attaches a clean AgentResult to response.metadata["filtered_result"].
         """
         try:
-            from app.services.intelligence.brain import get_brain
-            brain = get_brain()
-            result = brain.filter_response(response.content or "", self._config)
+            from app.services.intelligence.response_filter import get_response_filter
+            refilter = get_response_filter()
+            result = refilter.filter(response.content or "", self._config)
 
             response.metadata = response.metadata or {}
             response.metadata["filtered_result"] = result.model_dump()
         except Exception as e:
-            logger.warning(f"Brain.filter skipped: {e}")
+            logger.warning(f"ResponseFilter skipped: {e}")
 
         return response
 

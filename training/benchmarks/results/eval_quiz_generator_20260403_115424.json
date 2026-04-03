@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-04-03T11:54:24.355081",
+  "agent_type": "quiz_generator",
+  "model": null,
+  "summary": {
+    "total_tests": 1,
+    "passed": 0,
+    "pass_rate": 0.0,
+    "avg_score": 0.0
+  },
+  "details": [
+    {
+      "test_id": 1,
+      "prompt": "Generate a high-quality response for quiz_generator",
+      "error": "name 'get_settings' is not defined"
+    }
+  ]
+}

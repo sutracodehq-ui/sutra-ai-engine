@@ -9,7 +9,7 @@ Collects JSONL training data from:
 3. User feedback (positive examples)
 4. Edit-diff corrections
 
-Then fine-tunes the local Ollama model via the Modelfile + LoRA adapter approach.
+Then fine-tunes local models using MLX-LM LoRA adapters for domain-specific clusters.
 """
 
 import json
@@ -41,13 +41,12 @@ class LoraTrainer:
     Automated LoRA fine-tuning pipeline for local Ollama model.
 
     Workflow:
-    1. Collect all JSONL training files
-    2. Merge and deduplicate
-    3. Validate training data quality
-    4. Create Ollama Modelfile with training data
-    5. Fine-tune via `ollama create`
-    6. Benchmark new model vs old
-    7. Switch if better
+    1. Collect all JSONL training files from per-agent logs
+    2. Group examples by domain cluster (config/model_clusters.yaml)
+    3. Validate and deduplicate
+    4. Trigger MLX-LM training for clusters with enough data
+    5. Benchmark new adapters
+    6. Update Ollama configuration to use new adapters
     """
 
     def __init__(self):
@@ -59,40 +58,49 @@ class LoraTrainer:
 
     # ─── Step 1: Collect Training Data ──────────────────────
 
-    def collect_training_data(self) -> list[dict]:
+    def collect_training_data_by_cluster(self) -> dict[str, list[dict]]:
         """
-        Collect all JSONL training files and merge them.
-        Sources: self-teach, distillation, feedback, edit-diffs.
+        Collect training data and group by cluster.
+        Returns: {cluster_name: [examples]}
         """
-        all_examples = []
-        seen_hashes = set()
+        from app.services.intelligence.smart_router import _load_clusters
+        clusters_cfg = _load_clusters()
+        clusters = clusters_cfg.get("clusters", {})
+        
+        # Build agent -> cluster map
+        agent_to_cluster = {}
+        for cluster_name, info in clusters.items():
+            for agent_id in info.get("agents", []):
+                agent_to_cluster[agent_id] = cluster_name
 
-        for jsonl_file in sorted(self._training_dir.glob("*.jsonl")):
+        cluster_examples = {name: [] for name in clusters.keys()}
+        cluster_examples["general"] = [] # fallback
+        
+        seen_hashes = set()
+        
+        # Sources: training/data/per_agent/*.jsonl
+        per_agent_dir = Path("training/data/per_agent")
+        for jsonl_file in sorted(per_agent_dir.glob("*.jsonl")):
+            agent_id = jsonl_file.stem
+            cluster_name = agent_to_cluster.get(agent_id, "general")
+            
             try:
                 with open(jsonl_file) as f:
                     for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
                         example = json.loads(line)
-
-                        # Deduplicate by content hash
-                        import hashlib
+                        
+                        # Deduplicate
                         content_key = json.dumps(example.get("messages", []), sort_keys=True)
+                        import hashlib
                         content_hash = hashlib.md5(content_key.encode()).hexdigest()
-
+                        
                         if content_hash not in seen_hashes:
                             seen_hashes.add(content_hash)
-                            all_examples.append(example)
-
+                            cluster_examples[cluster_name].append(example)
             except Exception as e:
                 logger.warning(f"LoraTrainer: failed to read {jsonl_file}: {e}")
-
-        logger.info(
-            f"LoraTrainer: collected {len(all_examples)} unique examples "
-            f"from {len(list(self._training_dir.glob('*.jsonl')))} files"
-        )
-        return all_examples
+                
+        return cluster_examples
 
     # ─── Step 2: Validate Training Data ─────────────────────
 
@@ -156,87 +164,39 @@ class LoraTrainer:
 
     # ─── Step 4: Fine-Tune via Ollama ───────────────────────
 
-    async def fine_tune(self, training_file: Path) -> dict:
+    async def fine_tune_cluster(self, cluster_name: str) -> dict:
         """
-        Fine-tune the local model using Ollama's create API.
+        Trigger real LoRA fine-tuning for a cluster via MLX-LM.
+        """
+        logger.info(f"LoraTrainer: triggering LoRA training for cluster [{cluster_name}]")
         
-        Creates a new model variant with the training data baked in
-        as few-shot examples in the system prompt.
-        """
-        config = _load_training_config()
-        settings = get_settings()
-        ollama_url = settings.ollama_base_url
-        base_model = settings.ollama_model
-
-        # Read training examples
-        examples = []
-        with open(training_file) as f:
-            for line in f:
-                if line.strip():
-                    examples.append(json.loads(line))
-
-        # Build Modelfile with training examples as system context
-        max_examples = config.get("max_examples_in_modelfile", 20)
-        selected = examples[:max_examples]
-
-        # Format examples into system prompt
-        examples_text = "\n\n".join(
-            f"Example {i+1}:\nUser: {self._extract_user(ex)}\nAssistant: {self._extract_assistant(ex)}"
-            for i, ex in enumerate(selected)
-        )
-
-        modelfile_content = f"""FROM {base_model}
-
-SYSTEM \"\"\"You are an expert AI assistant. Learn from these high-quality examples to improve your responses:
-
-{examples_text}
-
-Apply the patterns from these examples to provide better, more structured responses.\"\"\"
-
-PARAMETER temperature 0.7
-PARAMETER num_predict 1024
-PARAMETER top_p 0.9
-"""
-
-        # Create the fine-tuned model variant
-        new_model_name = f"{base_model.replace(':', '-')}-sutra-tuned"
-
+        # 1. Launch scripts/train_cluster_model.py
+        import sys
+        import subprocess
+        
+        cmd = [sys.executable, "scripts/train_cluster_model.py", "--cluster", cluster_name]
+        
         try:
-            resp = await self._client.post(
-                f"{ollama_url}/api/create",
-                json={
-                    "name": new_model_name,
-                    "modelfile": modelfile_content,
-                    "stream": False,
-                },
-                timeout=300,
+            # We run this as a subprocess to keep the training memory separate
+            # and avoid blocking the main event loop too much
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
             )
-
-            result = {
-                "status": "success" if resp.status_code == 200 else "failed",
-                "base_model": base_model,
-                "new_model": new_model_name,
-                "examples_used": len(selected),
-                "total_available": len(examples),
-                "training_file": str(training_file),
-                "timestamp": datetime.now().isoformat(),
-            }
-
-            if resp.status_code == 200:
-                logger.info(f"LoraTrainer: fine-tuned model created → {new_model_name}")
-            else:
-                logger.warning(f"LoraTrainer: fine-tuning failed: {resp.status_code}")
-                result["error"] = resp.text[:500]
-
-            return result
-
-        except Exception as e:
-            logger.error(f"LoraTrainer: fine-tuning error: {e}")
+            
+            # Note: For production, we would want to track this background job.
+            # For now, we'll wait for a small timeout or just log that it started.
             return {
-                "status": "error",
-                "error": str(e),
-                "base_model": base_model,
+                "status": "started",
+                "cluster": cluster_name,
+                "pid": proc.pid,
+                "timestamp": datetime.now().isoformat()
             }
+        except Exception as e:
+            logger.error(f"LoraTrainer: failed to start training for {cluster_name}: {e}")
+            return {"status": "error", "error": str(e), "cluster": cluster_name}
 
     # ─── Step 5: Self-Improvement Cycle ─────────────────────
     
@@ -282,51 +242,33 @@ PARAMETER top_p 0.9
 
     async def run_pipeline(self) -> dict:
         """
-        Run the complete LoRA fine-tuning pipeline:
-        1. Collect all training data (including live_knowledge_*.jsonl)
-        2. Validate and filter
-        3. Create merged training file
-        4. Fine-tune the model (Ollama context injection)
+        Run the complete Cluster-based LoRA training pipeline.
         """
-        config = _load_training_config()
-        min_examples = config.get("min_examples_for_training", 20)
+        from app.services.intelligence.smart_router import _load_clusters
+        clusters_cfg = _load_clusters()
+        min_examples = clusters_cfg.get("training_defaults", {}).get("min_examples", 200)
 
-        # 1. Collect
-        all_examples = self.collect_training_data()
+        # 1. Collect and group
+        cluster_data = self.collect_training_data_by_cluster()
+        
+        results = {}
+        for cluster_name, examples in cluster_data.items():
+            # 2. Validate
+            valid_examples = self.validate_examples(examples)
+            
+            if len(valid_examples) >= min_examples:
+                # 3. Trigger training (non-blocking)
+                results[cluster_name] = await self.fine_tune_cluster(cluster_name)
+            else:
+                logger.debug(f"LoraTrainer: skipping {cluster_name} (only {len(valid_examples)}/{min_examples} examples)")
 
-        # 2. Validate
-        valid_examples = self.validate_examples(all_examples)
-
-        # 3. Check minimum threshold
-        if len(valid_examples) < min_examples:
-            logger.info(
-                f"LoraTrainer: not enough data ({len(valid_examples)}/{min_examples}). "
-                f"Skipping fine-tuning."
-            )
-            return {
-                "status": "skipped",
-                "reason": f"Need {min_examples} examples, have {len(valid_examples)}",
-                "total_collected": len(all_examples),
-                "total_valid": len(valid_examples),
-            }
-
-        # 3. Create training file
-        training_file = self.create_training_file(valid_examples)
-
-        # 4. Fine-tune
-        result = await self.fine_tune(training_file)
-        result["total_collected"] = len(all_examples)
-        result["total_valid"] = len(valid_examples)
-
-        # 5. Log result
-        history_path = Path("training/fine_tune_history.jsonl")
-        try:
-            with open(history_path, "a") as f:
-                f.write(json.dumps(result, ensure_ascii=False, default=str) + "\n")
-        except Exception:
-            pass
-
-        return result
+        return {
+            "status": "completed",
+            "clusters_processed": len(cluster_data),
+            "trainings_started": len(results),
+            "results": results,
+            "timestamp": datetime.now().isoformat()
+        }
 
     # ─── Helpers ────────────────────────────────────────────
 

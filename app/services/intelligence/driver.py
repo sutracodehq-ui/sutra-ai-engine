@@ -333,6 +333,12 @@ class DriverRegistry:
 
         return OpenAICompatDriver(name, **full_cfg)
 
+    @property
+    def circuit_breaker(self):
+        """Standardized access to driver circuit states."""
+        from app.services.intelligence.guardian import get_guardian
+        return get_guardian().circuit_breaker
+
     def driver(self, name: str) -> LlmDriver:
         """Get or create a driver instance (cached)."""
         if name not in self._instances:

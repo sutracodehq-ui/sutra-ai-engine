@@ -41,6 +41,14 @@ def _load_config() -> dict:
     full = get_intelligence_config()
     return full.get("smart_router", {})
 
+def _load_clusters() -> dict:
+    """Load agent-to-cluster mapping from config/model_clusters.yaml."""
+    path = Path("config/model_clusters.yaml")
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
     # Reset precomputed sets so they rebuild from new config
     global _indic_scripts, _hinglish_words, _complex_signals, _simple_signals
     _indic_scripts = None
@@ -247,8 +255,15 @@ class SmartRouter:
 
         return get_settings().ai_driver
 
-    def _pick_model(self, driver: str, complexity: str) -> Optional[str]:
+    def _pick_model(self, driver: str, complexity: str, agent_type: str = "unknown") -> Optional[str]:
         """O(1): dict[driver][complexity] lookup from YAML."""
+        
+        # 1. Check for Cluster-Specific Fine-Tuned Model (Local only)
+        if driver == "ollama":
+            cluster_model = self._get_cluster_model(agent_type)
+            if cluster_model:
+                return cluster_model
+
         tiers = _get("model_tiers", {})
         driver_tiers = tiers.get(driver, {})
         model = driver_tiers.get(complexity)
@@ -265,12 +280,29 @@ class SmartRouter:
 
         return model
 
+    def _get_cluster_model(self, agent_type: str) -> Optional[str]:
+        """Find the fine-tuned model for an agent's cluster."""
+        try:
+            clusters_cfg = _load_clusters()
+            clusters = clusters_cfg.get("clusters", {})
+            
+            for cluster_name, info in clusters.items():
+                if agent_type in info.get("agents", []):
+                    # Only return if it's actually been trained/configured
+                    model = info.get("fine_tuned_model")
+                    if model:
+                        logger.debug(f"SmartRouter: matched {agent_type} to cluster {cluster_name} -> {model}")
+                        return model
+        except Exception as e:
+            logger.warning(f"SmartRouter: Failed cluster lookup: {e}")
+        return None
+
     def select_model(self, prompt: str, agent_type: str, driver: str) -> Optional[str]:
         """Select the optimal model for a prompt within a specific driver."""
         if not self._enabled:
             return None
         complexity = self.assess_complexity(prompt, agent_type)
-        return self._pick_model(driver, complexity)
+        return self._pick_model(driver, complexity, agent_type)
 
     def route(self, prompt: str, agent_type: str, circuit_breaker=None) -> dict:
         """
@@ -305,7 +337,7 @@ class SmartRouter:
         driver = self._pick_driver(complexity, language, circuit_breaker)
 
         # 4. O(1) model selection
-        model = self._pick_model(driver, complexity)
+        model = self._pick_model(driver, complexity, agent_type)
 
         reason_parts = []
         if language != "english":

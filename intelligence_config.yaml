@@ -238,12 +238,15 @@ lora_training:
   min_response_length: 50         # Min chars for valid training example
   max_examples_in_modelfile: 20   # Max examples baked into Modelfile
   error_patterns:                 # Filter out error responses
-    - "error"
-    - "failed"
-    - "sorry, i can't"
-    - "i'm unable to"
-    - "as an ai"
-    - "i cannot"
+      - "Return ONLY valid JSON."
+      - "ALWAYS include ALL keys in the response schema (mcq_questions, true_false_questions, fill_blanks, short_answer, match_following, metadata), even if the array for a section is empty."
+      - "No markdown code fences."
+      - "error"
+      - "failed"
+      - "sorry, i can't"
+      - "i'm unable to"
+      - "as an ai"
+      - "i cannot"
 
 # ─── Evolution Engine ──────────────────────────────────────
 evolution_engine:
@@ -258,16 +261,21 @@ evolution_engine:
     - "mistral:7b"
     - "gemma2:2b"
     - "gemma2:9b"
-    - "phi3:mini"
-    - "deepseek-r1:7b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
+    - "llama3.2:1b"
 
   # Specific models to benchmark against current
   candidate_models:
-    - "qwen2.5-coder:7b"
-    - "qwen2.5:3b"
-    - "qwen2.5:7b"
-    - "llama3.2:3b"
-    - "gemma2:2b"
+     ollama_model: str = "phi4-mini:latest"
 
   # Upgrade thresholds
   min_quality_improvement: 0.5   # Minimum quality score improvement to upgrade
@@ -824,8 +832,8 @@ smart_router:
       complex: llama-3.3-70b-versatile
     ollama:
       simple: llama3.2:1b
-      moderate: qwen2.5:3b
-      complex: gemma3:12b
+      moderate: phi4-mini:latest
+      complex: phi4-mini:latest
     bitnet:
       simple: bitnet-2b
       moderate: bitnet-2b
@@ -840,6 +848,22 @@ smart_router:
       simple: meta/llama-3.1-8b-instruct
       moderate: meta/llama-3.1-70b-instruct
       complex: null               # uses config nvidia_model
+
+  # A/B Testing: Gradually rollout tuned models
+  ab_testing:
+    enabled: true
+    default_split: 0.1  # 10% to tuned model
+    agents:
+      quiz_generator:
+        split: 0.5      # 50/50 for the most tested agent
+        tuned_model: "phi4-mini:latest-sutra-tuned"
+
+  # Distillation & Training
+  distillation:
+    enabled: true
+    save_path: "training/data/per_agent"
+    min_quality_for_train: 0.8
+    max_history_per_agent: 1000
 
 
 # ─── Intent Routes (moved from hub.py) ─────────────────────

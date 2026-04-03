@@ -5,6 +5,7 @@ Streaming endpoints provide SSE (Server-Sent Events) for ChatGPT-style token-by-
 """
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -16,6 +17,7 @@ from app.schemas.chat import ChatResponse
 from app.services.agents.hub import get_agent_hub
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=list[AgentInfo], summary="List All AI Agents")
