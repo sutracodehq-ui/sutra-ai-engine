@@ -230,7 +230,21 @@ async def text_to_speech(
     tts_config = config.get("tts", {})
     errors = []
 
-    # 1. Edge-TTS (FREE — no API key needed, always available)
+    # 1. ElevenLabs (PREMIUM — near-human quality)
+    try:
+        from app.services.drivers.voice.elevenlabs_driver import get_elevenlabs_driver
+        el_driver = get_elevenlabs_driver()
+        if el_driver.is_available():
+            result = await el_driver.generate_speech(text)
+            if result:
+                return result
+        else:
+            errors.append("ElevenLabs: API key not configured")
+    except Exception as e:
+        errors.append(f"ElevenLabs: {e}")
+        logger.warning(f"ElevenLabs TTS failed: {e}. Trying Edge-TTS fallback...")
+
+    # 2. Edge-TTS (FREE — no API key needed, always available)
     result = await edge_tts_generate(text, voice)
     if result:
         return result

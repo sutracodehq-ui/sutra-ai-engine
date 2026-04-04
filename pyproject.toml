@@ -49,6 +49,9 @@ dependencies = [
 
     # Image Generation (Fal.ai Flux)
     "fal-client>=0.5",
+
+    # Voice — Premium TTS (ElevenLabs)
+    "elevenlabs>=1.0",
 ]
 
 [project.optional-dependencies]

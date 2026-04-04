@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     # ─── Fal.ai (Image Generation) ─────────────────
     fal_key: str = ""
 
+    # ─── ElevenLabs (Premium TTS) ──────────────────
+    elevenlabs_api_key: str = ""
+
     # ─── OpenAI ─────────────────────────────────────
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
