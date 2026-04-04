@@ -1,0 +1,25 @@
+# ─── Required Ollama Models ────────────────────────────────────
+# Single source of truth for all models the AI Engine needs locally.
+# The ollama-init container reads this file and auto-pulls any missing model.
+#
+# Software Factory: add a model here → it's auto-downloaded on next deploy.
+# No code changes needed. No docker-compose edits.
+
+# ─── Core Models (always required) ─────────────────────────────
+# These are the primary and fallback models the engine uses for inference.
+core:
+  - qwen3:4b                  # Primary inference model (OLLAMA_MODEL in .env)
+  - qwen3:1.7b                # Router / lightweight tasks
+  - smollm2:1.7b              # Ultra-fast simple queries
+
+# ─── Domain Base Models (for cluster fine-tuning) ──────────────
+# Base models used by model_clusters.yaml for distillation/LoRA.
+# Only pulled if you plan to do local fine-tuning.
+domain:
+  # - qwen2.5:3b              # Marketing, Finance, EdTech, Health, Legal, E-com
+  # - qwen2.5-coder:3b        # Coding cluster
+  # - phi4-mini:latest         # General/catch-all cluster
+
+# ─── Embedding Models ─────────────────────────────────────────
+embeddings:
+  - nomic-embed-text           # ChromaDB vector embeddings

@@ -67,6 +67,10 @@ async def get_current_tenant(
     Extract and validate API key from Authorization header.
     Returns the resolved Tenant model with `_api_environment` set to 'live' or 'test'.
 
+    Auth flow:
+    1. Try resolving as SSO JWT (for Sutra-Identity integration)
+    2. O(1) indexed hash lookup on api_keys table (checks expiry + active status)
+
     Header format: `Authorization: Bearer sk_live_xxxxxxxx` or `Authorization: Bearer sk_test_xxxxxxxx`
     """
     from app.services.tenant_service import TenantService
@@ -95,11 +99,11 @@ async def get_current_tenant(
             if tenant:
                 if not tenant.is_active:
                     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is suspended")
-                tenant._api_environment = "live" # SSO is always live
+                tenant._api_environment = "live"  # SSO is always live
                 return tenant
 
-    # 2. Fallback to API Key resolution
-    tenant, environment = await TenantService.resolve_by_api_key(db, api_key_or_token)
+    # 2. O(1) indexed lookup on api_keys table
+    tenant, environment, api_key_record = await TenantService.resolve_by_api_key(db, api_key_or_token)
     if tenant is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key or SSO token")
 

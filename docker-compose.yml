@@ -123,7 +123,7 @@ services:
 
   # ─── Ollama (Local LLM) ──────────────────────────────
   sutra-ai-ollama:
-    image: ollama/ollama:0.5.7
+    image: ollama/ollama:latest
     container_name: sutra-ai-ollama
     environment:
       - OLLAMA_NUM_PARALLEL=2
@@ -142,24 +142,17 @@ services:
       - sutra-ai-network
     restart: unless-stopped
 
-  # ─── Ollama Model Puller (runs once, pulls qwen2.5:3b) ─
+  # ─── Ollama Model Puller (config-driven, auto-pulls missing models) ─
   sutra-ai-ollama-init:
     image: ollama/ollama:latest
     container_name: sutra-ai-ollama-init
     environment:
       - OLLAMA_HOST=http://sutra-ai-ollama:11434
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        echo "Waiting for Ollama server..."
-        sleep 5
-        echo "Pulling qwen3:4b..."
-        ollama pull qwen3:4b
-        echo "Pulling qwen3:1.7b..."
-        ollama pull qwen3:1.7b
-        echo "Pulling smollm2:1.7b..."
-        ollama pull smollm2:1.7b
-        echo "Models ready!"
+      - CONFIG_FILE=/app/config/ollama_models.yaml
+    volumes:
+      - ./scripts/ollama_init.sh:/app/scripts/ollama_init.sh:ro
+      - ./config/ollama_models.yaml:/app/config/ollama_models.yaml:ro
+    entrypoint: ["/bin/sh", "/app/scripts/ollama_init.sh"]
     depends_on:
       sutra-ai-ollama:
         condition: service_healthy

@@ -36,6 +36,7 @@ class Tenant(Base, TimestampMixin):
     identity_org_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True, unique=True)
 
     # Relationships
+    api_keys = relationship("ApiKey", back_populates="tenant", lazy="dynamic", cascade="all, delete-orphan")
     conversations = relationship("AiConversation", back_populates="tenant", lazy="dynamic")
     tasks = relationship("AiTask", back_populates="tenant", lazy="dynamic")
     voice_profiles = relationship("VoiceProfile", back_populates="tenant", lazy="dynamic")

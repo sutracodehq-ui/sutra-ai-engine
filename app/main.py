@@ -46,6 +46,13 @@ def create_app() -> FastAPI:
     with open(openapi_config_path, "r") as f:
         openapi_cfg = yaml.safe_load(f)
 
+    # ─── Swagger Security Scheme (Authorize button) ───────────────
+    swagger_params = {
+        "swagger_ui_parameters": {
+            "persistAuthorization": True,  # Keeps your key across page refreshes
+        }
+    }
+
     app = FastAPI(
         title=openapi_cfg.get("title", "SutraAI Engine"),
         summary=openapi_cfg.get("summary", ""),
@@ -57,6 +64,7 @@ def create_app() -> FastAPI:
         contact=openapi_cfg.get("contact"),
         license_info=openapi_cfg.get("license"),
         lifespan=lifespan,
+        **swagger_params,
     )
 
 

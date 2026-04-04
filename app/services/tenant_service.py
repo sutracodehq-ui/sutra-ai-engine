@@ -1,24 +1,31 @@
 """
-Tenant Service — dual API key generation, validation, and tenant CRUD.
+Tenant Service — multi-key auth with expiry, scopes, and O(1) indexed lookup.
 
-Each tenant gets two keys:
-  - sk_live_* → production (real LLM calls, billed)
-  - sk_test_* → sandbox (mock driver, no billing)
+Each tenant can have unlimited API keys, each with:
+  - environment: "live" or "test"
+  - label: human-readable name ("Frontend App", "CI/CD")
+  - scopes: permission list (default ["*"] = full access)
+  - expires_at: optional TTL
+  - last_used_at: touch on each auth
 """
 
 import hashlib
 import secrets
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.models.api_key import ApiKey
 from app.models.tenant import Tenant
 
 
 class TenantService:
-    """Factory for tenant lifecycle operations."""
+    """Factory for tenant lifecycle and API key operations."""
 
-    # ─── API Key Management ─────────────────────────────────
+    # ─── Key Utilities ──────────────────────────────────────
 
     @staticmethod
     def generate_api_key(prefix: str = "sk_live") -> str:
@@ -28,7 +35,7 @@ class TenantService:
 
     @staticmethod
     def hash_api_key(raw_key: str) -> str:
-        """Hash an API key for storage. Uses SHA-256 (keys are already high-entropy)."""
+        """Hash an API key for storage. SHA-256 (keys are already high-entropy)."""
         return hashlib.sha256(raw_key.encode()).hexdigest()
 
     @staticmethod
@@ -38,7 +45,7 @@ class TenantService:
 
     @staticmethod
     def key_prefix(raw_key: str) -> str:
-        """Extract a displayable prefix from an API key (e.g., 'sk_live_abc12345...')."""
+        """Extract a displayable prefix from an API key."""
         parts = raw_key.split("_", 2)
         if len(parts) >= 3:
             return f"{parts[0]}_{parts[1]}_{parts[2][:8]}..."
@@ -51,12 +58,20 @@ class TenantService:
             return "test"
         return "live"
 
-    # ─── CRUD ───────────────────────────────────────────────
+    # ─── Tenant CRUD ────────────────────────────────────────
 
     @classmethod
-    async def create(cls, db: AsyncSession, *, name: str, slug: str, identity_org_id: str | None = None, **kwargs) -> tuple[Tenant, str, str]:
+    async def create(
+        cls,
+        db: AsyncSession,
+        *,
+        name: str,
+        slug: str,
+        identity_org_id: str | None = None,
+        **kwargs,
+    ) -> tuple[Tenant, str, str]:
         """
-        Create a new tenant and generate both API keys.
+        Create a new tenant with initial live + test API keys.
 
         Returns (tenant, raw_live_key, raw_test_key).
         Raw keys are only available at creation time — save them.
@@ -64,6 +79,7 @@ class TenantService:
         raw_live_key = cls.generate_api_key("sk_live")
         raw_test_key = cls.generate_api_key("sk_test")
 
+        # Create tenant (keep legacy columns for backcompat)
         tenant = Tenant(
             name=name,
             slug=slug,
@@ -76,29 +92,34 @@ class TenantService:
         )
         db.add(tenant)
         await db.flush()
+
+        # Create keys in the dedicated api_keys table
+        live_key_record = ApiKey(
+            tenant_id=tenant.id,
+            key_hash=cls.hash_api_key(raw_live_key),
+            key_prefix=cls.key_prefix(raw_live_key),
+            environment="live",
+            label="Default",
+            scopes=["*"],
+        )
+        test_key_record = ApiKey(
+            tenant_id=tenant.id,
+            key_hash=cls.hash_api_key(raw_test_key),
+            key_prefix=cls.key_prefix(raw_test_key),
+            environment="test",
+            label="Default",
+            scopes=["*"],
+        )
+        db.add_all([live_key_record, test_key_record])
+        await db.flush()
+
         return tenant, raw_live_key, raw_test_key
 
     @classmethod
-    async def resolve_by_api_key(cls, db: AsyncSession, raw_key: str) -> tuple[Tenant | None, str]:
-        """
-        Look up a tenant by API key.
-
-        Returns (tenant, environment) where environment is 'live' or 'test'.
-        Checks the correct hash column based on the key prefix.
-        """
-        env = cls.key_environment(raw_key)
-
-        result = await db.execute(
-            select(Tenant).where(Tenant.is_active.is_(True))
-        )
-        candidates = result.scalars().all()
-
-        for tenant in candidates:
-            hash_to_check = tenant.test_key_hash if env == "test" else tenant.live_key_hash
-            if cls.verify_api_key(raw_key, hash_to_check):
-                return tenant, env
-
-        return None, env
+    async def list_all(cls, db: AsyncSession) -> list[Tenant]:
+        """List all tenants."""
+        result = await db.execute(select(Tenant).order_by(Tenant.id))
+        return list(result.scalars().all())
 
     @classmethod
     async def get_by_id(cls, db: AsyncSession, tenant_id: int) -> Tenant | None:
@@ -113,9 +134,190 @@ class TenantService:
         return result.scalar_one_or_none()
 
     @classmethod
+    async def update(cls, db: AsyncSession, tenant: Tenant, **updates) -> Tenant:
+        """Update tenant fields."""
+        allowed = {"name", "contact_email", "description", "config", "rate_limits", "webhook_url", "is_active"}
+        for key, value in updates.items():
+            if key in allowed and value is not None:
+                setattr(tenant, key, value)
+        await db.flush()
+        return tenant
+
+    @classmethod
+    async def deactivate(cls, db: AsyncSession, tenant: Tenant) -> Tenant:
+        """Soft-deactivate a tenant and revoke all its API keys."""
+        tenant.is_active = False
+        # Revoke all keys
+        await db.execute(
+            update(ApiKey)
+            .where(ApiKey.tenant_id == tenant.id)
+            .values(is_active=False)
+        )
+        await db.flush()
+        return tenant
+
+    # ─── API Key Resolution (O(1) indexed lookup) ──────────
+
+    @classmethod
+    async def resolve_by_api_key(cls, db: AsyncSession, raw_key: str) -> tuple[Tenant | None, str, ApiKey | None]:
+        """
+        O(1) indexed hash lookup on api_keys table.
+
+        Returns (tenant, environment, api_key_record) or (None, env, None).
+        Also checks: is_active, not expired, tenant is_active.
+        Touches last_used_at on success.
+        """
+        key_hash = cls.hash_api_key(raw_key)
+        env = cls.key_environment(raw_key)
+
+        # O(1): indexed unique lookup on key_hash
+        result = await db.execute(
+            select(ApiKey)
+            .where(ApiKey.key_hash == key_hash)
+            .options(selectinload(ApiKey.tenant))
+        )
+        api_key = result.scalar_one_or_none()
+
+        if api_key is None:
+            return None, env, None
+
+        # Check key is active
+        if not api_key.is_active:
+            return None, env, None
+
+        # Check expiry
+        if api_key.is_expired:
+            return None, env, None
+
+        # Check tenant is active
+        if not api_key.tenant.is_active:
+            return None, env, None
+
+        # Touch last_used_at (fire-and-forget, non-blocking)
+        api_key.last_used_at = datetime.now(timezone.utc)
+
+        return api_key.tenant, api_key.environment, api_key
+
+    # ─── API Key Management ────────────────────────────────
+
+    @classmethod
+    async def create_api_key(
+        cls,
+        db: AsyncSession,
+        tenant_id: int,
+        *,
+        environment: str = "live",
+        label: str | None = None,
+        scopes: list[str] | None = None,
+        expires_in_days: int | None = None,
+    ) -> tuple[ApiKey, str]:
+        """
+        Create a new API key for a tenant.
+
+        Returns (api_key_record, raw_key).
+        Raw key is only available at creation time.
+        """
+        prefix = f"sk_{environment}"
+        raw_key = cls.generate_api_key(prefix)
+
+        expires_at = None
+        if expires_in_days is not None and expires_in_days > 0:
+            expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+
+        api_key = ApiKey(
+            tenant_id=tenant_id,
+            key_hash=cls.hash_api_key(raw_key),
+            key_prefix=cls.key_prefix(raw_key),
+            environment=environment,
+            label=label,
+            scopes=scopes or ["*"],
+            expires_at=expires_at,
+        )
+        db.add(api_key)
+        await db.flush()
+
+        return api_key, raw_key
+
+    @classmethod
+    async def list_api_keys(cls, db: AsyncSession, tenant_id: int) -> list[ApiKey]:
+        """List all API keys for a tenant (active only)."""
+        result = await db.execute(
+            select(ApiKey)
+            .where(ApiKey.tenant_id == tenant_id, ApiKey.is_active.is_(True))
+            .order_by(ApiKey.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    @classmethod
+    async def get_api_key(cls, db: AsyncSession, key_id: int, tenant_id: int) -> ApiKey | None:
+        """Get a specific API key by ID, scoped to a tenant."""
+        result = await db.execute(
+            select(ApiKey).where(ApiKey.id == key_id, ApiKey.tenant_id == tenant_id)
+        )
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def revoke_api_key(cls, db: AsyncSession, api_key: ApiKey) -> ApiKey:
+        """Soft-revoke an API key."""
+        api_key.is_active = False
+        await db.flush()
+        return api_key
+
+    @classmethod
+    async def rotate_api_key(cls, db: AsyncSession, api_key: ApiKey) -> tuple[ApiKey, str]:
+        """
+        Rotate: revoke old key + create new key with same label/environment/scopes.
+
+        Returns (new_api_key, raw_key).
+        """
+        # Revoke old
+        api_key.is_active = False
+
+        # Create new with same config
+        new_key, raw_key = await cls.create_api_key(
+            db,
+            api_key.tenant_id,
+            environment=api_key.environment,
+            label=api_key.label,
+            scopes=api_key.scopes,
+        )
+        return new_key, raw_key
+
+    @classmethod
+    async def cleanup_expired(cls, db: AsyncSession) -> int:
+        """Delete expired keys older than 30 days. Returns count of deleted keys."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        result = await db.execute(
+            select(ApiKey).where(
+                ApiKey.expires_at.isnot(None),
+                ApiKey.expires_at < cutoff,
+            )
+        )
+        expired = result.scalars().all()
+        for key in expired:
+            await db.delete(key)
+        await db.flush()
+        return len(expired)
+
+    # ─── Legacy Compatibility ──────────────────────────────
+
+    @classmethod
     async def rotate_live_key(cls, db: AsyncSession, tenant: Tenant) -> str:
-        """Generate a new production API key, invalidating the old one."""
-        raw_key = cls.generate_api_key("sk_live")
+        """Legacy: rotate the default live key."""
+        result = await db.execute(
+            select(ApiKey).where(
+                ApiKey.tenant_id == tenant.id,
+                ApiKey.environment == "live",
+                ApiKey.is_active.is_(True),
+            ).order_by(ApiKey.created_at.asc()).limit(1)
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            new_key, raw_key = await cls.rotate_api_key(db, existing)
+        else:
+            new_key, raw_key = await cls.create_api_key(db, tenant.id, environment="live", label="Default")
+
+        # Update legacy columns too
         tenant.live_key_hash = cls.hash_api_key(raw_key)
         tenant.live_key_prefix = cls.key_prefix(raw_key)
         await db.flush()
@@ -123,8 +325,21 @@ class TenantService:
 
     @classmethod
     async def rotate_test_key(cls, db: AsyncSession, tenant: Tenant) -> str:
-        """Generate a new sandbox API key, invalidating the old one."""
-        raw_key = cls.generate_api_key("sk_test")
+        """Legacy: rotate the default test key."""
+        result = await db.execute(
+            select(ApiKey).where(
+                ApiKey.tenant_id == tenant.id,
+                ApiKey.environment == "test",
+                ApiKey.is_active.is_(True),
+            ).order_by(ApiKey.created_at.asc()).limit(1)
+        )
+        existing = result.scalar_one_or_none()
+        if existing:
+            new_key, raw_key = await cls.rotate_api_key(db, existing)
+        else:
+            new_key, raw_key = await cls.create_api_key(db, tenant.id, environment="test", label="Default")
+
+        # Update legacy columns too
         tenant.test_key_hash = cls.hash_api_key(raw_key)
         tenant.test_key_prefix = cls.key_prefix(raw_key)
         await db.flush()
