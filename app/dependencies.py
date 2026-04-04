@@ -6,7 +6,7 @@ All request-scoped dependencies are defined here as FastAPI `Depends()` callable
 
 from typing import Annotated, AsyncGenerator
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import Settings, get_settings
@@ -57,10 +57,21 @@ async def get_redis(settings: Annotated[Settings, Depends(get_settings)]):
     return _redis_pool
 
 
+# ─── Security Scheme (Swagger "Authorize" button) ──────────────
+
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+_bearer_scheme = HTTPBearer(
+    scheme_name="Bearer Auth",
+    description="Enter your API key (sk_live_*, sk_test_*) or Master key (sk_master_*).",
+    auto_error=True,
+)
+
+
 # ─── Tenant Auth (API Key) ─────────────────────────────────────
 
 async def get_current_tenant(
-    authorization: Annotated[str, Header()],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer_scheme)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
@@ -70,15 +81,10 @@ async def get_current_tenant(
     Auth flow:
     1. Try resolving as SSO JWT (for Sutra-Identity integration)
     2. O(1) indexed hash lookup on api_keys table (checks expiry + active status)
-
-    Header format: `Authorization: Bearer sk_live_xxxxxxxx` or `Authorization: Bearer sk_test_xxxxxxxx`
     """
     from app.services.tenant_service import TenantService
 
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authorization header format")
-
-    api_key_or_token = authorization.removeprefix("Bearer ").strip()
+    api_key_or_token = credentials.credentials
     if not api_key_or_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is required")
 
@@ -115,11 +121,11 @@ async def get_current_tenant(
 
 
 async def require_master_key(
-    authorization: Annotated[str, Header()],
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(_bearer_scheme)],
     settings: Annotated[Settings, Depends(get_settings)],
 ):
     """Validate the master admin API key for tenant management endpoints."""
-    api_key = authorization.removeprefix("Bearer ").strip()
+    api_key = credentials.credentials
     if api_key != settings.master_api_key:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Master API key required")
     return True
@@ -130,3 +136,4 @@ async def require_master_key(
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentTenant = Annotated["Tenant", Depends(get_current_tenant)]  # noqa: F821
 MasterKeyAuth = Annotated[bool, Depends(require_master_key)]
+
