@@ -14,25 +14,35 @@ from app.services.rag.web_crawler import WebCrawler
 logger = logging.getLogger(__name__)
 
 
-class BrandProfile(TypedDict):
-    name: str
-    mission: str
-    voice_tone: str
-    target_audience: str
+class BrandProfile(TypedDict, total=False):
+    """Comprehensive brand audit result — schema defined in YAML."""
+    brand_identity: dict
+    voice_and_tone: dict
+    target_audience: dict
+    products_and_services: dict
+    industry_and_positioning: dict
+    digital_presence: dict
+    visual_identity: dict
+    content_strategy: dict
+    social_proof: dict
+    technology_signals: dict
+    geographic_presence: dict
     core_values: List[str]
-    slogan: str
+    strengths: List[str]
+    weaknesses_or_gaps: List[str]
+    overall_brand_score: dict
 
 
 class BrandExtractor:
-    """Service to extract brand identity from a URL."""
+    """Service to extract comprehensive brand identity from a URL."""
 
     @classmethod
-    async def analyze_url(cls, url: str) -> BrandProfile | None:
+    async def analyze_url(cls, url: str) -> dict | None:
         """
-        Fetch URL content and extract brand profile.
+        Fetch URL content and perform deep brand audit.
 
         Pipeline: fetch HTML → clean text → run_pipeline("brand_analyze")
-        Driver chain + prompts + timeouts all come from YAML config.
+        Returns a rich 15-section brand analysis from YAML-defined prompts.
         """
         # 1. Fetch
         html = await WebCrawler.fetch(url)
@@ -54,7 +64,7 @@ class BrandExtractor:
             "content": raw_text,
         })
 
-        if result and isinstance(result, dict) and "name" in result:
+        if result and isinstance(result, dict) and "brand_identity" in result:
             return result
 
         logger.warning(f"BrandExtractor: Pipeline returned no valid brand data for {url}")

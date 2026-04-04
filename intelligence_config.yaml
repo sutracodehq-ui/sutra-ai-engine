@@ -1149,28 +1149,123 @@ intelligence_pipelines:
 
   brand_analyze:
     system_prompt: >
-      You are a Brand Strategist. Extract key identity markers
-      from web content. Always respond with valid JSON only.
+      You are a Senior Brand Strategist and Digital Marketing Analyst.
+      Your job is to perform a COMPREHENSIVE brand audit from website content.
+      Extract every possible insight — identity, positioning, digital footprint,
+      content strategy, competitive signals, and market presence.
+      Always respond with valid JSON only. Be detailed and analytical.
     prompt_template: |
-      Analyze the following text from the website of {url}.
-      Your goal is to extract the brand identity of this company.
+      Perform a DEEP brand analysis of the website: {url}
 
-      TEXT SAMPLES:
+      Analyze every signal in the content below — copy, structure, tone,
+      keywords, product mentions, pricing signals, tech references, social proof,
+      and competitive positioning.
+
+      WEBSITE CONTENT:
       {content}
 
       ### Output Format:
-      Return ONLY a JSON object with this schema:
-      {{"name": "Company Name", "mission": "One sentence mission statement",
-        "voice_tone": "Description of writing style",
-        "target_audience": "Who they are selling to",
-        "core_values": ["Value 1", "Value 2", "Value 3"],
-        "slogan": "Primary tagline/slogan"}}
+      Return ONLY a detailed JSON object with ALL of the following sections:
+
+      {{
+        "brand_identity": {{
+          "name": "Official company/brand name",
+          "tagline": "Primary tagline or slogan",
+          "mission": "Detailed mission statement (2-3 sentences)",
+          "vision": "Long-term vision or aspirational goal",
+          "brand_story": "Brief narrative of what the brand is about (3-4 sentences)",
+          "founding_context": "When/why founded, origin story if available"
+        }},
+        "voice_and_tone": {{
+          "writing_style": "e.g., Professional, Conversational, Technical, Playful",
+          "formality_level": "Formal | Semi-formal | Casual | Ultra-casual",
+          "personality_traits": ["trait1", "trait2", "trait3"],
+          "emotional_appeal": "What emotions does the brand try to evoke?",
+          "language_complexity": "Simple | Moderate | Technical | Academic"
+        }},
+        "target_audience": {{
+          "primary_audience": "Main customer segment description",
+          "secondary_audiences": ["segment1", "segment2"],
+          "demographics": "Age range, profession, income level if detectable",
+          "psychographics": "Values, interests, lifestyle of ideal customer",
+          "pain_points_addressed": ["pain1", "pain2", "pain3"]
+        }},
+        "products_and_services": {{
+          "primary_offerings": ["product/service 1", "product/service 2"],
+          "value_proposition": "Core value proposition in one sentence",
+          "pricing_model": "Free | Freemium | Subscription | One-time | Enterprise | Not visible",
+          "pricing_signals": "Any pricing tiers, plans, or cost mentions detected",
+          "key_features": ["feature1", "feature2", "feature3"]
+        }},
+        "industry_and_positioning": {{
+          "industry": "Primary industry/sector",
+          "sub_sector": "Specific niche within the industry",
+          "market_position": "Leader | Challenger | Niche | Emerging | Established",
+          "competitive_advantages": ["advantage1", "advantage2"],
+          "differentiators": "What makes them unique vs competitors"
+        }},
+        "digital_presence": {{
+          "website_purpose": "Lead gen | E-commerce | SaaS | Portfolio | Content/Media | Institutional",
+          "content_types_detected": ["blog", "case studies", "docs", "pricing page", "testimonials"],
+          "cta_patterns": ["Primary CTA text", "Secondary CTA text"],
+          "seo_signals": "Keyword focus, meta description quality, heading structure",
+          "social_channels_mentioned": ["channel1", "channel2"]
+        }},
+        "visual_identity": {{
+          "color_palette_hints": "Colors mentioned or dominant theme (dark, vibrant, minimal)",
+          "design_aesthetic": "Modern | Classic | Minimalist | Bold | Playful | Corporate",
+          "imagery_style": "Photography | Illustrations | Icons | 3D | Abstract",
+          "typography_hints": "Clean sans-serif | Traditional serif | Handwritten | Monospace"
+        }},
+        "content_strategy": {{
+          "key_topics": ["topic1", "topic2", "topic3"],
+          "content_frequency_signal": "Active blog | Sparse updates | No blog | News-heavy",
+          "thought_leadership": "Does the brand position as an industry thought leader?",
+          "educational_content": true,
+          "case_studies_present": false
+        }},
+        "social_proof": {{
+          "testimonials_present": true,
+          "client_logos_present": false,
+          "stats_and_numbers": ["stat1", "stat2"],
+          "awards_certifications": ["if any detected"],
+          "partnerships_mentioned": ["partner1", "partner2"],
+          "trust_signals": "What credibility markers are present?"
+        }},
+        "technology_signals": {{
+          "tech_stack_hints": ["framework", "platform", "tool"],
+          "integrations_mentioned": ["integration1", "integration2"],
+          "api_references": "Does the site mention APIs or developer tools?",
+          "mobile_app_available": false
+        }},
+        "geographic_presence": {{
+          "headquarters": "City, Country if detectable",
+          "markets_served": ["market1", "market2"],
+          "language_options": ["en", "hi"],
+          "global_vs_local": "Global | Regional | Local | Not clear"
+        }},
+        "core_values": ["Value 1", "Value 2", "Value 3", "Value 4", "Value 5"],
+        "strengths": ["strength1", "strength2", "strength3"],
+        "weaknesses_or_gaps": ["gap1", "gap2"],
+        "overall_brand_score": {{
+          "clarity": 8,
+          "consistency": 7,
+          "differentiation": 6,
+          "digital_maturity": 7,
+          "content_quality": 8,
+          "overall": 7.2,
+          "summary": "2-3 sentence executive summary of the brand's digital presence"
+        }}
+      }}
+
+      Be thorough. If information is not available, use "Not detected" or empty arrays.
+      NEVER skip a section. Return the COMPLETE JSON.
     driver_chain: [groq, gemini, anthropic, ollama]
-    timeout_seconds: 30
-    expected_fields: [name, mission, voice_tone, target_audience, core_values, slogan]
-    temperature: 0.0
+    timeout_seconds: 45
+    expected_fields: [brand_identity, voice_and_tone, target_audience, products_and_services, industry_and_positioning, digital_presence, core_values, overall_brand_score]
+    temperature: 0.1
     json_mode: true
-    max_content_chars: 4000
+    max_content_chars: 8000
 
   sentiment:
     system_prompt: >
