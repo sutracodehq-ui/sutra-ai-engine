@@ -1,14 +1,11 @@
 """
 Sentiment Service — detects user tone and emotional state.
 
-Software Factory: sentiment is a modular intelligence unit.
-Use it to adjust AI personality, escalate to human, or skip
-heavy-duty processing for frustrated users.
-
-Uses cloud-first strategy for fast, accurate JSON extraction.
+Software Factory: Uses run_pipeline("sentiment") for config-driven
+LLM execution. All prompts, driver chains, and fallback responses
+are defined in intelligence_config.yaml → intelligence_pipelines.
 """
 
-import json
 import logging
 from typing import TypedDict
 
@@ -24,60 +21,28 @@ class SentimentResult(TypedDict):
 class SentimentService:
     """Service for real-time sentiment analysis."""
 
-    _SYSTEM_PROMPT = "You are a sentiment analyzer. Be fast, accurate, and output raw JSON only."
-
     @classmethod
     async def analyze(cls, text: str) -> SentimentResult:
-        """Analyze the sentiment of the provided text."""
+        """
+        Analyze the sentiment of the provided text.
+
+        Pipeline: run_pipeline("sentiment") → parsed JSON dict
+        On failure, returns neutral fallback from YAML config.
+        """
         if not text or len(text) < 5:
             return {"score": 0.0, "label": "neutral", "vibe": "neutral"}
 
-        prompt = f"""
-Analyze the sentiment and tone of the following user message.
-Return ONLY a JSON object with this schema:
-{{
-  "score": float (-1.0 to 1.0),
-  "label": "angry" | "frustrated" | "neutral" | "happy" | "excited",
-  "vibe": "string describing the vibe"
-}}
+        from app.lib.llm_pipeline import run_pipeline
 
-USER MESSAGE: "{text}"
-""".strip()
+        result = await run_pipeline("sentiment", {"text": text})
 
-        try:
-            data = await cls._call_cloud_first(prompt)
-            if data:
-                return {
-                    "score": data.get("score", 0.0),
-                    "label": data.get("label", "neutral"),
-                    "vibe": data.get("vibe", "neutral"),
-                }
-        except Exception as e:
-            logger.error(f"Sentiment Analysis failed: {e}")
+        if result and isinstance(result, dict):
+            return {
+                "score": float(result.get("score", 0.0)),
+                "label": result.get("label", "neutral"),
+                "vibe": result.get("vibe", "neutral"),
+            }
 
+        # Fallback is returned by run_pipeline from YAML config,
+        # but if even that is None, return hardcoded safe default
         return {"score": 0.0, "label": "neutral", "vibe": "error_fallback"}
-
-    @classmethod
-    async def _call_cloud_first(cls, prompt: str) -> dict | None:
-        """Cloud-first: Groq → Gemini → Anthropic → Ollama."""
-        from app.services.intelligence.driver import get_driver_registry
-
-        registry = get_driver_registry()
-
-        for driver_name in ["groq", "gemini", "anthropic", "ollama"]:
-            if not registry.circuit_breaker.is_available(driver_name):
-                continue
-            try:
-                response = await registry.complete(
-                    system_prompt=cls._SYSTEM_PROMPT,
-                    user_prompt=prompt,
-                    driver_override=driver_name,
-                    temperature=0.0,
-                    json_mode=True,
-                )
-                if response.content:
-                    return json.loads(response.content)
-            except Exception as e:
-                logger.warning(f"SentimentService: {driver_name} failed: {e}")
-                continue
-        return None

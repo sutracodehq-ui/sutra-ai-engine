@@ -1,5 +1,7 @@
 """URL Analyzer API endpoints — serves digital footprint data to the marketing tool UI."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
@@ -7,6 +9,8 @@ from pydantic import BaseModel
 from typing import Optional
 
 from app.dependencies import get_db, get_current_tenant
+from app.lib.llm_pipeline import get_pipeline_config
+from app.lib.response import ok, fail
 from app.models.url_analysis import UrlAnalysis
 
 router = APIRouter(prefix="/url-analyzer", tags=["url-analyzer"])
@@ -57,8 +61,15 @@ async def analyze_url(
 
     Results are persisted for trend tracking and self-learning. Set `max_pages` (1-10) to control crawl depth.
     """
-    scraper = WebScraperService()
-    scraped_data = await scraper.analyze_url(payload.url, max_pages=payload.max_pages)
+    timeout = get_pipeline_config("url_analyze").get("crawl_timeout_seconds", 45)
+    try:
+        scraper = WebScraperService()
+        scraped_data = await asyncio.wait_for(
+            scraper.analyze_url(payload.url, max_pages=payload.max_pages),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        return fail(message=f"URL analysis timed out for {payload.url}", code=504)
 
     # Persist for training
     from urllib.parse import urlparse
@@ -78,22 +89,25 @@ async def analyze_url(
     await db.commit()
     await db.refresh(analysis)
 
-    return {
-        "id": analysis.id,
-        "url": payload.url,
-        "domain": analysis.domain,
-        "seo": scraped_data.get("overall_seo_health", {}),
-        "google_indexing": scraped_data.get("google_indexing", {}),
-        "robots_txt": scraped_data.get("robots_txt", {}),
-        "sitemap": scraped_data.get("sitemap", {}),
-        "tech_stack": scraped_data.get("tech_stack", []),
-        "social_profiles": scraped_data.get("social_profiles", {}),
-        "structured_data": scraped_data.get("structured_data", []),
-        "security_headers": scraped_data.get("security_headers", {}),
-        "emails": scraped_data.get("emails", []),
-        "phones": scraped_data.get("phones", []),
-        "pages": scraped_data.get("pages", []),
-    }
+    return ok(
+        data={
+            "id": analysis.id,
+            "url": payload.url,
+            "domain": analysis.domain,
+            "seo": scraped_data.get("overall_seo_health", {}),
+            "google_indexing": scraped_data.get("google_indexing", {}),
+            "robots_txt": scraped_data.get("robots_txt", {}),
+            "sitemap": scraped_data.get("sitemap", {}),
+            "tech_stack": scraped_data.get("tech_stack", []),
+            "social_profiles": scraped_data.get("social_profiles", {}),
+            "structured_data": scraped_data.get("structured_data", []),
+            "security_headers": scraped_data.get("security_headers", {}),
+            "emails": scraped_data.get("emails", []),
+            "phones": scraped_data.get("phones", []),
+            "pages": scraped_data.get("pages", []),
+        },
+        message="URL analyzed",
+    )
 
 
 @router.get("/analyses", response_model=dict, summary="List Past Analyses")

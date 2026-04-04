@@ -1138,3 +1138,102 @@ timeouts:
 sentiment:
   positive_words: [good, great, awesome, happy, thanks, love, perfect]
   negative_words: [bad, wrong, broken, slow, hate, error, fail]
+
+# ─── Intelligence Pipelines (Software Factory) ─────────────
+# Each pipeline defines: prompt, driver_chain, timeout, expected output.
+# Python services call run_pipeline(name, {vars}) — they NEVER define
+# their own prompts, driver loops, or JSON parsing.
+# Adding a new pipeline = add YAML entry here. Zero code changes.
+
+intelligence_pipelines:
+
+  brand_analyze:
+    system_prompt: >
+      You are a Brand Strategist. Extract key identity markers
+      from web content. Always respond with valid JSON only.
+    prompt_template: |
+      Analyze the following text from the website of {url}.
+      Your goal is to extract the brand identity of this company.
+
+      TEXT SAMPLES:
+      {content}
+
+      ### Output Format:
+      Return ONLY a JSON object with this schema:
+      {{"name": "Company Name", "mission": "One sentence mission statement",
+        "voice_tone": "Description of writing style",
+        "target_audience": "Who they are selling to",
+        "core_values": ["Value 1", "Value 2", "Value 3"],
+        "slogan": "Primary tagline/slogan"}}
+    driver_chain: [groq, gemini, anthropic, ollama]
+    timeout_seconds: 30
+    expected_fields: [name, mission, voice_tone, target_audience, core_values, slogan]
+    temperature: 0.0
+    json_mode: true
+    max_content_chars: 4000
+
+  sentiment:
+    system_prompt: >
+      You are a sentiment analyzer. Be fast, accurate, and output raw JSON only.
+    prompt_template: |
+      Analyze the sentiment and tone of the following user message.
+      Return ONLY a JSON object with this schema:
+      {{"score": "float (-1.0 to 1.0)",
+        "label": "angry|frustrated|neutral|happy|excited",
+        "vibe": "string describing the vibe"}}
+
+      USER MESSAGE: "{text}"
+    driver_chain: [groq, gemini, anthropic, ollama]
+    timeout_seconds: 15
+    expected_fields: [score, label, vibe]
+    temperature: 0.0
+    json_mode: true
+    fallback_response:
+      score: 0.0
+      label: neutral
+      vibe: error_fallback
+
+  language_detect:
+    system_prompt: "You are a language detector. Output raw JSON ONLY."
+    prompt_template: |
+      Identify the language of the text below.
+      Return ONLY a JSON object with:
+      {{"code": "iso_639_1_code", "name": "Full Language Name",
+        "confidence": "float (0.0 to 1.0)"}}
+
+      TEXT: "{text}"
+    driver_chain: [groq, gemini, anthropic, ollama]
+    timeout_seconds: 15
+    expected_fields: [code, name, confidence]
+    temperature: 0.0
+    json_mode: true
+    max_content_chars: 500
+    fallback_response:
+      code: en
+      name: English
+      confidence: 0.0
+
+  language_translate:
+    system_prompt: >
+      You are a professional translator. Only return the translated text.
+    prompt_template: "Translate the following to {target_lang}:\n\n{text}"
+    driver_chain: [groq, gemini, anthropic, ollama]
+    timeout_seconds: 20
+    temperature: 0.3
+    json_mode: false
+
+  hashtag_suggest:
+    driver_chain: [groq, gemini, anthropic]
+    timeout_seconds: 20
+    json_mode: true
+
+  seo_audit:
+    crawl_timeout_seconds: 30
+    llm_timeout_seconds: 20
+
+  competitor_analyze:
+    crawl_timeout_seconds: 30
+    llm_timeout_seconds: 20
+
+  url_analyze:
+    crawl_timeout_seconds: 45

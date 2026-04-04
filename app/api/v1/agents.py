@@ -8,9 +8,9 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import StreamingResponse
 
 from app.dependencies import CurrentTenant, DbSession
+from app.lib.response import stream_sse
 from app.models.ai_task import AiTask
 from app.schemas.agent import AgentInfo, AgentRunRequest, BatchRunRequest
 from app.schemas.chat import ChatResponse
@@ -128,50 +128,37 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
             context.update(extra_context)
 
     async def _llm_generator():
-        """Inner generator: streams tokens from the LLM."""
+        """Inner generator: yields raw tokens. stream_sse() wraps them."""
         full_response = []
         try:
             async for token in hub.run_stream(agent_type, body.prompt, db=db, context=context, **options):
                 full_response.append(token)
-                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+                yield token
 
-            # Post-stream: extract suggestions
+            # Persist completed task
             complete_text = "".join(full_response)
-            suggestions = []
-
             try:
                 from app.services.intelligence.response_filter import get_response_filter
                 rf = get_response_filter()
                 filtered = rf.filter(complete_text)
-                suggestions = filtered.suggestions
                 result_data = filtered.data if filtered.parsed else {"content": complete_text}
             except Exception:
                 result_data = {"content": complete_text}
-
-            if suggestions:
-                yield f"data: {json.dumps({'type': 'suggestions', 'items': suggestions})}\n\n"
-
-            yield f"data: {json.dumps({'type': 'done', 'task_id': task_id, 'agent': agent_type})}\n\n"
 
             task.status = "completed"
             task.result = result_data
             await db.commit()
 
         except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'task_id': task_id, 'agent': agent_type})}\n\n"
             task.status = "failed"
             task.error = str(e)
             await db.commit()
+            raise  # stream_sse() catches this and emits error event
 
-    return StreamingResponse(
+    return stream_sse(
         _llm_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        agent=agent_type,
+        task_id=str(task_id),
     )
 
 

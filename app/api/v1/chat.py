@@ -1,13 +1,17 @@
-"""Chat routes — primary entry point for AI interactions."""
+"""Chat routes — primary entry point for AI interactions.
+
+Software Factory: Uses ok() for HTTP, SSE helpers for streaming.
+"""
 
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import DbSession, get_current_tenant
+from app.lib.response import ok
 from app.models.tenant import Tenant
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat.engine import ChatEngine
@@ -55,11 +59,15 @@ async def chat_stream(
 ):
     """
     Streaming chat completion (SSE).
-    Uses the high-performance pipeline with Zero-buffer passthrough.
-    """
 
-    async def _llm_generator():
-        """Inner generator: streams tokens from the LLM."""
+    SSE Events:
+      - data: {"type": "status", "stage": "thinking"}
+      - data: {"type": "token", "content": "Hello"}
+      - data: {"type": "suggestions", "items": ["..."]}
+      - data: {"type": "done"}
+    """
+    async def _token_generator():
+        """Yields SSE events from the LLM."""
         full_response = []
         stream = await ChatEngine.execute(
             db,
@@ -78,18 +86,15 @@ async def chat_stream(
 
         # Post-stream: extract suggestions
         complete_text = "".join(full_response)
-        suggestions = []
-
         try:
             from app.services.intelligence.brain import get_brain
             brain = get_brain()
             filtered = brain.filter_response(complete_text)
-            suggestions = filtered.suggestions
+            if filtered.suggestions:
+                yield f"data: {json.dumps({'type': 'suggestions', 'items': filtered.suggestions})}\n\n"
         except Exception:
             pass
 
-        if suggestions:
-            yield f"data: {json.dumps({'type': 'suggestions', 'items': suggestions})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     # Queue the request — emits thinking/calculating status, handles concurrency
@@ -97,7 +102,7 @@ async def chat_stream(
     brain = get_brain()
 
     return StreamingResponse(
-        brain.queue.stream(_llm_generator, request),
+        brain.queue.stream(_token_generator, request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
