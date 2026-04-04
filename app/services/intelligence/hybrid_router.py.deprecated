@@ -171,23 +171,23 @@ class HybridRouter:
             )
 
     async def _call_cloud(self, prompt: str, system_prompt: str, **options) -> LlmResponse:
-        """Call cloud with tiered escalation via Registry."""
+        """Call cloud with tiered escalation via Registry. Model selection via Brain."""
         registry = get_driver_registry()
 
-        # SmartRouter: pick optimal model per driver based on complexity
+        # Use Brain (single routing authority) for model selection
         agent_type = options.pop("_agent_type", "unknown")
         model_overrides = {}
         settings = get_settings()
         if settings.ai_smart_router_enabled:
             try:
-                from app.services.intelligence.smart_router import SmartRouter
-                smart = SmartRouter(enabled=True)
+                from app.services.intelligence.brain import get_brain
+                brain = get_brain()
                 for driver_name in ["groq", "gemini", "anthropic"]:
-                    model = smart.select_model(prompt, agent_type, driver_name)
+                    model = brain.select_model(prompt, agent_type, driver_name)
                     if model:
                         model_overrides[driver_name] = model
             except Exception as e:
-                logger.debug(f"HybridRouter: SmartRouter skipped: {e}")
+                logger.debug(f"HybridRouter: Brain model select skipped: {e}")
 
         # Ordered by cost: free → cheap → premium
         cloud_tiers = [

@@ -435,8 +435,10 @@ class DriverRegistry:
             if result is not None:
                 return result
 
+        # Strip model override — each chain driver uses its own default
+        chain_clean = {k: v for k, v in clean.items() if k != "model"}
         return await self._with_fallback(
-            lambda d: d.complete(system_prompt, user_prompt, **clean), "complete"
+            lambda d: d.complete(system_prompt, user_prompt, **chain_clean), "complete"
         )
 
     async def chat(self, messages: list[dict], driver_override: str | None = None,
@@ -454,7 +456,9 @@ class DriverRegistry:
             if result is not None:
                 return result
 
-        return await self._with_fallback(lambda d: d.chat(messages, **clean), "chat")
+        # Strip model override — each chain driver uses its own default
+        chain_clean = {k: v for k, v in clean.items() if k != "model"}
+        return await self._with_fallback(lambda d: d.chat(messages, **chain_clean), "chat")
 
     async def _stream_with_first_token_timeout(
         self, driver_name: str, messages: list[dict], first_token_timeout: float, **clean
@@ -559,12 +563,15 @@ class DriverRegistry:
         chain = fallback_chain or self.driver_chain()
         if driver_override:
             chain = [d for d in chain if d != driver_override]
+        # Strip model override — it was meant for the primary driver,
+        # each chain driver should use its own default model.
+        chain_clean = {k: v for k, v in clean.items() if k != "model"}
         for driver_name in chain:
             if not guardian.circuit_breaker.is_available(driver_name):
                 continue
             try:
                 d = self.driver(driver_name)
-                async for chunk in d.stream(messages, **clean):
+                async for chunk in d.stream(messages, **chain_clean):
                     yield chunk
                 guardian.circuit_breaker.record_success(driver_name)
                 return

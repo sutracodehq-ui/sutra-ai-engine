@@ -63,8 +63,8 @@ class LoraTrainer:
         Collect training data and group by cluster.
         Returns: {cluster_name: [examples]}
         """
-        from app.services.intelligence.smart_router import _load_clusters
-        clusters_cfg = _load_clusters()
+        from app.services.intelligence.config_loader import load_clusters
+        clusters_cfg = load_clusters()
         clusters = clusters_cfg.get("clusters", {})
         
         # Build agent -> cluster map
@@ -244,8 +244,8 @@ class LoraTrainer:
         """
         Run the complete Cluster-based LoRA training pipeline.
         """
-        from app.services.intelligence.smart_router import _load_clusters
-        clusters_cfg = _load_clusters()
+        from app.services.intelligence.config_loader import load_clusters
+        clusters_cfg = load_clusters()
         min_examples = clusters_cfg.get("training_defaults", {}).get("min_examples", 200)
 
         # 1. Collect and group

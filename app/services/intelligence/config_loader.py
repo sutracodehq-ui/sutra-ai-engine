@@ -50,3 +50,12 @@ def get_provider_config(name: str) -> dict:
     """Get metadata for a specific provider (base_url, etc.) from YAML."""
     config = get_intelligence_config()
     return config.get("providers", {}).get(name, {})
+
+
+def load_clusters() -> dict:
+    """Load agent-to-cluster mapping from config/model_clusters.yaml."""
+    path = Path("config/model_clusters.yaml")
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        return yaml.safe_load(f) or {}

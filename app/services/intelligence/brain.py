@@ -312,6 +312,49 @@ class Brain:
         return chains.get(lang_key, {}).get(complexity, ["ollama", "groq"])
 
     def _assess_complexity(self, prompt: str, agent_type: str) -> str:
+        """
+        Hybrid complexity assessment: BitNet scorer (primary) → heuristic fallback.
+
+        BitNet gives actual language understanding (~200-500ms).
+        Falls back to O(1) heuristics if BitNet is down or disabled.
+        """
+        sr = _cfg("smart_router", default={})
+        scorer_cfg = sr.get("scorer", {})
+
+        # ── Stage 1: Try BitNet scorer (fast, accurate) ──
+        if scorer_cfg.get("enabled", False):
+            try:
+                score = self._bitnet_score(prompt, scorer_cfg)
+                if score is not None:
+                    mapping = scorer_cfg.get("score_to_complexity", {})
+                    tier = mapping.get(score, mapping.get(str(score), "moderate"))
+                    logger.info(f"Brain: BitNet scored {score} → {tier}")
+                    return tier
+            except Exception as e:
+                logger.debug(f"Brain: BitNet scorer failed ({e}), using heuristic")
+
+        # ── Stage 2: O(1) heuristic fallback ──
+        return self._heuristic_complexity(prompt, agent_type)
+
+    def _bitnet_score(self, prompt: str, scorer_cfg: dict) -> int | None:
+        """Call BitNet /v1/score endpoint. Sync httpx, tight timeout. Returns 1-5 or None."""
+        import httpx
+
+        endpoint = scorer_cfg.get("endpoint", "http://sutra-ai-bitnet:8081/v1/score")
+        timeout_ms = scorer_cfg.get("timeout_ms", 1000)
+        max_chars = scorer_cfg.get("max_prompt_chars", 500)
+
+        resp = httpx.post(
+            endpoint,
+            json={"prompt": prompt[:max_chars]},
+            timeout=timeout_ms / 1000.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("score")
+
+    def _heuristic_complexity(self, prompt: str, agent_type: str) -> str:
+        """O(1) heuristic complexity — the original keyword-based assessment."""
         _ensure_sets()
         sr = _cfg("smart_router", default={})
         wc = len(prompt.split(None, 100))

@@ -199,10 +199,6 @@ class BaseAgent:
 
         if db:
             try:
-                from app.services.intelligence.hybrid_router import get_hybrid_router
-                router = get_hybrid_router()
-                # Use HybridRouter instead of Brain for prompt selection/A/B test
-                # (Assuming router will eventually absorb this, for now keep it as is or move to a shared utility)
                 from app.services.intelligence.brain import get_brain
                 brain = get_brain()
                 prompt_text, resolved_opt_id = await brain.select_prompt(self.identifier, db)
@@ -398,7 +394,7 @@ class BaseAgent:
         system_msg = next((m for m in messages if m["role"] == "system"), None)
         system_prompt = system_msg["content"] if system_msg else None
 
-        # ─── Hybrid Routing: local-first → quality gate → cloud (Brain) ─
+        # ─── Routing: local-first → quality gate → cloud (Brain) ──
         if settings.ai_hybrid_routing:
             # Extract expected fields from agent config for quality scoring
             expected_fields = None
@@ -409,9 +405,9 @@ class BaseAgent:
                 elif isinstance(schema, list):
                     expected_fields = schema
 
-            from app.services.intelligence.hybrid_router import get_hybrid_router
-            router = get_hybrid_router()
-            response = await router.execute(
+            from app.services.intelligence.brain import get_brain
+            brain = get_brain()
+            response = await brain.execute(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 agent_type=self.identifier,

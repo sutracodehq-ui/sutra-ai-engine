@@ -46,18 +46,26 @@ class ChatCompletionResponse(BaseModel):
     choices: List[ChatCompletionResponseChoice]
     usage: dict = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
+class ScoreRequest(BaseModel):
+    prompt: str
+
+class ScoreResponse(BaseModel):
+    score: int
+    complexity: str  # simple | moderate | complex
+
 # --- Core Inference Logic ---
 async def run_bitnet_inference(prompt: str, max_tokens: int) -> str:
     """Runs the bitnet-cli as a subprocess and captures output."""
     try:
         # Construct command for bitnet-cli
-        # Note: In a real implementation, we'd use flags for model, prompt, and max tokens.
-        # This is a simplified wrapper for the prototype.
+        # Note: We use -p for prompt and -n for max tokens.
         cmd = [
             BITNET_CLI,
             "-m", BITNET_MODEL,
             "-p", prompt,
-            "-n", str(max_tokens)
+            "-n", str(max_tokens),
+            "--temp", "0.1",          # Low temperature for deterministic scoring
+            "--repeat-penalty", "1.1" # Prevent loops
         ]
         
         process = await asyncio.create_subprocess_exec(
@@ -103,6 +111,48 @@ async def chat_completions(request: ChatCompletionRequest):
             )
         ]
     )
+
+@app.post("/v1/score")
+async def score_complexity(request: ScoreRequest):
+    """
+    Score prompt complexity 1-5 in ~200ms.
+    Used by SmartRouter for O(1)-like routing but with actual model insight.
+    """
+    # Truncate prompt to save time — we only need initial context for classification
+    clean_prompt = request.prompt[:512].replace('"', '\"')
+    
+    # Precise, few-shot-like prompt for the 2B model
+    grading_prompt = f"""Task: Rate prompt complexity 1-5.
+Scale: 1=Greeting, 2=Fact, 3=Reasoning, 4=Analysis, 5=Coding/Complex
+Rules: Reply with ONLY the number.
+
+Prompt: {clean_prompt}
+Score:"""
+
+    logger.info(f"Scoring complexity for prompt (len: {len(request.prompt)})")
+    
+    # Run with very small max_tokens since we only need 1 digit
+    result = await run_bitnet_inference(grading_prompt, max_tokens=10)
+    
+    # Extract first digit
+    import re
+    match = re.search(r'(\d)', result)
+    score = int(match.group(1)) if match else 3  # Default to moderate
+    
+    # Bounds check
+    score = max(1, min(5, score))
+    
+    # Map to tier
+    if score <= 2:
+        tier = "simple"
+    elif score == 3:
+        tier = "moderate"
+    else:
+        tier = "complex"
+        
+    logger.info(f"Result: Score {score} -> Tier: {tier}")
+    
+    return ScoreResponse(score=score, complexity=tier)
 
 @app.get("/health")
 async def health():

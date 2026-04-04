@@ -37,8 +37,9 @@ RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
     # Step 4: Build
     cmake --build build --config Release -j$(nproc)
 
-# Verify build
+# Verify build and list libraries for debugging
 RUN ls -l /opt/bitnet/build/bin/llama-cli
+RUN find /opt/bitnet/build -name "*.so*"
 RUN mkdir -p /opt/bitnet/models && \
     curl -L "https://huggingface.co/1bitLLM/bitnet_b1_58-3B/resolve/main/bitnet_b1_58-3B-Q8_0.gguf" \
     -o /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
@@ -54,9 +55,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy built engine
+# Copy built engine and shared libraries
 COPY --from=builder /opt/bitnet/build/bin/llama-cli /opt/bitnet/build/bin/llama-cli
+# BitNet 1.58-bit libraries (relative to build dir)
+COPY --from=builder /opt/bitnet/build/3rdparty/llama.cpp/src/libllama.so /usr/local/lib/
+COPY --from=builder /opt/bitnet/build/3rdparty/llama.cpp/ggml/src/libggml.so /usr/local/lib/
 COPY --from=builder /opt/bitnet/models /opt/bitnet/models
+
+# Ensure shared libraries are indexed
+RUN ldconfig && ls -la /usr/local/lib/lib*.so
 
 # Install Python requirements
 RUN pip install --no-cache-dir fastapi uvicorn pydantic

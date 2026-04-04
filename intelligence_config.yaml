@@ -750,6 +750,19 @@ smart_router:
 
   hinglish_min_matches: 2    # need ≥ N hinglish words to classify
 
+  # BitNet complexity scorer (Phase 2)
+  scorer:
+    enabled: true
+    endpoint: "http://sutra-ai-bitnet:8081/v1/score"
+    timeout_ms: 1000         # Fail fast -> heuristic fallback
+    max_prompt_chars: 500    # Cap input to scorer for speed
+    score_to_complexity:
+      1: simple
+      2: simple
+      3: moderate
+      4: complex
+      5: complex
+
   # Signal words for O(1) complexity detection (checked via frozenset)
   complex_signals:
     - analyze
@@ -856,7 +869,7 @@ smart_router:
       moderate: llama-3.1-8b-instant
       complex: llama-3.3-70b-versatile
     ollama:
-      simple: qwen3:4b
+      simple: qwen3:1.7b
       moderate: qwen3:4b
       complex: qwen3:4b
       temperature: 0.1           # Minimal temp for high precision JSON
