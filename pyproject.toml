@@ -46,6 +46,9 @@ dependencies = [
 
     # Voice — free local TTS (no API key needed)
     "edge-tts>=6.1",
+
+    # Image Generation (Fal.ai Flux)
+    "fal-client>=0.5",
 ]
 
 [project.optional-dependencies]

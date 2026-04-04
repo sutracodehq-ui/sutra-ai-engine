@@ -96,6 +96,7 @@ agent_tools:
   market_trend_analyzer: [calculator, get_datetime]
   crypto_analyzer: [calculator, get_datetime]
   personal_assistant: [calculator, text_analyzer, keyword_extractor, get_datetime]
+  image_generator: [text_analyzer, keyword_extractor]
 
 # ─── Agent Chain Configs ───────────────────────────────────
 # Agents that get a review step after primary execution
@@ -1450,3 +1451,73 @@ intelligence_pipelines:
 
   url_analyze:
     crawl_timeout_seconds: 45
+
+# ─── Image Generation Configuration ────────────────────────
+# Config-driven multi-provider image generation.
+# Adding a new provider = add YAML entry + driver class. Zero service changes.
+# All defaults here are used when schema passes None (no client override).
+image_generation:
+  enabled: true
+
+  # Driver fallback chain (cheapest first, premium fallback)
+  driver_chain: [fal, openai]
+  # Future: [fal, openai, gemini, stability]
+
+  # Default generation parameters (used when client does not specify)
+  defaults:
+    size: "square_hd"
+    quality: "standard"        # standard | hd
+    style: "natural"           # natural | vivid
+    n: 1                       # Number of images
+
+  # Provider-specific configuration (read by each driver)
+  providers:
+    fal:
+      model: "fal-ai/flux/schnell"       # Ultra-fast, $0.003/image
+      sizes: ["square_hd", "landscape_16_9", "landscape_4_3", "portrait_16_9", "portrait_4_3"]
+      max_prompt_length: 5000
+      supports_quality: false
+      supports_style: false
+      num_inference_steps: 4              # Schnell is optimized for 4 steps
+      cost_per_image:
+        standard: 0.003
+    openai:
+      model: "dall-e-3"
+      sizes: ["1024x1024", "1024x1792", "1792x1024"]
+      max_prompt_length: 4000
+      supports_quality: true
+      supports_style: true
+      cost_per_image:
+        standard: 0.04
+        hd: 0.08
+    # ─── Future providers (uncomment when keys available) ───
+    # gemini:
+    #   model: "imagen-3.0-generate-002"
+    #   sizes: ["1024x1024", "1024x1536", "1536x1024"]
+    #   cost_per_image: { standard: 0.00 }
+    # stability:
+    #   model: "stable-diffusion-3.5-large"
+    #   base_url: "https://api.stability.ai/v2beta"
+    #   cost_per_image: { standard: 0.065 }
+
+  # Prompt enhancement pipeline (uses text LLM to refine user prompts)
+  prompt_enhancement:
+    enabled: true
+    max_prompt_length: 400
+
+  # Content safety
+  safety:
+    block_explicit: true
+    block_violence: true
+    log_all_prompts: true
+
+  # Size presets (maps friendly names → provider-specific values)
+  # These are resolved in ImageGenerationService — clients can use either.
+  size_presets:
+    social_square: "square_hd"
+    social_story: "portrait_16_9"
+    social_landscape: "landscape_16_9"
+    banner_wide: "landscape_16_9"
+    avatar: "square_hd"
+    thumbnail: "square_hd"
+    presentation: "landscape_16_9"

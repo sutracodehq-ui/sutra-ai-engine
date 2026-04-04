@@ -25,6 +25,7 @@ from app.api.v1.voice import router as voice_router
 from app.api.v1.url_analyzer import router as url_analyzer_router
 from app.api.v1.clicks import router as clicks_router
 from app.api.v1.rag import router as rag_router
+from app.api.v1.images import router as images_router
 
 # Data & History
 from app.api.v1.conversations import router as conversations_router
@@ -53,6 +54,7 @@ router.include_router(voice_router, prefix=v1_prefix)         # voice
 router.include_router(url_analyzer_router, prefix=v1_prefix)  # url-analyzer
 router.include_router(clicks_router, prefix=v1_prefix)        # click-shield
 router.include_router(rag_router, prefix=v1_prefix)           # rag
+router.include_router(images_router, prefix=v1_prefix)        # images
 
 # 📊 Data & History
 router.include_router(conversations_router, prefix=v1_prefix) # conversations

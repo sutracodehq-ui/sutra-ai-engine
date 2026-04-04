@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     ai_image_driver: str = "openai"
     ai_image_model: str = "dall-e-3"
 
+    # ─── Fal.ai (Image Generation) ─────────────────
+    fal_key: str = ""
+
     # ─── OpenAI ─────────────────────────────────────
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
