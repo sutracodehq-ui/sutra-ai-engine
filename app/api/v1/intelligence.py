@@ -73,7 +73,7 @@ async def analyze_sentiment(
     timeout = get_pipeline_config("sentiment").get("timeout_seconds", 15)
     try:
         result = await asyncio.wait_for(
-            SentimentService.analyze(body.text),
+            SentimentService.analyze(body.text, tenant_id=tenant.id),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
@@ -95,7 +95,7 @@ async def detect_language(
     timeout = get_pipeline_config("language_detect").get("timeout_seconds", 15)
     try:
         result = await asyncio.wait_for(
-            LanguageService.detect(body.text),
+            LanguageService.detect(body.text, tenant_id=tenant.id),
             timeout=timeout,
         )
     except asyncio.TimeoutError:
@@ -118,7 +118,7 @@ async def analyze_brand(
     timeout = get_pipeline_config("brand_analyze").get("timeout_seconds", 30)
     try:
         profile = await asyncio.wait_for(
-            BrandExtractor.analyze_url(body.url),
+            BrandExtractor.analyze_url(body.url, tenant_id=tenant.id),
             timeout=timeout,
         )
     except asyncio.TimeoutError:

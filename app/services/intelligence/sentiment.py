@@ -2,47 +2,48 @@
 Sentiment Service — detects user tone and emotional state.
 
 Software Factory: Uses run_pipeline("sentiment") for config-driven
-LLM execution. All prompts, driver chains, and fallback responses
-are defined in intelligence_config.yaml → intelligence_pipelines.
+LLM execution. ALL prompts, schemas, fallbacks, driver chains, and
+tenant learning are defined in intelligence_config.yaml.
+
+This file should NEVER need editing. To change behavior:
+  → Edit intelligence_config.yaml → intelligence_pipelines → sentiment
 """
 
 import logging
-from typing import TypedDict
 
 logger = logging.getLogger(__name__)
 
 
-class SentimentResult(TypedDict):
-    score: float  # -1.0 (angry) to 1.0 (delighted)
-    label: str    # "angry", "frustrated", "neutral", "happy", "excited"
-    vibe: str     # Short descriptive string of the user's tone
-
-
 class SentimentService:
-    """Service for real-time sentiment analysis."""
+    """Service for real-time sentiment analysis.
+
+    Schema-agnostic — returns whatever the YAML pipeline produces.
+    Fallback response is defined in YAML (fallback_response key).
+    Tenant learning is handled by run_pipeline() via tenant_id.
+    """
+
+    # Default fallback if YAML config has none — absolute last resort
+    _SAFE_FALLBACK = {"score": 0.0, "label": "neutral", "vibe": "neutral"}
 
     @classmethod
-    async def analyze(cls, text: str) -> SentimentResult:
+    async def analyze(cls, text: str, tenant_id: int | None = None) -> dict:
         """
         Analyze the sentiment of the provided text.
 
         Pipeline: run_pipeline("sentiment") → parsed JSON dict
-        On failure, returns neutral fallback from YAML config.
+        On failure, returns fallback_response from YAML config.
+        Tenant learning: stores result in ChromaDB if tenant_id provided.
         """
+        from app.lib.llm_pipeline import run_pipeline, get_pipeline_config
+
         if not text or len(text) < 5:
-            return {"score": 0.0, "label": "neutral", "vibe": "neutral"}
+            return get_pipeline_config("sentiment").get("fallback_response", cls._SAFE_FALLBACK)
 
-        from app.lib.llm_pipeline import run_pipeline
+        result = await run_pipeline("sentiment", {"text": text}, tenant_id=tenant_id)
 
-        result = await run_pipeline("sentiment", {"text": text})
-
+        # Pipeline returns fallback_response from YAML on total failure,
+        # or None if no fallback is configured
         if result and isinstance(result, dict):
-            return {
-                "score": float(result.get("score", 0.0)),
-                "label": result.get("label", "neutral"),
-                "vibe": result.get("vibe", "neutral"),
-            }
+            return result
 
-        # Fallback is returned by run_pipeline from YAML config,
-        # but if even that is None, return hardcoded safe default
-        return {"score": 0.0, "label": "neutral", "vibe": "error_fallback"}
+        return get_pipeline_config("sentiment").get("fallback_response", cls._SAFE_FALLBACK)

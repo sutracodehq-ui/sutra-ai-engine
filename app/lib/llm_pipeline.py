@@ -8,18 +8,23 @@ Usage:
     from app.lib.llm_pipeline import run_pipeline, get_pipeline_config
 
     # JSON pipeline — returns parsed dict
-    result = await run_pipeline("brand_analyze", {"url": "...", "content": "..."})
-    # → {"name": "Vidyantra", "mission": "...", ...}
+    result = await run_pipeline("brand_analyze", {"url": "...", "content": "..."}, tenant_id=5)
+    # → {"brand_identity": {...}, "voice_and_tone": {...}, ...}
 
     # Text pipeline — returns raw string
     result = await run_pipeline("language_translate", {"text": "...", "target_lang": "hi"})
     # → "अनुवादित पाठ..."
 
 Config lives in intelligence_config.yaml → intelligence_pipelines section.
+Tenant learning config lives in intelligence_config.yaml → tenant_learning section.
 Adding a new pipeline = add YAML entry. Zero Python changes.
 """
 
+import asyncio
+import hashlib
+import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from app.lib.json_repair import extract_json
@@ -40,21 +45,40 @@ def get_pipeline_config(name: str) -> dict:
     return pipelines.get(name, {})
 
 
-async def run_pipeline(name: str, variables: dict[str, Any]) -> dict | str | None:
+def _get_learning_config() -> dict:
+    """Get tenant_learning section from YAML."""
+    config = get_intelligence_config()
+    return config.get("tenant_learning", {})
+
+
+def _get_pipeline_learning(name: str) -> dict:
+    """Get per-pipeline learning settings (store/retrieve flags)."""
+    lc = _get_learning_config()
+    return lc.get("pipelines", {}).get(name, {})
+
+
+async def run_pipeline(
+    name: str,
+    variables: dict[str, Any],
+    tenant_id: int | None = None,
+) -> dict | str | None:
     """
     Execute a config-driven LLM pipeline.
 
     Steps:
       1. Load pipeline config from YAML (prompt, drivers, timeout, etc.)
       2. Format the prompt template with input variables
-      3. Loop through driver chain with circuit breaker
-      4. Parse output (json_repair for JSON, raw for text)
-      5. Validate expected fields
-      6. Return clean result or fallback_response
+      3. (If tenant_id) Retrieve past analyses from ChromaDB for context
+      4. Loop through driver chain with circuit breaker
+      5. Parse output (json_repair for JSON, raw for text)
+      6. Validate expected fields
+      7. (If tenant_id) Store result in tenant's ChromaDB (fire-and-forget)
+      8. Return clean result or fallback_response
 
     Args:
         name: Pipeline name (key in intelligence_pipelines YAML section)
         variables: Dict of template variables (e.g., {"url": "...", "content": "..."})
+        tenant_id: Tenant ID for scoped learning. None = no learning.
 
     Returns:
         Parsed dict (json_mode=true), raw string (json_mode=false), or None
@@ -84,6 +108,12 @@ async def run_pipeline(name: str, variables: dict[str, Any]) -> dict | str | Non
     except KeyError as e:
         logger.error(f"LLMPipeline: missing variable {e} for pipeline '{name}'")
         return cfg.get("fallback_response")
+
+    # ─── Tenant context retrieval ───────────────────────
+    if tenant_id:
+        context = await _retrieve_tenant_context(name, prompt, tenant_id)
+        if context:
+            prompt = f"{prompt}\n\n{context}"
 
     # ─── Pipeline options ───────────────────────────────
     driver_chain = cfg.get("driver_chain", ["groq", "gemini", "anthropic", "ollama"])
@@ -137,6 +167,13 @@ async def run_pipeline(name: str, variables: dict[str, Any]) -> dict | str | Non
                     f"LLMPipeline[{name}]: SUCCESS via {driver_name} "
                     f"({response.total_tokens} tokens)"
                 )
+
+                # ─── Store in tenant's ChromaDB (fire-and-forget) ───
+                if tenant_id:
+                    asyncio.create_task(
+                        _store_tenant_result(name, variables, data, tenant_id, driver_name)
+                    )
+
                 return data
             else:
                 # Text mode — return raw content
@@ -144,6 +181,13 @@ async def run_pipeline(name: str, variables: dict[str, Any]) -> dict | str | Non
                     f"LLMPipeline[{name}]: SUCCESS via {driver_name} "
                     f"({response.total_tokens} tokens)"
                 )
+
+                # Store text results too
+                if tenant_id:
+                    asyncio.create_task(
+                        _store_tenant_result(name, variables, response.content, tenant_id, driver_name)
+                    )
+
                 return response.content
 
         except Exception as e:
@@ -153,3 +197,172 @@ async def run_pipeline(name: str, variables: dict[str, Any]) -> dict | str | Non
     # ─── All drivers failed ─────────────────────────────
     logger.error(f"LLMPipeline[{name}]: ALL drivers failed. Returning fallback.")
     return fallback
+
+
+# ─── Tenant Learning: ChromaDB Store & Retrieve ─────────────────
+
+
+async def _store_tenant_result(
+    pipeline_name: str,
+    variables: dict,
+    result: dict | str,
+    tenant_id: int,
+    driver_name: str = "unknown",
+) -> None:
+    """
+    Store pipeline result in tenant-scoped ChromaDB collection.
+
+    Runs as fire-and-forget (asyncio.create_task) so it never
+    blocks the main response. All config comes from YAML.
+    """
+    lc = _get_learning_config()
+    if not lc.get("enabled", False):
+        return
+
+    pl = _get_pipeline_learning(pipeline_name)
+    if not pl.get("store", False):
+        return
+
+    try:
+        from app.services.intelligence.memory import _get_chroma
+        client = _get_chroma()
+        if not client:
+            return
+
+        # Build collection name from YAML prefix
+        prefix = lc.get("collection_prefix", "tenant")
+        collection_name = f"{prefix}_{tenant_id}_intelligence"
+        coll = client.get_or_create_collection(name=collection_name)
+
+        # Build a unique key from the pipeline + primary variable
+        key_var = _extract_key_variable(variables)
+        doc_id = hashlib.md5(
+            f"{pipeline_name}:{key_var}".encode()
+        ).hexdigest()[:16]
+
+        # Build the document text (searchable by ChromaDB)
+        if isinstance(result, dict):
+            doc_text = f"{pipeline_name} | {key_var} | {json.dumps(result, ensure_ascii=False)[:3000]}"
+        else:
+            doc_text = f"{pipeline_name} | {key_var} | {str(result)[:3000]}"
+
+        coll.upsert(
+            ids=[f"intel_{doc_id}"],
+            documents=[doc_text],
+            metadatas=[{
+                "pipeline": pipeline_name,
+                "key": str(key_var)[:500],
+                "tenant_id": str(tenant_id),
+                "driver": driver_name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }],
+        )
+        logger.info(
+            f"TenantLearning: stored {pipeline_name} for tenant {tenant_id} "
+            f"(key={key_var[:50]})"
+        )
+    except Exception as e:
+        # Fire-and-forget — never crash the main flow
+        logger.warning(f"TenantLearning: store failed for {pipeline_name}: {e}")
+
+
+async def _retrieve_tenant_context(
+    pipeline_name: str,
+    prompt: str,
+    tenant_id: int,
+) -> str | None:
+    """
+    Retrieve relevant past analyses from tenant's ChromaDB collection.
+
+    Returns formatted context string or None if nothing relevant found.
+    All thresholds and templates come from YAML config.
+    """
+    lc = _get_learning_config()
+    if not lc.get("enabled", False):
+        return None
+
+    pl = _get_pipeline_learning(pipeline_name)
+    if not pl.get("retrieve", False):
+        return None
+
+    try:
+        from app.services.intelligence.memory import _get_chroma
+        client = _get_chroma()
+        if not client:
+            return None
+
+        prefix = lc.get("collection_prefix", "tenant")
+        collection_name = f"{prefix}_{tenant_id}_intelligence"
+
+        try:
+            coll = client.get_or_create_collection(name=collection_name)
+        except Exception:
+            return None
+
+        if coll.count() == 0:
+            return None
+
+        max_chunks = lc.get("max_context_chunks", 3)
+        min_relevance = lc.get("min_relevance", 0.4)
+
+        results = coll.query(
+            query_texts=[prompt[:500]],
+            n_results=min(max_chunks * 2, coll.count()),
+        )
+
+        if not results["documents"] or not results["documents"][0]:
+            return None
+
+        # Filter by relevance (distance → similarity)
+        chunks = []
+        distances = results.get("distances", [[]])[0]
+        for i, doc in enumerate(results["documents"][0]):
+            dist = distances[i] if i < len(distances) else 1.0
+            similarity = max(0.0, 1.0 - dist)
+            if similarity >= min_relevance:
+                meta = results["metadatas"][0][i] if results.get("metadatas") else {}
+                pipeline = meta.get("pipeline", "unknown")
+                chunks.append(f"[{pipeline}] {doc}")
+
+            if len(chunks) >= max_chunks:
+                break
+
+        if not chunks:
+            return None
+
+        context_text = "\n\n".join(chunks)
+
+        # Use injection template from YAML
+        template = lc.get(
+            "context_injection_template",
+            "### Tenant Context:\n{context}"
+        )
+        formatted = template.format(context=context_text)
+
+        logger.info(
+            f"TenantLearning: retrieved {len(chunks)} chunks for tenant {tenant_id} "
+            f"(pipeline={pipeline_name})"
+        )
+        return formatted
+
+    except Exception as e:
+        logger.debug(f"TenantLearning: retrieve failed for {pipeline_name}: {e}")
+        return None
+
+
+def _extract_key_variable(variables: dict) -> str:
+    """Extract the primary identifying variable from pipeline inputs.
+
+    Priority: url > text (hashed) > first value
+    """
+    if "url" in variables:
+        return str(variables["url"])
+    if "text" in variables:
+        text = str(variables["text"])
+        if len(text) > 100:
+            return hashlib.md5(text.encode()).hexdigest()[:12]
+        return text
+    # Fallback: first value
+    for v in variables.values():
+        return str(v)[:100]
+    return "unknown"

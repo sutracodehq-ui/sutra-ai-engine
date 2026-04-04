@@ -42,3 +42,39 @@ def _load_config():
 - Config changes don't require redeployment
 - Single source of truth for all configurable values
 - Easier to audit and review
+
+## Intelligence Pipeline Rule (Critical)
+
+Services that call `run_pipeline()` MUST be **schema-agnostic**:
+
+```python
+# ❌ BAD — hardcoded field names in Python
+if result and "brand_identity" in result:
+    return {"name": result["name"], "mission": result["mission"]}
+
+# ✅ GOOD — pass through whatever YAML defines
+if result and isinstance(result, dict) and len(result) > 0:
+    return result
+```
+
+**What belongs in YAML (`intelligence_config.yaml → intelligence_pipelines`):**
+- `system_prompt` — LLM system instruction
+- `prompt_template` — prompt with `{variables}`
+- `driver_chain` — failover order `[groq, gemini, anthropic, ollama]`
+- `timeout_seconds` — route-level timeout
+- `expected_fields` — validation fields (checked by `run_pipeline()`)
+- `fallback_response` — returned on total failure
+- `temperature`, `json_mode`, `max_content_chars`
+
+**What belongs in Python services:**
+- Input validation (min text length, URL format)
+- Calling `run_pipeline(name, {variables})`
+- Checking "is the result a non-empty dict/string?"
+- That's it. Nothing else.
+
+**To change any pipeline behavior:**
+```
+→ Edit intelligence_config.yaml
+→ Restart container
+→ Done. Zero code changes.
+```

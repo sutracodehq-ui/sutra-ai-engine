@@ -1139,6 +1139,48 @@ sentiment:
   positive_words: [good, great, awesome, happy, thanks, love, perfect]
   negative_words: [bad, wrong, broken, slow, hate, error, fail]
 
+# ─── Tenant Learning (ChromaDB) ─────────────────────────────
+# Every analysis result is stored in a tenant-scoped vector collection.
+# Future calls retrieve past context to produce personalized responses.
+# Collection format: "{collection_prefix}_{tenant_id}_intelligence"
+
+tenant_learning:
+  enabled: true
+  collection_prefix: "tenant"
+  max_context_chunks: 3
+  min_relevance: 0.4
+  context_injection_template: |
+    ### Tenant Context (previous analyses for this account):
+    {context}
+
+    Use the above context to provide more personalized, consistent insights.
+  # Per-pipeline learning settings
+  pipelines:
+    brand_analyze:
+      store: true
+      retrieve: true
+    sentiment:
+      store: true
+      retrieve: false
+    language_detect:
+      store: false
+      retrieve: false
+    language_translate:
+      store: false
+      retrieve: false
+    url_analyze:
+      store: true
+      retrieve: true
+    seo_audit:
+      store: true
+      retrieve: true
+    competitor_analyze:
+      store: true
+      retrieve: true
+    hashtag_suggest:
+      store: true
+      retrieve: true
+
 # ─── Intelligence Pipelines (Software Factory) ─────────────
 # Each pipeline defines: prompt, driver_chain, timeout, expected output.
 # Python services call run_pipeline(name, {vars}) — they NEVER define
