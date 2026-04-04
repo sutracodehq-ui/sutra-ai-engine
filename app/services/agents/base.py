@@ -227,6 +227,11 @@ class BaseAgent:
         lang_instruction = get_language_instruction(language_code)
         if lang_instruction:
             system_prompt = f"{system_prompt}\n\n{lang_instruction}"
+
+        # ─── Brand Persona (from VoiceProfile, fetched in _enrich_tenant_context) ──
+        brand_persona = (context or {}).get("brand_persona")
+        if brand_persona:
+            system_prompt = f"{system_prompt}\n\n## Brand Voice & Persona\n{brand_persona}"
         
         messages = [{"role": "system", "content": system_prompt}]
 

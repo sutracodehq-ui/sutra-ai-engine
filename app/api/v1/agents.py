@@ -38,8 +38,8 @@ async def list_agents(tenant: CurrentTenant):
 # ─── Core agent execution logic (shared by all routes) ──────────
 
 
-def _enrich_tenant_context(context: dict, tenant) -> dict:
-    """Enrich context with full tenant identity. Config-driven by YAML field map."""
+async def _enrich_tenant_context(context: dict, tenant, db) -> dict:
+    """Enrich context with full tenant identity + brand persona from DB + ChromaDB."""
     context["tenant_slug"] = tenant.slug
     context["tenant_name"] = tenant.name
     context["tenant_description"] = tenant.description or ""
@@ -50,6 +50,34 @@ def _enrich_tenant_context(context: dict, tenant) -> dict:
         for k, v in tenant.config.items():
             if k not in context:  # Don't overwrite explicit context
                 context[f"tenant_{k}"] = v
+
+    # ── Brand Persona: fetch default VoiceProfile from DB ──
+    try:
+        from sqlalchemy import select
+        from app.models.voice_profile import VoiceProfile
+        result = await db.execute(
+            select(VoiceProfile).where(
+                VoiceProfile.tenant_id == tenant.id,
+                VoiceProfile.is_default.is_(True),
+            ).limit(1)
+        )
+        profile = result.scalar_one_or_none()
+        if profile:
+            modifier = profile.to_system_prompt_modifier()
+            if modifier:
+                context["brand_persona"] = modifier
+            if profile.tone_attributes:
+                attrs = profile.tone_attributes
+                for key in ("tone", "formality", "personality", "vocabulary", "industry", "audience"):
+                    if key in attrs and f"brand_{key}" not in context:
+                        context[f"brand_{key}"] = attrs[key]
+    except Exception as e:
+        logger.debug(f"Brand persona fetch skipped: {e}")
+
+    # ── Brand Knowledge: fetch from ChromaDB ──
+    # (ChromaDB brand collections are populated via brand_learn/brand_import_faq)
+    # The actual query happens in BaseAgent.build_messages() using tenant_id
+
     return context
 
 
@@ -58,7 +86,7 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
     hub = get_agent_hub()
 
     context = body.metadata or {}
-    context = _enrich_tenant_context(context, tenant)
+    context = await _enrich_tenant_context(context, tenant, db)
 
     task = AiTask(
         tenant_id=tenant.id,
@@ -121,7 +149,7 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
     hub = get_agent_hub()
 
     context = body.metadata or {}
-    context = _enrich_tenant_context(context, tenant)
+    context = await _enrich_tenant_context(context, tenant, db)
 
     # Create task record for tracking
     task = AiTask(
