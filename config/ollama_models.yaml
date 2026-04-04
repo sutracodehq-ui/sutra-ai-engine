@@ -8,7 +8,8 @@
 # ─── Core Models (always required) ─────────────────────────────
 # These are the primary and fallback models the engine uses for inference.
 core:
-  - qwen3:4b                  # Primary inference model (OLLAMA_MODEL in .env)
+  - gemma4:e4b                 # Primary inference — Gemma 4 dense (multimodal, Apache 2.0)
+  - qwen3:4b                  # Fallback inference model
   - qwen3:1.7b                # Router / lightweight tasks
   - smollm2:1.7b              # Ultra-fast simple queries
 
