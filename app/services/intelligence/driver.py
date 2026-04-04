@@ -115,7 +115,7 @@ class OllamaAdapter(LlmDriver):
             payload["format"] = "json"
         # Use split timeout: fast connect (fail fast if Ollama is down),
         # generous read (local inference can take time)
-        timeout = httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=5.0)
+        timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(f"{self._base_url}/api/chat", json=payload)
             resp.raise_for_status()
