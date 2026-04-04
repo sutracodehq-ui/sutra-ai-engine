@@ -34,6 +34,8 @@ async def list_tenants(db: DbSession, _: MasterKeyAuth):
     items = []
     for t in tenants:
         api_keys = await TenantService.list_api_keys(db, t.id)
+        live_key = next((k.raw_key for k in api_keys if k.environment == "live" and k.raw_key), None)
+        test_key = next((k.raw_key for k in api_keys if k.environment == "test" and k.raw_key), None)
         items.append(TenantResponse(
             id=t.id,
             name=t.name,
@@ -42,8 +44,8 @@ async def list_tenants(db: DbSession, _: MasterKeyAuth):
             contact_email=t.contact_email,
             description=t.description,
             config=t.config,
-            live_key_prefix=t.live_key_prefix,
-            test_key_prefix=t.test_key_prefix,
+            live_api_key=live_key or t.live_key_prefix,
+            test_api_key=test_key or t.test_key_prefix,
             api_key_count=len(api_keys),
             created_at=t.created_at.isoformat(),
         ))
@@ -99,6 +101,8 @@ async def get_tenant(tenant_id: int, db: DbSession, _: MasterKeyAuth):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant not found")
 
     api_keys = await TenantService.list_api_keys(db, tenant.id)
+    live_key = next((k.raw_key for k in api_keys if k.environment == "live" and k.raw_key), None)
+    test_key = next((k.raw_key for k in api_keys if k.environment == "test" and k.raw_key), None)
 
     return TenantResponse(
         id=tenant.id,
@@ -108,8 +112,8 @@ async def get_tenant(tenant_id: int, db: DbSession, _: MasterKeyAuth):
         contact_email=tenant.contact_email,
         description=tenant.description,
         config=tenant.config,
-        live_key_prefix=tenant.live_key_prefix,
-        test_key_prefix=tenant.test_key_prefix,
+        live_api_key=live_key or tenant.live_key_prefix,
+        test_api_key=test_key or tenant.test_key_prefix,
         api_key_count=len(api_keys),
         created_at=tenant.created_at.isoformat(),
     )
@@ -125,6 +129,8 @@ async def update_tenant(tenant_id: int, body: TenantUpdate, db: DbSession, _: Ma
     updates = body.model_dump(exclude_unset=True)
     tenant = await TenantService.update(db, tenant, **updates)
     api_keys = await TenantService.list_api_keys(db, tenant.id)
+    live_key = next((k.raw_key for k in api_keys if k.environment == "live" and k.raw_key), None)
+    test_key = next((k.raw_key for k in api_keys if k.environment == "test" and k.raw_key), None)
 
     return TenantResponse(
         id=tenant.id,
@@ -134,8 +140,8 @@ async def update_tenant(tenant_id: int, body: TenantUpdate, db: DbSession, _: Ma
         contact_email=tenant.contact_email,
         description=tenant.description,
         config=tenant.config,
-        live_key_prefix=tenant.live_key_prefix,
-        test_key_prefix=tenant.test_key_prefix,
+        live_api_key=live_key or tenant.live_key_prefix,
+        test_api_key=test_key or tenant.test_key_prefix,
         api_key_count=len(api_keys),
         created_at=tenant.created_at.isoformat(),
     )
@@ -170,6 +176,7 @@ async def list_api_keys(tenant_id: int, db: DbSession, _: MasterKeyAuth):
             tier=k.tier,
             label=k.label,
             key_prefix=k.key_prefix,
+            api_key=k.raw_key,
             scopes=k.scopes,
             expires_at=k.expires_at.isoformat() if k.expires_at else None,
             last_used_at=k.last_used_at.isoformat() if k.last_used_at else None,

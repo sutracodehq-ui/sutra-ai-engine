@@ -18,6 +18,7 @@ class ApiKey(Base, TimestampMixin):
     # ─── Key Data ───────────────────────────────────────
     key_hash: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     key_prefix: Mapped[str] = mapped_column(String(30), nullable=False)  # "sk_live_abc12345..."
+    raw_key: Mapped[str | None] = mapped_column(String(255), nullable=True)  # Full key for admin retrieval
 
     # ─── Classification ─────────────────────────────────
     environment: Mapped[str] = mapped_column(String(10), nullable=False, default="live")  # "live" | "test"

@@ -26,7 +26,7 @@ class TenantUpdate(BaseModel):
 
 
 class TenantResponse(BaseModel):
-    """Tenant info response (no raw keys)."""
+    """Tenant info response with full keys."""
     id: int
     name: str
     slug: str
@@ -34,8 +34,8 @@ class TenantResponse(BaseModel):
     contact_email: str | None = None
     description: str | None = None
     config: dict | None = None
-    live_key_prefix: str = Field(..., description="Production key prefix (e.g., sk_live_abc12345...)")
-    test_key_prefix: str = Field(..., description="Sandbox key prefix (e.g., sk_test_def67890...)")
+    live_api_key: str | None = Field(None, description="Full production API key")
+    test_api_key: str | None = Field(None, description="Full sandbox API key")
     api_key_count: int = Field(0, description="Total active API keys")
     created_at: str
 
@@ -74,12 +74,13 @@ class ApiKeyCreate(BaseModel):
 
 
 class ApiKeyResponse(BaseModel):
-    """API key info (no raw key — only prefix shown)."""
+    """API key info with full key."""
     id: int
     environment: str
     tier: str = "standard"
     label: str | None = None
     key_prefix: str
+    api_key: str | None = Field(None, description="Full API key")
     scopes: list[str] | None = None
     expires_at: str | None = None
     last_used_at: str | None = None
