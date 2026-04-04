@@ -207,6 +207,7 @@ class TenantService:
         tenant_id: int,
         *,
         environment: str = "live",
+        tier: str = "standard",
         label: str | None = None,
         scopes: list[str] | None = None,
         expires_in_days: int | None = None,
@@ -214,9 +215,30 @@ class TenantService:
         """
         Create a new API key for a tenant.
 
+        Validates:
+          - tier is not protected (master/internal)
+          - scopes are valid against access_control.yaml
+
         Returns (api_key_record, raw_key).
         Raw key is only available at creation time.
         """
+        from app.lib.access_engine import get_access_engine
+        engine = get_access_engine()
+
+        # Validate tier — prevent creating protected tiers via API
+        if engine.is_tier_protected(tier):
+            raise ValueError(f"Cannot create keys with protected tier '{tier}'")
+
+        # Validate tier exists
+        if not engine.get_tier(tier):
+            raise ValueError(f"Unknown tier '{tier}'. Available: {engine.get_available_tiers()}")
+
+        # Validate scopes against YAML canonical list
+        effective_scopes = scopes or ["*"]
+        invalid = engine.validate_scopes(effective_scopes)
+        if invalid:
+            raise ValueError(f"Invalid scopes: {invalid}. See access_control.yaml for available scopes.")
+
         prefix = f"sk_{environment}"
         raw_key = cls.generate_api_key(prefix)
 
@@ -229,8 +251,9 @@ class TenantService:
             key_hash=cls.hash_api_key(raw_key),
             key_prefix=cls.key_prefix(raw_key),
             environment=environment,
+            tier=tier,
             label=label,
-            scopes=scopes or ["*"],
+            scopes=effective_scopes,
             expires_at=expires_at,
         )
         db.add(api_key)
@@ -273,11 +296,12 @@ class TenantService:
         # Revoke old
         api_key.is_active = False
 
-        # Create new with same config
+        # Create new with same config (including tier)
         new_key, raw_key = await cls.create_api_key(
             db,
             api_key.tenant_id,
             environment=api_key.environment,
+            tier=api_key.tier,
             label=api_key.label,
             scopes=api_key.scopes,
         )

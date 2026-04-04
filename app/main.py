@@ -79,8 +79,12 @@ def create_app() -> FastAPI:
     from fastapi.exceptions import RequestValidationError
     from pydantic import ValidationError
 
-    # Middleware (outermost = first to execute)
+    # Middleware (outermost = first to execute, innermost = last)
+    # Stack: Request → CORS → Scope → Envelope → Route Handler
     app.add_middleware(ResponseEnvelopeMiddleware)
+
+    from app.middleware.scope_middleware import ScopeMiddleware
+    app.add_middleware(ScopeMiddleware)
 
     app.add_middleware(
         CORSMiddleware,

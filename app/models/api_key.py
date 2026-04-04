@@ -21,6 +21,7 @@ class ApiKey(Base, TimestampMixin):
 
     # ─── Classification ─────────────────────────────────
     environment: Mapped[str] = mapped_column(String(10), nullable=False, default="live")  # "live" | "test"
+    tier: Mapped[str] = mapped_column(String(20), nullable=False, default="standard")  # master | internal | standard | restricted
     label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # "Frontend App", "CI/CD Pipeline"
 
     # ─── Scopes (future-ready, default = full access) ───

@@ -1,0 +1,172 @@
+# ─────────────────────────────────────────────────────────────────
+# SutraAI Access Control — Config-Driven Permission System
+#
+# Single source of truth for all access control decisions.
+# Based on Set Theory: Effective = KeyScopes ∪ TierDefaults
+#                      Access = Required ⊆ Effective
+#
+# Software Factory: Edit THIS file to change permissions.
+#                   Zero Python changes needed.
+# ─────────────────────────────────────────────────────────────────
+
+# ─── Access Tiers ──────────────────────────────────────────────
+# 4-layer hierarchy. Each key belongs to exactly one tier.
+# Tier scopes are merged with key-level scopes at resolution time.
+
+tiers:
+  master:
+    label: "Super Admin"
+    scopes: ["*"]                     # God mode — full access
+    can_access_admin: true            # Tenant CRUD, key management
+    can_impersonate_tenant: true      # Use master key on tenant routes
+    protected: true                   # Cannot be created/modified via API
+
+  internal:
+    label: "Internal Service"
+    scopes: ["*"]                     # Full resource access
+    can_access_admin: false           # No tenant management
+    can_impersonate_tenant: false     # Acts as the provisioned tenant only
+    protected: true                   # Only created via seed/provision scripts
+
+  standard:
+    label: "Standard Tenant Key"
+    scopes: ["*"]                     # Full access (default for all new keys)
+    can_access_admin: false           # Cannot see other tenants
+    can_impersonate_tenant: false
+
+  restricted:
+    label: "Restricted Access"
+    scopes: []                        # ONLY explicit key-level scopes apply
+    can_access_admin: false
+    can_impersonate_tenant: false
+
+# ─── Available Scopes ─────────────────────────────────────────
+# Canonical list of all permissions in the system.
+# Format: "resource:action"
+# Validated at key creation — unknown scopes are rejected.
+
+scopes:
+  # Wildcard
+  "*": "Full access to all resources"
+
+  # ─── Agent Hub ───────────────────────────────────
+  agents:read: "List available agents and their configs"
+  agents:write: "Execute agent tasks (run, batch)"
+  agents:*: "Full agent access"
+
+  # ─── Conversational AI ──────────────────────────
+  chat:read: "Read chat history and messages"
+  chat:write: "Send messages, create conversations"
+  chat:*: "Full chat access"
+
+  # ─── Intelligence Services ──────────────────────
+  intelligence:read: "Read analysis results"
+  intelligence:write: "Run brand analysis, sentiment, SEO audits"
+  intelligence:*: "Full intelligence access"
+
+  # ─── Content Generation ─────────────────────────
+  content:read: "Read generated content"
+  content:write: "Generate new marketing content"
+  content:*: "Full content access"
+
+  # ─── Voice Pipeline ─────────────────────────────
+  voice:read: "List voice profiles"
+  voice:write: "Upload voice, run STT/TTS pipeline"
+  voice:*: "Full voice access"
+
+  # ─── RAG Knowledge Base ─────────────────────────
+  rag:read: "Query knowledge base"
+  rag:write: "Upload and manage documents"
+  rag:*: "Full RAG access"
+
+  # ─── URL Analyzer ───────────────────────────────
+  url-analyzer:read: "Read cached URL analysis results"
+  url-analyzer:write: "Trigger new URL analysis"
+  url-analyzer:*: "Full URL analyzer access"
+
+  # ─── Click Shield ───────────────────────────────
+  clicks:read: "Read click logs, scores, and stats"
+  clicks:write: "Submit clicks for scoring, provide feedback"
+  clicks:*: "Full click shield access"
+
+  # ─── Billing & Usage ────────────────────────────
+  billing:read: "View usage and billing data"
+  billing:*: "Full billing access"
+
+  # ─── Conversations ──────────────────────────────
+  conversations:read: "Read conversation threads and history"
+  conversations:write: "Create and manage conversation threads"
+  conversations:*: "Full conversation access"
+
+  # ─── Tasks ──────────────────────────────────────
+  tasks:read: "Read task status and results"
+  tasks:write: "Submit feedback on tasks"
+  tasks:*: "Full task access"
+
+
+# ─── Route → Scope Mapping ────────────────────────────────────
+# Maps FastAPI route tags to required scopes by HTTP method.
+# GET/HEAD/OPTIONS → "read" scope
+# POST/PUT/PATCH/DELETE → "write" scope
+#
+# Special flags:
+#   protected: true → Only master/internal tiers can access
+#   public: true    → No auth required (health checks)
+
+route_scopes:
+  # ─── Public (no auth) ──────────────────────────
+  health:
+    public: true
+
+  # ─── Protected (admin only) ────────────────────
+  tenants:
+    protected: true
+  api-keys:
+    protected: true
+  provisioning:
+    protected: true
+
+  # ─── Scoped Resources ──────────────────────────
+  agents:
+    read: "agents:read"
+    write: "agents:write"
+
+  chat:
+    read: "chat:read"
+    write: "chat:write"
+
+  intelligence:
+    read: "intelligence:read"
+    write: "intelligence:write"
+
+  content:
+    read: "content:read"
+    write: "content:write"
+
+  voice:
+    read: "voice:read"
+    write: "voice:write"
+
+  rag:
+    read: "rag:read"
+    write: "rag:write"
+
+  url-analyzer:
+    read: "url-analyzer:read"
+    write: "url-analyzer:write"
+
+  click-shield:
+    read: "clicks:read"
+    write: "clicks:write"
+
+  billing:
+    read: "billing:read"
+    write: "billing:read"    # No billing:write — read-only for tenants
+
+  conversations:
+    read: "conversations:read"
+    write: "conversations:write"
+
+  tasks:
+    read: "tasks:read"
+    write: "tasks:write"

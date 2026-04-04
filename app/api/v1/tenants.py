@@ -167,6 +167,7 @@ async def list_api_keys(tenant_id: int, db: DbSession, _: MasterKeyAuth):
         ApiKeyResponse(
             id=k.id,
             environment=k.environment,
+            tier=k.tier,
             label=k.label,
             key_prefix=k.key_prefix,
             scopes=k.scopes,
@@ -184,6 +185,10 @@ async def create_api_key(tenant_id: int, body: ApiKeyCreate, db: DbSession, _: M
     """
     Create an additional API key for a tenant.
 
+    **Tiers:**
+    - `standard` — full access (default)
+    - `restricted` — only explicit scopes apply
+
     Returns the raw key — save it, cannot be retrieved again.
     """
     tenant = await TenantService.get_by_id(db, tenant_id)
@@ -192,20 +197,25 @@ async def create_api_key(tenant_id: int, body: ApiKeyCreate, db: DbSession, _: M
     if not tenant.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant is deactivated")
 
-    api_key, raw_key = await TenantService.create_api_key(
-        db,
-        tenant_id,
-        environment=body.environment,
-        label=body.label,
-        scopes=body.scopes,
-        expires_in_days=body.expires_in_days,
-    )
+    try:
+        api_key, raw_key = await TenantService.create_api_key(
+            db,
+            tenant_id,
+            environment=body.environment,
+            tier=body.tier,
+            label=body.label,
+            scopes=body.scopes,
+            expires_in_days=body.expires_in_days,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     return ApiKeyCreated(
         id=api_key.id,
         api_key=raw_key,
         key_prefix=api_key.key_prefix,
         environment=api_key.environment,
+        tier=api_key.tier,
         label=api_key.label,
         scopes=api_key.scopes,
         expires_at=api_key.expires_at.isoformat() if api_key.expires_at else None,
@@ -246,6 +256,7 @@ async def rotate_api_key(tenant_id: int, key_id: int, db: DbSession, _: MasterKe
             api_key=raw_key,
             key_prefix=new_key.key_prefix,
             environment=new_key.environment,
+            tier=new_key.tier,
             label=new_key.label,
             scopes=new_key.scopes,
             expires_at=new_key.expires_at.isoformat() if new_key.expires_at else None,

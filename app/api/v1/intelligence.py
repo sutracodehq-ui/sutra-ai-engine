@@ -90,9 +90,24 @@ async def analyze_brand(
     """
     Crawl a URL and extract brand identity.
 
+    **Strategy:** Cloud-first (Groq → Gemini → Anthropic) for speed + accuracy.
+    Falls back to HybridRouter (local → cloud escalation) if all cloud drivers fail.
+
     **Returns:** Mission, Voice, Tone, Values, Colors, Industry classification.
     """
-    profile = await BrandExtractor.analyze_url(body.url)
+    import asyncio
+
+    try:
+        profile = await asyncio.wait_for(
+            BrandExtractor.analyze_url(body.url),
+            timeout=30.0,  # Hard limit: 30 seconds
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail=f"Brand analysis timed out for {body.url}. The AI service is taking too long.",
+        )
+
     if not profile:
         raise HTTPException(
             status_code=422,

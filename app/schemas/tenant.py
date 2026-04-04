@@ -67,6 +67,7 @@ class TenantList(BaseModel):
 class ApiKeyCreate(BaseModel):
     """POST /v1/tenants/{id}/api-keys request body."""
     environment: str = Field("live", pattern=r"^(live|test)$", description="'live' or 'test'")
+    tier: str = Field("standard", pattern=r"^(standard|restricted)$", description="Access tier: 'standard' (full) or 'restricted' (scoped)")
     label: str | None = Field(None, max_length=100, description="Human-readable label, e.g. 'Frontend App'")
     scopes: list[str] | None = Field(None, description="Permission scopes (default: ['*'] = full access)")
     expires_in_days: int | None = Field(None, ge=1, le=3650, description="Expiry in days (null = never)")
@@ -76,6 +77,7 @@ class ApiKeyResponse(BaseModel):
     """API key info (no raw key — only prefix shown)."""
     id: int
     environment: str
+    tier: str = "standard"
     label: str | None = None
     key_prefix: str
     scopes: list[str] | None = None
@@ -91,6 +93,7 @@ class ApiKeyCreated(BaseModel):
     api_key: str = Field(..., description="Raw API key — save it, cannot be retrieved again")
     key_prefix: str
     environment: str
+    tier: str = "standard"
     label: str | None = None
     scopes: list[str] | None = None
     expires_at: str | None = None
