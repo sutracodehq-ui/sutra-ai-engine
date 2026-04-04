@@ -176,8 +176,8 @@ class VideoGenerationService:
                 user_prompt += f"\n\nBrand context: {brand_context}"
 
             response = await llm.complete(
+                prompt=user_prompt,
                 system_prompt=system_prompt,
-                user_prompt=user_prompt,
                 temperature=0.7,
                 max_tokens=600,
             )

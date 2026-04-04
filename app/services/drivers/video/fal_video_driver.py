@@ -20,6 +20,14 @@ logger = logging.getLogger(__name__)
 class FalVideoDriver(VideoDriver):
     """Fal.ai Kling video generation driver."""
 
+    def __init__(self):
+        # Set credentials from env
+        from app.config import get_settings
+        import os
+        settings = get_settings()
+        if settings.fal_key:
+            os.environ.setdefault("FAL_KEY", settings.fal_key)
+
     def _get_provider_config(self) -> dict:
         """Read provider config from YAML."""
         config = get_intelligence_config().get("video_generation", {})

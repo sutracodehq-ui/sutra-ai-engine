@@ -1541,7 +1541,7 @@ video_generation:
   # Provider-specific configuration
   providers:
     fal:
-      model: "fal-ai/kling-video/v2.1/standard/text-to-video"
+      model: "fal-ai/kling-video/v3/standard/text-to-video"
       durations: ["5", "10"]
       aspect_ratios: ["16:9", "9:16", "1:1"]
       cost_per_second: 0.07
