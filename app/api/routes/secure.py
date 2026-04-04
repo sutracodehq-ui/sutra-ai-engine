@@ -92,7 +92,7 @@ async def auto_execute(
 
     brain = get_brain()
     # Brain unified routing
-    route = brain.route(request.prompt, "auto")
+    route = await brain.route(request.prompt, "auto")
 
     gateway = get_secure_gateway()
     client_ip = req.client.host if req.client else ""
