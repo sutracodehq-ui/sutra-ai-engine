@@ -155,7 +155,7 @@ async def deactivate_tenant(tenant_id: int, db: DbSession, _: MasterKeyAuth):
 # ─── API Key Management ─────────────────────────────────────
 
 
-@router.get("/{tenant_id}/api-keys", response_model=list[ApiKeyResponse])
+@router.get("/{tenant_id}/api-keys", response_model=list[ApiKeyResponse], tags=["api-keys"])
 async def list_api_keys(tenant_id: int, db: DbSession, _: MasterKeyAuth):
     """List all active API keys for a tenant."""
     tenant = await TenantService.get_by_id(db, tenant_id)
@@ -179,7 +179,7 @@ async def list_api_keys(tenant_id: int, db: DbSession, _: MasterKeyAuth):
     ]
 
 
-@router.post("/{tenant_id}/api-keys", response_model=ApiKeyCreated, status_code=status.HTTP_201_CREATED)
+@router.post("/{tenant_id}/api-keys", response_model=ApiKeyCreated, status_code=status.HTTP_201_CREATED, tags=["api-keys"])
 async def create_api_key(tenant_id: int, body: ApiKeyCreate, db: DbSession, _: MasterKeyAuth):
     """
     Create an additional API key for a tenant.
@@ -212,7 +212,7 @@ async def create_api_key(tenant_id: int, body: ApiKeyCreate, db: DbSession, _: M
     )
 
 
-@router.delete("/{tenant_id}/api-keys/{key_id}", status_code=status.HTTP_200_OK)
+@router.delete("/{tenant_id}/api-keys/{key_id}", status_code=status.HTTP_200_OK, tags=["api-keys"])
 async def revoke_api_key(tenant_id: int, key_id: int, db: DbSession, _: MasterKeyAuth):
     """Revoke (soft-delete) a specific API key. It will immediately stop working."""
     api_key = await TenantService.get_api_key(db, key_id, tenant_id)
@@ -223,7 +223,7 @@ async def revoke_api_key(tenant_id: int, key_id: int, db: DbSession, _: MasterKe
     return {"status": "revoked", "key_id": key_id, "key_prefix": api_key.key_prefix}
 
 
-@router.post("/{tenant_id}/api-keys/{key_id}/rotate", response_model=ApiKeyRotated)
+@router.post("/{tenant_id}/api-keys/{key_id}/rotate", response_model=ApiKeyRotated, tags=["api-keys"])
 async def rotate_api_key(tenant_id: int, key_id: int, db: DbSession, _: MasterKeyAuth):
     """
     Rotate a specific API key: revokes the old key and creates a new one

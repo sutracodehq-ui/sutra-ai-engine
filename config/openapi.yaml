@@ -1,6 +1,9 @@
 # ─── SutraAI Engine — OpenAPI / Swagger Configuration ───────────
 # This file drives the Swagger docs at /docs and /redoc.
 # Edit this file to update API documentation without touching code.
+#
+# ⚠️ Tag ORDER controls the section order in Swagger UI.
+# Grouped logically: System → Admin → Core AI → Capabilities → Data
 
 title: "SutraAI Engine"
 summary: "AI-Powered Software Factory for Digital Marketing"
@@ -21,52 +24,61 @@ description: |
 
   ### Architecture
   - **5-Layer Intelligence Kernel**: Perception → Memory → Reasoning → Execution → Learning
-  - **23 Specialized AI Agents**: Each agent inherits the full kernel and applies it to a specific domain
+  - **192+ Specialized AI Agents**: Each agent inherits the full kernel and applies it to a specific domain
   - **Self-Learning Pipeline**: Every interaction makes the engine smarter via OPRO meta-prompts, A/B testing, and anomaly detection
 
-  ### Key Capabilities
-  | Feature | Description |
-  |---------|-------------|
-  | 🤖 **Multi-Agent Orchestration** | Run 23 agents individually or in parallel |
-  | 🔍 **URL Digital Footprint Scanner** | Full SEO, tech stack, social, and indexing audits |
-  | 🛡️ **Click Fraud Protection** | Real-time scoring with self-learning anomaly detection |
-  | 💬 **Conversational AI** | Multi-turn, context-aware, streaming-capable chat |
-  | 📚 **RAG Knowledge Base** | Upload docs and enable retrieval-augmented generation |
-  | 🎯 **Smart Routing** | Automatically selects the cheapest model that can handle the task |
-  | 🔒 **Safety Guardrails** | PII redaction, content moderation, competitor lock |
-
   ### Authentication
-  All endpoints require an API key passed in the `Authorization` header:
+  All endpoints require an API key in the `Authorization` header:
   ```
   Authorization: Bearer <your-api-key>
   ```
 
+  **Admin endpoints** (tenant/key management) require the **Master API Key**.
+  **All other endpoints** require a tenant API key (`sk_live_*` or `sk_test_*`).
+
   ### Quick Start
   ```bash
-  # List all agents
-  curl http://localhost:8090/v1/agents -H "Authorization: Bearer <KEY>"
+  # 1. Create a tenant (admin)
+  curl -X POST http://localhost:8090/v1/tenants \
+    -H "Authorization: Bearer <MASTER_KEY>" \
+    -d '{"name": "My App", "slug": "my-app"}'
 
-  # Run the copywriter agent
+  # 2. Use the returned API key to run agents
   curl -X POST http://localhost:8090/v1/agents/copywriter/run \
-    -H "Authorization: Bearer <KEY>" \
+    -H "Authorization: Bearer sk_live_xxx" \
     -d '{"prompt": "Write a headline for our SaaS product"}'
-
-  # Analyze a URL
-  curl -X POST http://localhost:8090/v1/url-analyzer/analyze \
-    -H "Authorization: Bearer <KEY>" \
-    -d '{"url": "https://example.com"}'
   ```
 
-# ─── Tag Descriptions ──────────────────────────────────────────
-# These appear as section headers in the Swagger UI.
+# ─── Tag Definitions (ORDER = Swagger section order) ──────────
+# Grouped: 🔧 System → 🔐 Admin → 🤖 Core AI → 🛠️ Capabilities → 📊 Data
 
 tags:
+  # ─── 🔧 System ──────────────────────────────────────────
   - name: "health"
-    description: "System health and readiness probes."
+    description: >
+      **System Health** — Liveness and readiness probes for monitoring and orchestration.
 
+  # ─── 🔐 Admin & Auth ────────────────────────────────────
+  - name: "tenants"
+    description: >
+      **Tenant Management** — Register consuming products, view/update tenant config.
+      All endpoints require the **Master API Key**.
+
+  - name: "api-keys"
+    description: >
+      **API Key Management** — Create, list, revoke, and rotate API keys per tenant.
+      Supports multiple keys with labels, expiry, and scopes.
+      All endpoints require the **Master API Key**.
+
+  - name: "provisioning"
+    description: >
+      **Cross-Service Provisioning** — Atomic setup endpoints for Sutra-Identity integration.
+      Creates tenants with associated voice profiles in a single transaction.
+
+  # ─── 🤖 Core AI ─────────────────────────────────────────
   - name: "agents"
     description: >
-      **AI Agent Hub** — Run any of the 23 specialized AI agents.
+      **AI Agent Hub** — Run any of the 192+ specialized AI agents.
       Each agent inherits the full intelligence kernel (sentiment, memory, reasoning, learning)
       and applies it to a specific domain. Use `GET /agents` to list all available agents,
       `POST /agents/{type}/run` to execute one, or `POST /agents/batch` to run multiple in parallel.
@@ -76,51 +88,48 @@ tags:
       **Conversational AI** — Multi-turn chat with context-aware, streaming-capable responses.
       Supports conversation history, RAG knowledge retrieval, and voice profiles.
 
+  - name: "intelligence"
+    description: >
+      **Intelligence Services** — Direct access to the engine's intelligence layer:
+      sentiment analysis, language detection, URL scanning, SEO audits,
+      hashtag suggestions, competitor analysis, and brand profiling.
+
+  # ─── 🛠️ Capabilities ────────────────────────────────────
+  - name: "content"
+    description: >
+      **Content Generation** — Structured endpoints for marketing content:
+      social posts, email templates, ad copy with A/B variants,
+      content repurposing, calendar suggestions, and landing page copy.
+
   - name: "voice"
     description: >
-      **Voice Pipeline** — Accept voice messages in any Indian language, auto-detect the language,
-      transcribe using OpenAI Whisper, process through any agent, and optionally respond with
-      Text-to-Speech. Supports 30+ Indian languages including Maithili, Bhojpuri, Hindi, Tamil,
-      Bengali, and all 22 Scheduled Languages. Audio files stored in R2 for training.
+      **Voice Pipeline** — Accept voice messages in 30+ Indian languages, auto-detect language,
+      transcribe using Whisper, process through any agent, and respond with TTS.
+
+  - name: "url-analyzer"
+    description: >
+      **Digital Footprint Scanner** — Full SEO, tech stack, social profile, structured data,
+      security header, and Google indexing audits for any URL.
 
   - name: "click-shield"
     description: >
       **Click Fraud Protection** — Real-time ad click scoring, fraud detection,
-      and self-learning anomaly models. Includes human feedback endpoints for model refinement.
-
-  - name: "url-analyzer"
-    description: >
-      **Digital Footprint Scanner** — Scrape any URL to get SEO scores, Google indexing status,
-      tech stack detection, social profiles, structured data, security headers, and AI-generated
-      audit reports. All results are persisted for self-learning.
-
-  - name: "intelligence"
-    description: >
-      **Kernel Intelligence Layer** — Direct access to the engine's intelligence services:
-      sentiment analysis, language detection, URL digital footprint scanning, SEO audits,
-      hashtag suggestions, competitor analysis, and brand profiling.
-
-  - name: "content"
-    description: >
-      **Content Generation** — Dedicated endpoints for generating marketing content
-      with structured input/output. Social posts, email templates, ad copy with A/B variants,
-      content repurposing, content calendar suggestions, and landing page copy.
+      and self-learning anomaly models. Includes human feedback for model refinement.
 
   - name: "rag"
-
     description: >
-      **Knowledge Base (RAG)** — Upload, manage, and query documents for Retrieval-Augmented Generation.
-      Powers context-aware responses across all agents.
+      **Knowledge Base (RAG)** — Upload, manage, and query documents for
+      Retrieval-Augmented Generation. Powers context-aware responses across all agents.
 
+  # ─── 📊 Data & History ──────────────────────────────────
   - name: "conversations"
     description: >
-      **Conversation Management** — Create, retrieve, and manage multi-turn conversation threads
-      with full history.
+      **Conversation History** — Create, retrieve, and manage multi-turn conversation threads.
+
+  - name: "tasks"
+    description: >
+      **Task Tracking** — Track async agent task execution, status, and results.
 
   - name: "billing"
     description: >
       **Usage & Billing** — Token consumption tracking, plan limits, and usage reports per tenant.
-
-  - name: "tenants"
-    description: >
-      **Tenant Management** — Multi-tenant provisioning, API key management, and tenant configuration.
