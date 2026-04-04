@@ -265,13 +265,13 @@ class ChatbotEngine:
         # 3. Escalate if low confidence
         escalated = False
         if not has_knowledge or confidence < confidence_threshold:
-            from app.services.intelligence.escalation_manager import get_escalation_manager
-            escalation = get_escalation_manager()
+            from app.services.intelligence.brain import get_brain
+            brain = get_brain()
 
-            escalated = await escalation.escalate(
+            escalated = await brain.escalate(
                 brand_id=brand_id,
                 session_id=session_id,
-                customer_message=message,
+                question=message,
                 ai_response=response_text,
                 confidence=confidence,
             )

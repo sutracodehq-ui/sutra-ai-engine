@@ -453,9 +453,9 @@ class BaseAgent:
         Attaches a clean AgentResult to response.metadata["filtered_result"].
         """
         try:
-            from app.services.intelligence.response_filter import get_response_filter
-            refilter = get_response_filter()
-            result = refilter.filter(response.content or "", self._config)
+            from app.services.intelligence.brain import get_brain
+            brain = get_brain()
+            result = brain.filter(response.content or "", self._config)
 
             response.metadata = response.metadata or {}
             response.metadata["filtered_result"] = result.model_dump()
@@ -498,7 +498,7 @@ class BaseAgent:
                 from app.services.intelligence.brain import get_brain
                 brain = get_brain()
                 # Use Registry's own circuit breaker (consistent across app)
-                decision = brain.route(prompt, self.identifier, circuit_breaker=registry.circuit_breaker)
+                decision = await brain.route(prompt, self.identifier, circuit_breaker=registry.circuit_breaker)
                 driver_override = decision["driver"]
                 model_override = decision.get("model")
                 fallback_chain = decision.get("chain")

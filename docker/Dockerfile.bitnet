@@ -40,9 +40,19 @@ RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
 # Verify build and list libraries for debugging
 RUN ls -l /opt/bitnet/build/bin/llama-cli
 RUN find /opt/bitnet/build -name "*.so*"
+
+# Step 5: Download BitNet 1.58-bit quantized GGUF weights
+# Official Repo: microsoft/bitnet-b1.58-2B-4T-gguf
+# Note: These weights are specialized for bitnet.cpp inference.
+ARG CACHE_BLASTER=1
 RUN mkdir -p /opt/bitnet/models && \
-    curl -L "https://huggingface.co/1bitLLM/bitnet_b1_58-3B/resolve/main/bitnet_b1_58-3B-Q8_0.gguf" \
-    -o /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf
+    curl -L --retry 5 --retry-delay 10 --connect-timeout 60 \
+    "https://huggingface.co/microsoft/bitnet-b1.58-2B-4T-gguf/resolve/main/ggml-model-i2_s.gguf" \
+    -o /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf && \
+    # Quick integrity check: must be > 1GB
+    if [ $(stat -c%s /opt/bitnet/models/BitNet-b1.58-2B-4T.gguf) -lt 1000000000 ]; then \
+        echo "Error: Corrupted model file downloaded" && exit 1; \
+    fi
 
 # --- Runtime Stage ---
 FROM python:3.11-slim

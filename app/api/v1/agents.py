@@ -154,11 +154,16 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
             # Persist completed task
             complete_text = "".join(full_response)
             try:
-                from app.services.intelligence.response_filter import get_response_filter
-                rf = get_response_filter()
-                filtered = rf.filter(complete_text)
+                from app.services.intelligence.brain import get_brain
+                brain = get_brain()
+                # In streaming mode, we filter the final accumulated text
+                # We need the agent's config for schema matching
+                agent_instance = hub.get(agent_type)
+                agent_config = agent_instance._config if agent_instance else {}
+                filtered = brain.filter(complete_text, agent_config)
                 result_data = filtered.data if filtered.parsed else {"content": complete_text}
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Streaming completion filter failed: {e}")
                 result_data = {"content": complete_text}
 
             task.status = "completed"

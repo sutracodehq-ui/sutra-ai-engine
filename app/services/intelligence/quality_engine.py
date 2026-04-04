@@ -64,11 +64,11 @@ class QualityEngine:
         """
         Score a response on multiple dimensions.
         """
-        from app.services.intelligence.response_filter import get_response_filter
-        refilter = get_response_filter()
+        from app.services.intelligence.brain import get_brain
+        brain = get_brain()
         
-        # Use ResponseFilter to get structured data (handles cleaning/parsing)
-        result = refilter.filter(response.content or "", {"response_schema": expected_fields})
+        # Use Brain to get structured data (handles cleaning/parsing)
+        result = brain.filter(response.content or "", {"response_schema": expected_fields})
         content = response.content.strip()
         dimensions = {}
 

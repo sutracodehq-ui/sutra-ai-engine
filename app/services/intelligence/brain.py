@@ -249,6 +249,42 @@ class _LlmQueue:
             self._sem.release()
 
 
+# ─── Thinking Injections ──────────────────────────────────────
+
+THINKING_INJECTION = """
+Before responding with the final JSON output, think through these steps internally:
+
+1. UNDERSTAND: What exactly is being requested? What are the key requirements?
+2. CONTEXT: What relevant information is available? What constraints exist?
+3. APPROACH: What's the best strategy to produce high-quality output?
+4. QUALITY CHECK: Is the output complete, accurate, and actionable?
+
+After thinking through these steps, produce your final response.
+Do NOT include your thinking process in the output — only the final result.
+"""
+
+
+# ─── Escalation Helpers ─────────────────────────────────────
+
+class _PendingEscalation:
+    def __init__(self, escalation_id, brand_id, session_id, question, ai_resp, confidence):
+        self.id = escalation_id
+        self.brand_id = brand_id
+        self.session_id = session_id
+        self.question = question
+        self.ai_response = ai_resp
+        self.confidence = confidence
+        self.created_at = datetime.now(timezone.utc)
+        self.resolved = False
+
+    def to_dict(self):
+        return {
+            "id": self.id, "brand_id": self.brand_id,
+            "question": self.question, "confidence": self.confidence,
+            "created_at": self.created_at.isoformat()
+        }
+
+
 # ─── Brain: The Unified Execution Pipeline ────────────────────
 
 class Brain:
@@ -270,6 +306,7 @@ class Brain:
     def __init__(self):
         self._filter = _ResponseFilter()
         self._queue = _LlmQueue()
+        self._pending_escalations: dict[str, _PendingEscalation] = {}
 
     @property
     def queue(self) -> _LlmQueue:
@@ -277,7 +314,7 @@ class Brain:
 
     # ─── Routing (absorbs smart_router + hybrid_router) ──────
 
-    def route(self, prompt: str, agent_type: str, circuit_breaker=None) -> dict:
+    async def route(self, prompt: str, agent_type: str, circuit_breaker=None) -> dict:
         """O(1) routing decision: language → complexity → driver → model."""
         settings = get_settings()
         if not settings.ai_smart_router_enabled:
@@ -285,7 +322,7 @@ class Brain:
                     "language": "english", "reason": "smart router disabled", "chain": None}
 
         language = detect_language(prompt)
-        complexity = self._assess_complexity(prompt, agent_type)
+        complexity = await self._assess_complexity(prompt, agent_type)
 
         # Get the full driver chain for fallback (before picking the winner)
         chain = self._get_driver_chain(complexity, language)
@@ -311,7 +348,7 @@ class Brain:
         chains = sr.get("driver_chains", {})
         return chains.get(lang_key, {}).get(complexity, ["ollama", "groq"])
 
-    def _assess_complexity(self, prompt: str, agent_type: str) -> str:
+    async def _assess_complexity(self, prompt: str, agent_type: str) -> str:
         """
         Hybrid complexity assessment: BitNet scorer (primary) → heuristic fallback.
 
@@ -324,7 +361,7 @@ class Brain:
         # ── Stage 1: Try BitNet scorer (fast, accurate) ──
         if scorer_cfg.get("enabled", False):
             try:
-                score = self._bitnet_score(prompt, scorer_cfg)
+                score = await self._bitnet_score(prompt, scorer_cfg)
                 if score is not None:
                     mapping = scorer_cfg.get("score_to_complexity", {})
                     tier = mapping.get(score, mapping.get(str(score), "moderate"))
@@ -336,22 +373,23 @@ class Brain:
         # ── Stage 2: O(1) heuristic fallback ──
         return self._heuristic_complexity(prompt, agent_type)
 
-    def _bitnet_score(self, prompt: str, scorer_cfg: dict) -> int | None:
-        """Call BitNet /v1/score endpoint. Sync httpx, tight timeout. Returns 1-5 or None."""
+    async def _bitnet_score(self, prompt: str, scorer_cfg: dict) -> int | None:
+        """Call BitNet /v1/score endpoint. Async httpx, tight timeout. Returns 1-5 or None."""
         import httpx
 
         endpoint = scorer_cfg.get("endpoint", "http://sutra-ai-bitnet:8081/v1/score")
         timeout_ms = scorer_cfg.get("timeout_ms", 1000)
         max_chars = scorer_cfg.get("max_prompt_chars", 500)
 
-        resp = httpx.post(
-            endpoint,
-            json={"prompt": prompt[:max_chars]},
-            timeout=timeout_ms / 1000.0,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("score")
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                endpoint,
+                json={"prompt": prompt[:max_chars]},
+                timeout=timeout_ms / 1000.0,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("score")
 
     def _heuristic_complexity(self, prompt: str, agent_type: str) -> str:
         """O(1) heuristic complexity — the original keyword-based assessment."""
@@ -417,8 +455,8 @@ class Brain:
             model = {"ollama": s.ollama_model, "sarvam": s.sarvam_model, "nvidia": s.nvidia_model}.get(driver)
         return model
 
-    def select_model(self, prompt: str, agent_type: str, driver: str) -> Optional[str]:
-        complexity = self._assess_complexity(prompt, agent_type)
+    async def select_model(self, prompt: str, agent_type: str, driver: str) -> Optional[str]:
+        complexity = await self._assess_complexity(prompt, agent_type)
         return self._pick_model(driver, complexity)
 
     # ─── Execution (absorbs hybrid_router.execute) ───────────
@@ -432,6 +470,10 @@ class Brain:
 
         settings = get_settings()
         guardian = get_guardian()
+
+        # Step 0: Inject Thinking if task is complex
+        complexity = await self._assess_complexity(prompt, agent_type)
+        system_prompt = self._inject_thinking(system_prompt, complexity, agent_type)
 
         if not settings.ai_hybrid_routing:
             return await self._call_driver(prompt, system_prompt, **options)
@@ -509,7 +551,7 @@ class Brain:
         if settings.ai_smart_router_enabled:
             try:
                 for drv in ["groq", "gemini", "anthropic"]:
-                    m = self.select_model(prompt, agent_type, drv)
+                    m = await self.select_model(prompt, agent_type, drv)
                     if m:
                         model_overrides[drv] = m
             except Exception:
@@ -985,10 +1027,73 @@ class Brain:
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.post(api_url, json={"phone": phone, "message": msg, "escalation_id": esc_id},
                                        headers={"Authorization": f"Bearer {wa.get('api_key', '')}"} if wa.get("api_key") else {})
-                return r.status_code in (200, 201)
+                
+                if r.status_code in (200, 201):
+                    # Store pending escalation for resolve()
+                    self._pending_escalations[esc_id] = _PendingEscalation(
+                        esc_id, brand_id, session_id, question, ai_response, confidence
+                    )
+                    return True
+                return False
         except Exception as e:
             logger.error(f"Brain.escalate: {e}")
             return False
+
+    async def resolve_escalation(self, escalation_id: str, owner_answer: str) -> dict:
+        """Called when owner replies via WhatsApp webhook. Corrects knowledge."""
+        esc = self._pending_escalations.get(escalation_id)
+        if not esc:
+            return {"status": "not_found", "id": escalation_id}
+
+        esc.resolved = True
+        try:
+            from app.services.intelligence.chatbot_engine import get_chatbot_engine
+            engine = get_chatbot_engine()
+            await engine.learn_from_owner(
+                brand_id=esc.brand_id, question=esc.question, 
+                answer=owner_answer, session_id=esc.session_id
+            )
+            del self._pending_escalations[escalation_id]
+            logger.info(f"Brain: resolve-escalation: {escalation_id} brand={esc.brand_id}")
+            return {
+                "status": "resolved", 
+                "id": escalation_id, 
+                "brand_id": esc.brand_id,
+                "session_id": esc.session_id,
+                "learned": True
+            }
+        except Exception as e:
+            logger.error(f"Brain.resolve: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def get_pending_escalations(self, brand_id: str | None = None) -> list[dict]:
+        """List all queries waiting for brand owner answers."""
+        pending = []
+        for esc in self._pending_escalations.values():
+            if brand_id and esc.brand_id != brand_id:
+                continue
+            if not esc.resolved:
+                pending.append(esc.to_dict())
+        return pending
+
+    # ─── Thinking Management (absorbs thinking.py) ───────────
+
+    def _inject_thinking(self, system_prompt: str, complexity: str, agent_type: str) -> str:
+        """Determine if CoT should be injected based on complexity."""
+        if not system_prompt or complexity == "simple":
+            return system_prompt
+        
+        should_inject = (complexity == "complex")
+        if not should_inject and complexity == "moderate":
+            # Force CoT for analytical domains
+            analytical = {"seo", "email_campaign", "copywriter", "market_analyst", "coding_assistant"}
+            should_inject = agent_type in analytical
+            
+        if should_inject:
+            logger.info(f"Brain: injected CoT for {agent_type} (complexity={complexity})")
+            return f"{system_prompt}\n{THINKING_INJECTION}"
+        
+        return system_prompt
 
 
 # ─── Singleton ──────────────────────────────────────────────────

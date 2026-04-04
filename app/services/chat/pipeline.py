@@ -108,7 +108,9 @@ class ChatPipeline:
 
         # Step 4: Smart Routing (Brain)
         agent_type = context.get("agent_type", "general") if context else "general"
-        route = brain.route(safe_prompt, agent_type=agent_type)
+        from app.services.intelligence.brain import get_brain
+        brain = get_brain()
+        route = await brain.route(safe_prompt, agent_type=agent_type)
         driver = route["driver"]
         model = route["model"]
         fallback_chain = route.get("chain")  # full YAML driver chain for resilient fallback

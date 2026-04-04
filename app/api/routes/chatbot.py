@@ -116,23 +116,15 @@ async def whatsapp_webhook(request: WebhookRequest):
     receives their answer, teaches the AI, and resolves the escalation.
     Also pushes the answer to customer's WebSocket in real-time.
     """
-    from app.services.intelligence.escalation_manager import get_escalation_manager
-    mgr = get_escalation_manager()
-
-    # Get session_id before resolving (we need it for WS push)
-    pending = mgr._pending.get(request.escalation_id)
-    session_id = pending.session_id if pending else None
-
-    result = await mgr.resolve(
-        escalation_id=request.escalation_id,
-        owner_answer=request.answer,
-    )
+    from app.services.intelligence.brain import get_brain
+    brain = get_brain()
+    result = await brain.resolve_escalation(request.escalation_id, request.answer)
 
     # Push answer to customer's WebSocket in real-time
-    if session_id and result.get("status") == "resolved":
+    if result.get("session_id") and result.get("status") == "resolved":
         try:
             from app.api.routes.chatbot_ws import push_escalation_resolved
-            await push_escalation_resolved(session_id, request.answer)
+            await push_escalation_resolved(result["session_id"], request.answer)
         except Exception:
             pass  # WS may not be connected
 
@@ -156,9 +148,9 @@ async def import_knowledge(request: FAQImportRequest):
 @router.get("/escalations")
 async def list_escalations(brand_id: Optional[str] = None):
     """List pending escalations (queries waiting for brand owner answer)."""
-    from app.services.intelligence.escalation_manager import get_escalation_manager
-    manager = get_escalation_manager()
-    return manager.get_pending(brand_id)
+    from app.services.intelligence.brain import get_brain
+    brain = get_brain()
+    return brain.get_pending_escalations(brand_id)
 
 
 @router.get("/knowledge/stats")

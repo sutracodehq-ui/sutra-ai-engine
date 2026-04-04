@@ -161,9 +161,9 @@ def _sse_event(event_type: str, payload: dict) -> str:
 def _extract_suggestions(text: str) -> list[str]:
     """Try to extract suggestions from the complete response text."""
     try:
-        from app.services.intelligence.response_filter import get_response_filter
-        rf = get_response_filter()
-        filtered = rf.filter(text)
-        return filtered.suggestions or []
+        from app.services.intelligence.brain import get_brain
+        brain = get_brain()
+        result = brain.filter(text)
+        return result.suggestions or []
     except Exception:
         return []
