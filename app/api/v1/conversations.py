@@ -14,12 +14,18 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_conversation(
-    agent_type: str,
     tenant: CurrentTenant,
     db: DbSession,
+    agent_type: str | None = None,
     external_user_id: str | None = None,
 ):
-    """Create a new conversation thread."""
+    """Create a new conversation thread. Defaults to personal assistant if no agent specified."""
+    # Resolve default from YAML config
+    if not agent_type:
+        from app.services.intelligence.config_loader import get_intelligence_config
+        pa_config = get_intelligence_config().get("personal_assistant_config", {})
+        agent_type = pa_config.get("default_agent", "personal_assistant")
+
     hub = get_agent_hub()
     hub.get(agent_type)  # Validate agent exists
 

@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.llm_service import get_llm_service, LlmResponse
+from app.services.intelligence.config_loader import get_intelligence_config
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,9 @@ class BaseAgent:
                 ctx_text = "\n".join(context_parts)
                 prompt += f"\n\n## Brand & Organization Context\n{ctx_text}"
 
+        # ─── Tenant Identity Injection (generic renderer, from YAML) ──────
+        prompt = self._inject_tenant_identity(prompt, context)
+
         # ─── Chain-of-Thought Injection ───────────────────
         prompt += (
             "\n\n## CRITICAL: Internal Reasoning Only"
@@ -131,6 +135,62 @@ class BaseAgent:
             prompt += f"\n\n## Agent Rules\n{rules_text}"
 
         return prompt
+
+    def _inject_tenant_identity(self, prompt: str, context: dict | None) -> str:
+        """
+        Generic config-driven identity injection.
+
+        Reads field map from YAML → resolves from context → formats template.
+        Adding new fields = edit YAML context_fields. NEVER edit this function.
+        """
+        pa_config = get_intelligence_config().get("personal_assistant_config", {})
+        injector = pa_config.get("injectors", {}).get("tenant_identity", {})
+
+        if not injector.get("enabled"):
+            return prompt
+        if not context:
+            return prompt
+
+        # Check required field (from YAML)
+        required = injector.get("required_field", "tenant_name")
+        if not context.get(required):
+            return prompt
+
+        template = injector.get("template", "")
+        if not template:
+            return prompt
+
+        # Generic field resolution — driven entirely by YAML context_fields
+        fields = injector.get("context_fields", {})
+        values = {
+            cfg["placeholder"]: context.get(key, cfg.get("fallback", ""))
+            for key, cfg in fields.items()
+        }
+
+        return f"{prompt}\n\n{template.format(**values)}"
+
+    async def _fetch_tenant_intelligence(
+        self, tenant_id: str | None, prompt: str, settings
+    ) -> str | None:
+        """Retrieve tenant intelligence from ChromaDB. Fully config-driven."""
+        if not tenant_id or not settings.ai_agent_memory_enabled:
+            return None
+
+        pa_config = get_intelligence_config().get("personal_assistant_config", {})
+        injector = pa_config.get("injectors", {}).get("tenant_intelligence", {})
+        if not injector.get("enabled"):
+            return None
+
+        try:
+            from app.lib.llm_pipeline import _retrieve_tenant_context
+            intel_context = await _retrieve_tenant_context(
+                self.identifier, prompt, int(tenant_id)
+            )
+            label = injector.get("label", "TENANT INTELLIGENCE MEMORY")
+            return f"[{label}]\n{intel_context}" if intel_context else None
+        except Exception as e:
+            logger.debug(f"Tenant intelligence injection skipped: {e}")
+            return None
 
     async def get_system_prompt(self, db: AsyncSession | None = None, context: dict | None = None, stream: bool = False) -> Tuple[str, Optional[int]]:
         """Resolve final system prompt via composition."""
@@ -224,6 +284,11 @@ class BaseAgent:
                     )
             except Exception as e:
                 logger.debug(f"Memory.brand_search skipped: {e}")
+
+        # 1.5 Tenant Intelligence (past analyses from ChromaDB)
+        intel_chunk = await self._fetch_tenant_intelligence(tenant_id, prompt, settings)
+        if intel_chunk:
+            context_chunks.append(intel_chunk)
 
         # 2. Web Intelligence (latest news, trends, market data)
         if settings.ai_agent_memory_enabled:

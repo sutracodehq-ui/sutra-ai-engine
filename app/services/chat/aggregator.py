@@ -65,9 +65,19 @@ class ContextAggregator:
     async def _fetch_voice_profile(
         self, db: AsyncSession, tenant_id: int, vp_id: int | None, vp_name: str | None
     ) -> VoiceProfile | None:
-        """Fetch voice profile by ID or Name."""
+        """Fetch voice profile by ID, Name, or auto-load default (config-driven)."""
         if not vp_id and not vp_name:
-            return None
+            # Auto-load default voice profile if YAML config says so
+            from app.services.intelligence.config_loader import get_intelligence_config
+            pa_config = get_intelligence_config().get("personal_assistant_config", {})
+            if not pa_config.get("auto_load_default_voice"):
+                return None
+            stmt = select(VoiceProfile).where(
+                VoiceProfile.tenant_id == tenant_id,
+                VoiceProfile.is_default.is_(True),
+            )
+            result = await db.execute(stmt)
+            return result.scalar_one_or_none()
 
         stmt = select(VoiceProfile).where(VoiceProfile.tenant_id == tenant_id)
         if vp_id:

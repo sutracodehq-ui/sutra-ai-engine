@@ -37,12 +37,28 @@ async def list_agents(tenant: CurrentTenant):
 
 # ─── Core agent execution logic (shared by all routes) ──────────
 
+
+def _enrich_tenant_context(context: dict, tenant) -> dict:
+    """Enrich context with full tenant identity. Config-driven by YAML field map."""
+    context["tenant_slug"] = tenant.slug
+    context["tenant_name"] = tenant.name
+    context["tenant_description"] = tenant.description or ""
+    context["tenant_email"] = tenant.contact_email or ""
+    context["tenant_id"] = str(tenant.id)
+    # Merge tenant.config overrides (industry, goals, etc.)
+    if tenant.config and isinstance(tenant.config, dict):
+        for k, v in tenant.config.items():
+            if k not in context:  # Don't overwrite explicit context
+                context[f"tenant_{k}"] = v
+    return context
+
+
 async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
     """Shared agent execution logic used by all agent-specific routes."""
     hub = get_agent_hub()
 
     context = body.metadata or {}
-    context["tenant_slug"] = tenant.slug
+    context = _enrich_tenant_context(context, tenant)
 
     task = AiTask(
         tenant_id=tenant.id,
@@ -105,7 +121,7 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
     hub = get_agent_hub()
 
     context = body.metadata or {}
-    context["tenant_slug"] = tenant.slug
+    context = _enrich_tenant_context(context, tenant)
 
     # Create task record for tracking
     task = AiTask(

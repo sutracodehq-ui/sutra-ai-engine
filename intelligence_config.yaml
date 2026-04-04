@@ -95,6 +95,7 @@ agent_tools:
   stock_predictor: [calculator, get_datetime]
   market_trend_analyzer: [calculator, get_datetime]
   crypto_analyzer: [calculator, get_datetime]
+  personal_assistant: [calculator, text_analyzer, keyword_extractor, get_datetime]
 
 # ─── Agent Chain Configs ───────────────────────────────────
 # Agents that get a review step after primary execution
@@ -917,6 +918,10 @@ intent_routes:
   - keywords: [rti, right to information]
     agent: rti_drafter
     actions: [draft, write, create, file]
+  # Personal Assistant (catch-all for general queries)
+  - keywords: [help, advice, suggest, recommend, what should, how can, strategy, plan, guide, think]
+    agent: personal_assistant
+    actions: [help, advise, suggest, recommend, plan, think, guide, assist]
 
 
 # ─── Safety Configuration ──────────────────────────────────
@@ -1014,6 +1019,9 @@ swarm:
       members: [image_generator, video_analyzer, summarizer]
       trigger_intents: [generate image, analyze video, visual]
       tools: [multimodal_engine]
+    strategy_swarm:
+      members: [personal_assistant, brand_advisor, campaign_strategist, competitor_analyst, audience_segmenter]
+      trigger_intents: [strategy, brand_review, competitive_analysis, audience_insight]
 # ─── Voice: Natural Narrator ────────────────────────────────
 voice:
   default_provider: "edge"       # edge (free) | openai (premium) | sarvam (Indian)
@@ -1139,6 +1147,71 @@ sentiment:
   positive_words: [good, great, awesome, happy, thanks, love, perfect]
   negative_words: [bad, wrong, broken, slow, hate, error, fail]
 
+# ─── Personal Assistant (Tenant Companion) ─────────────────
+# Adding new tenant attributes = add to context_fields. Zero Python changes.
+personal_assistant_config:
+  enabled: true
+  default_agent: "personal_assistant"     # Hub identifier
+  auto_load_default_voice: true           # Auto-fetch tenant's default VoiceProfile
+
+  # ─── Context Injection Pipeline (fully config-driven) ────
+  # Each injector runs in order. To add a new data source:
+  # just add a new entry here. Python is a generic loop.
+  injectors:
+
+    # Injector 1: Tenant Identity → system prompt
+    tenant_identity:
+      enabled: true
+      # Field map: context_key → {placeholder, fallback}
+      # Adding a new field = add one line here. NEVER touch Python.
+      context_fields:
+        tenant_name:        { placeholder: "tenant_name",        fallback: "Unknown" }
+        tenant_description: { placeholder: "tenant_description", fallback: "Not provided" }
+        tenant_industry:    { placeholder: "tenant_industry",    fallback: "Not specified" }
+        tenant_email:       { placeholder: "tenant_email",       fallback: "Not provided" }
+        # ─── Future fields: just add lines here ───
+        # tenant_goals:     { placeholder: "tenant_goals",      fallback: "Not set" }
+        # tenant_kpis:      { placeholder: "tenant_kpis",       fallback: "Not set" }
+        # tenant_competitors: { placeholder: "tenant_competitors", fallback: "None" }
+        # tenant_budget:    { placeholder: "tenant_budget",     fallback: "Not specified" }
+      # Required field — if missing, skip injection entirely
+      required_field: "tenant_name"
+      # Template with {placeholders} that match context_fields above
+      template: |
+        ## Your Identity & Tenant
+        You are the personal AI assistant for **{tenant_name}**.
+        When introducing yourself, say "I'm your {tenant_name} assistant" or
+        similar. You represent this brand — not a generic AI.
+
+        - **Brand**: {tenant_name}
+        - **Mission**: {tenant_description}
+        - **Industry**: {tenant_industry}
+        - **Contact**: {tenant_email}
+
+    # Injector 2: ChromaDB Intelligence → message context
+    tenant_intelligence:
+      enabled: true
+      max_chunks: 5
+      relevance_threshold: 0.35
+      label: "TENANT INTELLIGENCE MEMORY"   # Prefix in context_chunks
+
+    # Injector 3: (Future) Competitor Data → system prompt
+    # competitor_context:
+    #   enabled: false
+    #   source: "chromadb"
+    #   collection_suffix: "_competitors"
+    #   template: |
+    #     ## Competitor Landscape
+    #     {competitor_data}
+
+  # Template for injecting past intelligence results
+  intelligence_injection_template: |
+    ## Your Memory (Past Analyses)
+    The following are results from previous analyses for this tenant.
+    Use them to give personalized, consistent, context-aware advice.
+
+    {intelligence_context}
+
 # ─── Tenant Learning (ChromaDB) ─────────────────────────────
 # Every analysis result is stored in a tenant-scoped vector collection.
 # Future calls retrieve past context to produce personalized responses.
@@ -1178,6 +1251,9 @@ tenant_learning:
       store: true
       retrieve: true
     hashtag_suggest:
+      store: true
+      retrieve: true
+    personal_assistant:
       store: true
       retrieve: true
 
