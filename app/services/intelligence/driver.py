@@ -17,6 +17,7 @@ Architecture:
        4. anthropic_native   — Anthropic SDK
 """
 
+import asyncio
 import importlib
 import json
 import logging
@@ -339,7 +340,8 @@ class DriverRegistry:
             raise ValueError(f"Unknown driver or missing configuration: {name}")
 
         full_cfg = {
-            **meta,    # base_url from YAML
+            # Strip provider-level timeout keys (only used by OllamaAdapter)
+            **{k: v for k, v in meta.items() if not k.startswith("timeout_")},
             "api_key": api_key,
             "model": getattr(s, f"{name}_model", None),
             "max_tokens": getattr(s, f"{name}_max_tokens", 512),
@@ -377,26 +379,61 @@ class DriverRegistry:
             cleaned["model"] = model_override
         return cleaned
 
+    async def _try_with_local_fallback(
+        self, driver_override: str, callback, operation: str, guardian, **clean
+    ) -> LlmResponse | None:
+        """
+        Try primary driver, then lighter fallback_model if it fails.
+        Returns None if both fail (caller should fall to chain).
+        """
+        from app.services.intelligence.config_loader import get_intelligence_config
+
+        if not guardian.circuit_breaker.is_available(driver_override):
+            logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
+            return None
+
+        d = self.driver(driver_override)
+        try:
+            result = await guardian.with_retry(callback, d, **clean)
+            guardian.circuit_breaker.record_success(driver_override)
+            return result
+        except Exception as e:
+            logger.warning(f"Driver: {driver_override} {operation} failed ({e})")
+
+            # Try lighter fallback model before going to cloud
+            provider_cfg = get_intelligence_config().get("providers", {}).get(driver_override, {})
+            fallback_model = provider_cfg.get("fallback_model")
+            if fallback_model:
+                logger.warning(f"Driver: {driver_override} retrying with light model: {fallback_model}")
+                try:
+                    light_clean = {**clean, "model": fallback_model}
+                    result = await guardian.with_retry(callback, d, **light_clean)
+                    guardian.circuit_breaker.record_success(driver_override)
+                    return result
+                except Exception as e2:
+                    guardian.circuit_breaker.record_failure(driver_override)
+                    logger.warning(f"Driver: {driver_override} light model also failed ({e2})")
+            else:
+                guardian.circuit_breaker.record_failure(driver_override)
+
+            return None
+
     async def complete(self, system_prompt: str, user_prompt: str,
                        driver_override: str | None = None, model_override: str | None = None,
                        **opts) -> LlmResponse:
-        """Run completion through override or fallback chain."""
+        """Run completion with local-first model degradation."""
         from app.services.intelligence.guardian import get_guardian
         guardian = get_guardian()
         clean = self._clean(opts, model_override)
 
         if driver_override:
-            if not guardian.circuit_breaker.is_available(driver_override):
-                logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
-            else:
-                try:
-                    d = self.driver(driver_override)
-                    result = await guardian.with_retry(d.complete, system_prompt, user_prompt, **clean)
-                    guardian.circuit_breaker.record_success(driver_override)
-                    return result
-                except Exception as e:
-                    guardian.circuit_breaker.record_failure(driver_override)
-                    logger.warning(f"Driver: {driver_override} failed ({e}), falling back to chain")
+            result = await self._try_with_local_fallback(
+                driver_override,
+                lambda d, **kw: d.complete(system_prompt, user_prompt, **kw),
+                "complete", guardian, **clean
+            )
+            if result is not None:
+                return result
 
         return await self._with_fallback(
             lambda d: d.complete(system_prompt, user_prompt, **clean), "complete"
@@ -409,25 +446,53 @@ class DriverRegistry:
         clean = self._clean(opts, model_override)
 
         if driver_override:
-            if not guardian.circuit_breaker.is_available(driver_override):
-                logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
-            else:
-                try:
-                    d = self.driver(driver_override)
-                    result = await guardian.with_retry(d.chat, messages, **clean)
-                    guardian.circuit_breaker.record_success(driver_override)
-                    return result
-                except Exception as e:
-                    guardian.circuit_breaker.record_failure(driver_override)
-                    logger.warning(f"Driver: {driver_override} failed ({e}), falling back to chain")
+            result = await self._try_with_local_fallback(
+                driver_override,
+                lambda d, **kw: d.chat(messages, **kw),
+                "chat", guardian, **clean
+            )
+            if result is not None:
+                return result
 
         return await self._with_fallback(lambda d: d.chat(messages, **clean), "chat")
+
+    async def _stream_with_first_token_timeout(
+        self, driver_name: str, messages: list[dict], first_token_timeout: float, **clean
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream with a first-token deadline.
+
+        If the driver doesn't produce the first token within `first_token_timeout` seconds,
+        raises asyncio.TimeoutError so the caller can fall back to the next driver.
+        After the first token arrives, subsequent tokens use the normal httpx read timeout.
+        """
+        d = self.driver(driver_name)
+        gen = d.stream(messages, **clean)
+        aiter = gen.__aiter__()
+
+        # Wait for first token with deadline
+        first_chunk = await asyncio.wait_for(aiter.__anext__(), timeout=first_token_timeout)
+        yield first_chunk
+
+        # First token arrived — stream remainder without extra timeout wrapper
+        async for chunk in aiter:
+            yield chunk
 
     async def stream(self, system_prompt: str | None = None, user_prompt: str | None = None,
                      messages: list[dict] | None = None, driver_override: str | None = None,
                      model_override: str | None = None, fallback_chain: list[str] | None = None,
                      **opts) -> AsyncGenerator[str, None]:
+        """
+        Stream with local-first model degradation.
+
+        Flow (all config-driven):
+        1. Primary driver + model (e.g. ollama/gemma4:e4b) with first-token timeout
+        2. If timeout → same driver + lighter fallback_model (e.g. ollama/qwen3:1.7b)
+        3. If that fails too → circuit breaker OPEN → fall to chain (bitnet → groq → ...)
+        """
         from app.services.intelligence.guardian import get_guardian
+        from app.services.intelligence.config_loader import get_intelligence_config
+
         guardian = get_guardian()
         clean = self._clean(opts, model_override)
 
@@ -435,23 +500,63 @@ class DriverRegistry:
             messages = [{"role": "system", "content": system_prompt or "You are a helpful assistant."},
                         {"role": "user", "content": user_prompt or ""}]
 
+        # Read config (cached, O(1) amortized)
+        intel_cfg = get_intelligence_config()
+        timeouts_cfg = intel_cfg.get("timeouts", {})
+        first_token_timeout = float(timeouts_cfg.get("first_token_timeout_s", 60))
+
         if driver_override:
             if not guardian.circuit_breaker.is_available(driver_override):
                 logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
             else:
+                # ── Stage 1: Primary model with first-token timeout ──
                 try:
-                    d = self.driver(driver_override)
-                    async for chunk in d.stream(messages, **clean):
+                    async for chunk in self._stream_with_first_token_timeout(
+                        driver_override, messages, first_token_timeout, **clean
+                    ):
                         yield chunk
                     guardian.circuit_breaker.record_success(driver_override)
                     return
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"Driver: {driver_override} no first token in {first_token_timeout}s"
+                    )
+                    # ── Stage 2: Try lighter fallback model on SAME driver ──
+                    # Don't mark circuit OPEN yet — the driver may be fine,
+                    # just the heavy model is slow to load.
+                    provider_cfg = intel_cfg.get("providers", {}).get(driver_override, {})
+                    fallback_model = provider_cfg.get("fallback_model")
+
+                    if fallback_model:
+                        logger.warning(
+                            f"Driver: {driver_override} retrying with light model: {fallback_model}"
+                        )
+                        try:
+                            light_clean = {**clean, "model": fallback_model}
+                            async for chunk in self._stream_with_first_token_timeout(
+                                driver_override, messages, first_token_timeout, **light_clean
+                            ):
+                                yield chunk
+                            guardian.circuit_breaker.record_success(driver_override)
+                            return
+                        except Exception as e2:
+                            # Light model also failed → driver is truly down
+                            guardian.circuit_breaker.record_failure(driver_override)
+                            logger.warning(
+                                f"Driver: {driver_override} light model also failed ({e2}), "
+                                f"driver is down — falling to chain"
+                            )
+                    else:
+                        # No fallback model configured — mark circuit OPEN
+                        guardian.circuit_breaker.record_failure(driver_override)
+                        logger.warning(f"Driver: {driver_override} no fallback_model, falling to chain")
+
                 except Exception as e:
                     guardian.circuit_breaker.record_failure(driver_override)
                     logger.warning(f"Driver: {driver_override} stream failed ({e}), falling back to chain")
 
-        # Fall back through explicit chain or default settings chain
+        # ── Stage 3: Fall back through chain (bitnet → groq → gemini → ...) ──
         chain = fallback_chain or self.driver_chain()
-        # Skip the already-failed driver
         if driver_override:
             chain = [d for d in chain if d != driver_override]
         for driver_name in chain:

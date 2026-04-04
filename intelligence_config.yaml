@@ -42,6 +42,7 @@ providers:
     base_url: "http://sutra-ai-ollama:11434"
     timeout_connect_s: 10
     timeout_read_s: 300
+    fallback_model: "qwen3:1.7b"       # Light model — tried when primary times out
   gemini:
     timeout_connect_s: 10
     timeout_read_s: 120
@@ -1164,6 +1165,8 @@ timeouts:
   web_search_s: 10
   web_fetch_s: 3
   queue_acquire_s: 2
+  first_token_timeout_s: 60      # Max wait for first token from primary driver before fallback
+  stream_inactivity_s: 120       # Max silence between tokens during streaming
 
 # ─── Sentiment Analysis ───────────────────────────────────
 sentiment:
