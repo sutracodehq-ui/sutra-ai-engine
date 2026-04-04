@@ -84,11 +84,17 @@ class OpenAICompatDriver(LlmDriver):
 class OllamaAdapter(LlmDriver):
     """Ollama local inference via HTTP API."""
 
-    def __init__(self, *, base_url: str, model: str, max_tokens: int = 2048, temperature: float = 0.7):
+    def __init__(self, *, base_url: str, model: str, max_tokens: int = 2048,
+                 temperature: float = 0.7, timeout_connect: int = 10, timeout_read: int = 300):
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._max_tokens = max_tokens
         self._temperature = temperature
+        # Pre-build httpx.Timeout once at init — O(1) reuse on every call
+        self._timeout = httpx.Timeout(
+            connect=float(timeout_connect), read=float(timeout_read),
+            write=10.0, pool=10.0,
+        )
 
     def name(self) -> str:
         return "ollama"
@@ -110,13 +116,9 @@ class OllamaAdapter(LlmDriver):
                                "temperature": opts.get("temperature", self._temperature)}}
 
         # Enforce structured JSON output when the prompt expects it.
-        # This uses Ollama's native format constraint for reliable JSON.
         if opts.get("format") == "json" or self._expects_json(messages):
             payload["format"] = "json"
-        # Use split timeout: fast connect (fail fast if Ollama is down),
-        # generous read (local inference can take time)
-        timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
             resp = await client.post(f"{self._base_url}/api/chat", json=payload)
             resp.raise_for_status()
             data = resp.json()
@@ -134,8 +136,7 @@ class OllamaAdapter(LlmDriver):
         payload = {"model": model, "messages": messages, "stream": True,
                    "options": {"num_predict": opts.get("max_tokens", self._max_tokens),
                                "temperature": opts.get("temperature", self._temperature)}}
-        timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
             async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
@@ -302,6 +303,8 @@ class DriverRegistry:
                 model=s.ollama_model,
                 max_tokens=s.ollama_max_tokens,
                 temperature=s.ollama_temperature,
+                timeout_connect=s.ollama_timeout_connect,
+                timeout_read=s.ollama_timeout_read,
             ),
             "gemini": lambda: GeminiAdapter(
                 api_key=s.gemini_api_key, 
@@ -384,11 +387,16 @@ class DriverRegistry:
 
         if driver_override:
             if not guardian.circuit_breaker.is_available(driver_override):
-                raise RuntimeError(f"Requested driver {driver_override} is currently unavailable (circuit OPEN)")
-            d = self.driver(driver_override)
-            result = await guardian.with_retry(d.complete, system_prompt, user_prompt, **clean)
-            guardian.circuit_breaker.record_success(driver_override)
-            return result
+                logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
+            else:
+                try:
+                    d = self.driver(driver_override)
+                    result = await guardian.with_retry(d.complete, system_prompt, user_prompt, **clean)
+                    guardian.circuit_breaker.record_success(driver_override)
+                    return result
+                except Exception as e:
+                    guardian.circuit_breaker.record_failure(driver_override)
+                    logger.warning(f"Driver: {driver_override} failed ({e}), falling back to chain")
 
         return await self._with_fallback(
             lambda d: d.complete(system_prompt, user_prompt, **clean), "complete"
@@ -402,17 +410,23 @@ class DriverRegistry:
 
         if driver_override:
             if not guardian.circuit_breaker.is_available(driver_override):
-                raise RuntimeError(f"Requested driver {driver_override} is currently unavailable (circuit OPEN)")
-            d = self.driver(driver_override)
-            result = await guardian.with_retry(d.chat, messages, **clean)
-            guardian.circuit_breaker.record_success(driver_override)
-            return result
+                logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
+            else:
+                try:
+                    d = self.driver(driver_override)
+                    result = await guardian.with_retry(d.chat, messages, **clean)
+                    guardian.circuit_breaker.record_success(driver_override)
+                    return result
+                except Exception as e:
+                    guardian.circuit_breaker.record_failure(driver_override)
+                    logger.warning(f"Driver: {driver_override} failed ({e}), falling back to chain")
 
         return await self._with_fallback(lambda d: d.chat(messages, **clean), "chat")
 
     async def stream(self, system_prompt: str | None = None, user_prompt: str | None = None,
                      messages: list[dict] | None = None, driver_override: str | None = None,
-                     model_override: str | None = None, **opts) -> AsyncGenerator[str, None]:
+                     model_override: str | None = None, fallback_chain: list[str] | None = None,
+                     **opts) -> AsyncGenerator[str, None]:
         from app.services.intelligence.guardian import get_guardian
         guardian = get_guardian()
         clean = self._clean(opts, model_override)
@@ -423,14 +437,23 @@ class DriverRegistry:
 
         if driver_override:
             if not guardian.circuit_breaker.is_available(driver_override):
-                raise RuntimeError(f"Requested driver {driver_override} is currently unavailable (circuit OPEN)")
-            d = self.driver(driver_override)
-            async for chunk in d.stream(messages, **clean):
-                yield chunk
-            guardian.circuit_breaker.record_success(driver_override)
-            return
+                logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
+            else:
+                try:
+                    d = self.driver(driver_override)
+                    async for chunk in d.stream(messages, **clean):
+                        yield chunk
+                    guardian.circuit_breaker.record_success(driver_override)
+                    return
+                except Exception as e:
+                    guardian.circuit_breaker.record_failure(driver_override)
+                    logger.warning(f"Driver: {driver_override} stream failed ({e}), falling back to chain")
 
-        chain = self.driver_chain()
+        # Fall back through explicit chain or default settings chain
+        chain = fallback_chain or self.driver_chain()
+        # Skip the already-failed driver
+        if driver_override:
+            chain = [d for d in chain if d != driver_override]
         for driver_name in chain:
             if not guardian.circuit_breaker.is_available(driver_name):
                 continue

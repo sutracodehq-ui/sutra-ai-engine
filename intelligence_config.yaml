@@ -14,20 +14,41 @@ load_balancer:
     nvidia: 10         # Cloud API
     bitnet: 5          # Local 1-bit service
 
-# ─── Provider Metadata (Base URLs & Models) ────────────────
+# ─── Provider Metadata (Base URLs & Timeouts) ──────────────
+# Single source of truth for driver connection params.
+# Tuning timeouts = edit here. Zero code changes.
 providers:
   openai:
     base_url: "https://api.openai.com/v1"
+    timeout_connect_s: 10
+    timeout_read_s: 120
   groq:
     base_url: "https://api.groq.com/openai/v1"
+    timeout_connect_s: 10
+    timeout_read_s: 120
   nvidia:
     base_url: "https://integrate.api.nvidia.com/v1"
+    timeout_connect_s: 10
+    timeout_read_s: 120
   sarvam:
     base_url: "https://api.sarvam.ai/v1"
+    timeout_connect_s: 10
+    timeout_read_s: 120
   bitnet:
     base_url: "http://sutra-ai-bitnet:8081/v1"
+    timeout_connect_s: 5
+    timeout_read_s: 60
   ollama:
     base_url: "http://sutra-ai-ollama:11434"
+    timeout_connect_s: 10
+    timeout_read_s: 300
+  gemini:
+    timeout_connect_s: 10
+    timeout_read_s: 120
+  anthropic:
+    timeout_connect_s: 10
+    timeout_read_s: 120
+
 
 # ─── Stock Market ───────────────────────────────────────────
 stock_symbols:
