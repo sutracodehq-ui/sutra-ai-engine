@@ -93,8 +93,8 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma4:e4b"
     ollama_max_tokens: int = 2048
     ollama_temperature: float = 0.7
-    ollama_timeout_connect: int = 10      # Fail fast if Ollama is down
-    ollama_timeout_read: int = 300        # Generous — local inference is slow
+    ollama_timeout_connect: int = 5       # Fail fast if Ollama is down
+    ollama_timeout_read: int = 20         # Fast fallback to cloud if local hangs
 
     # ─── LLM Queue ──────────────────────────────────
     llm_max_parallel: int = 10  # concurrent inference slots (cloud APIs handle unlimited)

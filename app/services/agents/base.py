@@ -455,7 +455,7 @@ class BaseAgent:
         try:
             from app.services.intelligence.brain import get_brain
             brain = get_brain()
-            result = brain.filter(response.content or "", self._config)
+            result = brain.filter_response(response.content or "", self._config)
 
             response.metadata = response.metadata or {}
             response.metadata["filtered_result"] = result.model_dump()

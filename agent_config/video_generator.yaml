@@ -4,8 +4,6 @@
 
 name: "Video Generator"
 identifier: "video_generator"
-driver: "groq"
-model: "llama-3.3-70b-versatile"
 description: >
   AI video generation agent specializing in creating professional
   video content for marketing, ads, social media, and product demos.

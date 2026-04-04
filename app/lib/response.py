@@ -163,7 +163,7 @@ def _extract_suggestions(text: str) -> list[str]:
     try:
         from app.services.intelligence.brain import get_brain
         brain = get_brain()
-        result = brain.filter(text)
+        result = brain.filter_response(text)
         return result.suggestions or []
     except Exception:
         return []

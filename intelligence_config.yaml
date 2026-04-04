@@ -750,18 +750,64 @@ smart_router:
 
   hinglish_min_matches: 2    # need ≥ N hinglish words to classify
 
-  # BitNet complexity scorer (Phase 2)
-  scorer:
+  # ─── Scout LLM Scorer (replaces BitNet) ──────────────────
+  # Uses a small, fast LLM to classify task complexity + intent.
+  # Falls back to O(1) heuristic if Scout is unavailable.
+  scout:
     enabled: true
-    endpoint: "http://sutra-ai-bitnet:8081/v1/score"
-    timeout_ms: 1000         # Fail fast -> heuristic fallback
-    max_prompt_chars: 500    # Cap input to scorer for speed
-    score_to_complexity:
-      1: simple
-      2: simple
-      3: moderate
-      4: complex
-      5: complex
+    driver: groq                           # Fastest cloud API (~100ms)
+    model: llama-3.1-8b-instant            # 8B params, free tier, best for classification
+    timeout_ms: 2000                       # Fail fast → heuristic fallback
+    max_prompt_chars: 300                  # Cap prompt for speed
+    system_prompt: |
+      You are a task complexity classifier. Given a user prompt, respond with JSON only:
+      {"complexity": <1-10>, "intent": "<question|generation|analysis|creative|code>", "needs_web": <true|false>}
+      Rules:
+      - complexity 1-3: greetings, simple Q&A, short factual
+      - complexity 4-6: moderate generation, standard writing
+      - complexity 7-10: deep analysis, multi-step reasoning, research
+      - needs_web: true if the task requires current/real-time information
+    complexity_tiers:
+      simple: [1, 3]                       # Range: 1-3 = simple
+      moderate: [4, 6]                     # Range: 4-6 = moderate
+      complex: [7, 10]                     # Range: 7-10 = complex
+
+  # ─── Consensus Executor ─────────────────────────────────
+  # For complex tasks, run multiple models in parallel and judge.
+  consensus:
+    enabled: true
+    min_complexity_tier: complex            # Only trigger for complex tasks
+    parallel_drivers: [groq, gemini]        # Drivers to race
+    judge_driver: groq                      # Which driver judges outputs
+    judge_model: llama-3.3-70b-versatile
+    token_budget_per_request: 8000          # Max total tokens across parallel calls
+    timeout_s: 30                           # Hard timeout for entire consensus
+    judge_prompt: |
+      You are a quality judge. Compare two AI responses to the same prompt.
+      Evaluate: accuracy, completeness, formatting, usefulness.
+      Respond with JSON only:
+      {"winner": "A" or "B", "confidence": 0.0-1.0, "reason": "brief explanation"}
+
+  # ─── Knowledge Augmentation (Web Scout) ─────────────────
+  # Auto-fetch web context when Scout says needs_web or quality fails.
+  knowledge_augment:
+    enabled: true
+    trigger_on_scout_web: true              # Trigger when scout says needs_web
+    trigger_on_quality_fail: true           # Trigger when quality gate fails
+    max_scrape_pages: 3
+    max_context_chars: 2000                 # Cap injected web context
+    cache_ttl_hours: 24                     # Cache scraped results in Memory
+    timeout_s: 10                           # Hard timeout for scraping
+
+  # ─── Self-Improvement Loop ─────────────────────────────
+  # Periodic Celery Beat task for autonomous optimization.
+  self_improvement:
+    enabled: true
+    cycle_interval_hours: 6                 # Run every 6 hours
+    min_traces_before_learning: 20          # Need N traces before analyzing
+    model_preference_decay_days: 30         # Forget old model preferences
+    promote_model_win_rate: 70.0            # Promote model if win_rate > N%
+    demote_model_win_rate: 30.0             # Demote model if win_rate < N%
 
   # Signal words for O(1) complexity detection (checked via frozenset)
   complex_signals:
@@ -842,13 +888,13 @@ smart_router:
   # Hardware Factory preference: Local Execution -> Free Cloud -> Paid Cloud
   driver_chains:
     english:
-      simple: [bitnet, ollama, groq, gemini, sarvam, openai]
-      moderate: [ollama, bitnet, groq, gemini, sarvam, openai, anthropic]
-      complex: [ollama, bitnet, groq, gemini, sarvam, anthropic, openai]
+      simple: [ollama, groq, gemini, sarvam, openai]
+      moderate: [ollama, groq, gemini, sarvam, openai, anthropic]
+      complex: [groq, gemini, ollama, sarvam, anthropic, openai]
     indic:
-      simple: [ollama, bitnet, groq, gemini, sarvam, openai]
-      moderate: [ollama, bitnet, groq, gemini, sarvam, openai, anthropic]
-      complex: [ollama, bitnet, groq, gemini, sarvam, anthropic, openai]
+      simple: [ollama, groq, gemini, sarvam, openai]
+      moderate: [ollama, groq, gemini, sarvam, openai, anthropic]
+      complex: [groq, gemini, ollama, sarvam, anthropic, openai]
 
   # Model tiers per driver per complexity
   model_tiers:
@@ -1178,7 +1224,7 @@ timeouts:
   web_search_s: 10
   web_fetch_s: 3
   queue_acquire_s: 2
-  first_token_timeout_s: 60      # Max wait for first token from primary driver before fallback
+  first_token_timeout_s: 10      # Fast failover: first token from primary driver or fall to chain
   stream_inactivity_s: 120       # Max silence between tokens during streaming
 
 # ─── Sentiment Analysis ───────────────────────────────────

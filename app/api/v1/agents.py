@@ -160,7 +160,7 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
                 # We need the agent's config for schema matching
                 agent_instance = hub.get(agent_type)
                 agent_config = agent_instance._config if agent_instance else {}
-                filtered = brain.filter(complete_text, agent_config)
+                filtered = brain.filter_response(complete_text, agent_config)
                 result_data = filtered.data if filtered.parsed else {"content": complete_text}
             except Exception as e:
                 logger.warning(f"Streaming completion filter failed: {e}")

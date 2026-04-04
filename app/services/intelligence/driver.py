@@ -86,7 +86,7 @@ class OllamaAdapter(LlmDriver):
     """Ollama local inference via HTTP API."""
 
     def __init__(self, *, base_url: str, model: str, max_tokens: int = 2048,
-                 temperature: float = 0.7, timeout_connect: int = 10, timeout_read: int = 300):
+                 temperature: float = 0.7, timeout_connect: int = 5, timeout_read: int = 20):
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._max_tokens = max_tokens
