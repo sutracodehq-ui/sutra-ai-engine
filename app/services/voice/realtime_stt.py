@@ -113,11 +113,11 @@ class GroqChunkedSTT(RealtimeSTTProvider):
         if len(audio_bytes) < _MIN_AUDIO_SIZE:
             return {"text": "", "language": "unknown", "duration": 0}
 
-        filename, _ = resolve_extension(content_type)
+        filename, base_type = resolve_extension(content_type)
 
         # Build form data from config (model, temperature, language, prompt — all YAML-driven)
         form = self._build_form(language_hint)
-        files = {"file": (filename, audio_bytes, content_type)}
+        files = {"file": (filename, audio_bytes, base_type)}
 
         # URL from providers config (never hardcode)
         from app.services.intelligence.brain import _cfg
@@ -178,7 +178,7 @@ class OpenAIBatchSTT(RealtimeSTTProvider):
         content_type: str = "audio/webm",
     ) -> dict:
         from app.services.voice.voice_service import transcribe_audio
-        filename, _ = resolve_extension(content_type)
+        filename, base_type = resolve_extension(content_type)
         return await transcribe_audio(audio_bytes, filename, language_hint)
 
 

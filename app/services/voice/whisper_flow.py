@@ -492,7 +492,15 @@ class WhisperFlowSession:
         if not audio:
             return
 
-        # Chunk and send
+        # Send clean text for chat UI display (ai_sentence is the display source)
+        await self._send({
+            "type": "ai_sentence",
+            "text": clean,
+            "sentence_index": idx,
+            "language": language,
+        })
+
+        # Chunk and send audio
         b64 = base64.b64encode(audio).decode("utf-8")
         total = (len(b64) + self._chunk_size - 1) // self._chunk_size
 
