@@ -71,6 +71,7 @@ class WhisperFlowSession:
         # ── Config (all from YAML — never hardcode) ──
         voice_cfg = get_voice_config()
         self._cfg = voice_cfg.get("realtime", {})
+        self._client_cfg = {}  # Set via websocket setup
         groq_cfg = self._cfg.get("groq", {})
         self._chunk_ms = groq_cfg.get("chunk_duration_ms", 2500)
         self._idle_timeout = self._cfg.get("idle_timeout_s", 30)
@@ -205,11 +206,15 @@ class WhisperFlowSession:
             self.agent_type = data["agent_type"]
         if "voice_profile_id" in data:
             self.voice_profile_id = data.get("voice_profile_id")
+            
+        # Store all other arbitrary client config (like browser_tts)
+        self._client_cfg.update(data)
 
         await self._send({
             "type": "config_updated",
             "language": self._language,
             "agent_type": self.agent_type,
+            "browser_tts": self._client_cfg.get("browser_tts", False)
         })
 
     # ═══════════════════════════════════════════════════════════
@@ -294,7 +299,7 @@ class WhisperFlowSession:
         sentence_count = 0
 
         try:
-            # Use separate DB session for ChatEngine (short-lived)
+            # Use separate DB session for Context Gathering (very short-lived)
             async with self._db_factory() as db:
                 from app.services.chat.engine import ChatEngine
 
@@ -306,17 +311,20 @@ class WhisperFlowSession:
                     stream=True,
                 )
 
-                full_resp, sentence_count = await self._stream_and_speak(
-                    stream, language, t0
-                )
+            # DB session closed! Streaming and TTS take many seconds; we do not hold the DB lock.
+            full_resp, sentence_count = await self._stream_and_speak(
+                stream, language, t0
+            )
 
             # Signal: all TTS sent
             await self._send({"type": "tts_complete", "total_sentences": sentence_count})
 
-            # Persist in a SEPARATE DB session to avoid session state conflicts
+            # Persist in a SEPARATE DB session and shield it so barge-in cancellation doesn't corrupt the SQLAlchemy connection
             if self._cfg.get("persist_conversations", True) and self._conversation_id:
-                async with self._db_factory() as persist_db:
-                    await self._persist_turn(persist_db, user_text, full_resp, language, audio_dur)
+                async def _persist():
+                    async with self._db_factory() as persist_db:
+                        await self._persist_turn(persist_db, user_text, full_resp, language, audio_dur)
+                await asyncio.shield(asyncio.create_task(_persist()))
 
         except asyncio.CancelledError:
             logger.info(f"Turn {self._turn_count} cancelled (barge-in)")
@@ -408,6 +416,17 @@ class WhisperFlowSession:
 
         clean = await simplify_for_voice(text)
         if not clean or len(clean) < 2:
+            return
+
+        # Fast-path for Browser TTS
+        if self._client_cfg.get("browser_tts"):
+            await self._send({
+                "type": "ai_sentence",
+                "text": clean,
+                "sentence_index": idx,
+                "language": language
+            })
+            logger.info(f"⚡ Browser TTS bypassed cloud generation for sentence {idx}.")
             return
 
         voice_id = get_voice_router().route(clean).get("voice_id")
