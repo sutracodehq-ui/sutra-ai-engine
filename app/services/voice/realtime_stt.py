@@ -2,17 +2,17 @@
 Real-Time STT — Provider-abstracted speech-to-text for live audio.
 
 Software Factory:
-- Config-driven: provider selection from config/voice.yaml → realtime.stt_provider
-- Provider abstraction: GroqChunkedSTT (default) + OpenAI Whisper (fallback)
+- Config-driven: provider selection from YAML → realtime.stt_provider
+- Provider registry: dict[str, Type] — add new providers with zero if/else
+- Language normalization: ISO-639-1 ↔ full names (shared utility)
 - No hardcoded URLs, models, or thresholds
 
 Pipeline: audio bytes → provider → {"text": "...", "language": "hi", "duration": 2.5}
 """
 
-import io
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Type
 
 import httpx
 
@@ -21,6 +21,59 @@ from app.services.voice.config import get_voice_config
 
 logger = logging.getLogger(__name__)
 
+
+# ═══════════════════════════════════════════════════════════════
+#  LANGUAGE NORMALIZATION
+#  Groq returns full names ("english") but API needs ISO-639-1 ("en")
+# ═══════════════════════════════════════════════════════════════
+
+_LANG_TO_ISO: dict[str, str] = {
+    "english": "en", "hindi": "hi", "hinglish": "hi",
+    "spanish": "es", "french": "fr", "german": "de",
+    "japanese": "ja", "chinese": "zh", "korean": "ko",
+    "portuguese": "pt", "russian": "ru", "arabic": "ar",
+    "italian": "it", "dutch": "nl", "turkish": "tr",
+    "greek": "el", "tamil": "ta", "telugu": "te",
+    "bengali": "bn", "marathi": "mr", "gujarati": "gu",
+    "kannada": "kn", "malayalam": "ml", "punjabi": "pa",
+    "urdu": "ur", "thai": "th", "vietnamese": "vi",
+    "indonesian": "id", "malay": "ms", "swedish": "sv",
+    "polish": "pl", "czech": "cs", "romanian": "ro",
+}
+
+
+def normalize_language(raw: str) -> str:
+    """Convert full language name to ISO-639-1 code."""
+    if not raw or raw == "unknown":
+        return "unknown"
+    lower = raw.lower().strip()
+    return lower if len(lower) <= 3 else _LANG_TO_ISO.get(lower, lower)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  CONTENT TYPE → FILE EXTENSION
+# ═══════════════════════════════════════════════════════════════
+
+_CONTENT_TYPE_TO_EXT: dict[str, str] = {
+    "audio/webm": "webm", "audio/wav": "wav", "audio/mp3": "mp3",
+    "audio/mpeg": "mp3",  "audio/ogg": "ogg", "audio/flac": "flac",
+    "audio/mp4": "mp4",   "audio/m4a": "m4a",
+}
+
+# Minimum audio size (bytes) to be a valid container
+_MIN_AUDIO_SIZE = 1000
+
+
+def resolve_extension(content_type: str) -> tuple[str, str]:
+    """Resolve (filename, base_type) from a content type. Strips codec suffix."""
+    base = content_type.split(";")[0].strip()
+    ext = _CONTENT_TYPE_TO_EXT.get(base, "webm")
+    return f"chunk.{ext}", base
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ABSTRACT BASE — All STT providers implement this
+# ═══════════════════════════════════════════════════════════════
 
 class RealtimeSTTProvider(ABC):
     """Abstract base for real-time STT providers."""
@@ -32,27 +85,20 @@ class RealtimeSTTProvider(ABC):
         language_hint: Optional[str] = None,
         content_type: str = "audio/webm",
     ) -> dict:
-        """
-        Transcribe audio bytes.
-
-        Returns: {"text": "...", "language": "hi", "duration": 2.5}
-        """
+        """Transcribe audio bytes → {"text": "...", "language": "hi", "duration": 2.5}"""
         ...
 
 
-class GroqChunkedSTT(RealtimeSTTProvider):
-    """
-    Groq Whisper — blazing-fast REST-based STT.
+# ═══════════════════════════════════════════════════════════════
+#  GROQ WHISPER — Primary provider (~300ms latency)
+# ═══════════════════════════════════════════════════════════════
 
-    Sends audio chunks to Groq's Whisper API endpoint.
-    Uses OpenAI-compatible /v1/audio/transcriptions format.
-    Free tier, ~300ms latency, supports 99+ languages.
-    """
+class GroqChunkedSTT(RealtimeSTTProvider):
+    """Groq Whisper — blazing-fast REST-based STT."""
 
     def __init__(self):
-        voice_cfg = get_voice_config()
-        realtime_cfg = voice_cfg.get("realtime", {})
-        self._groq_cfg = realtime_cfg.get("groq", {})
+        cfg = get_voice_config().get("realtime", {})
+        self._cfg = cfg.get("groq", {})
 
     async def transcribe(
         self,
@@ -60,93 +106,70 @@ class GroqChunkedSTT(RealtimeSTTProvider):
         language_hint: Optional[str] = None,
         content_type: str = "audio/webm",
     ) -> dict:
-        settings = get_settings()
-        api_key = settings.groq_api_key
+        api_key = get_settings().groq_api_key
         if not api_key:
-            raise ValueError("GROQ_API_KEY not configured for real-time STT")
+            raise ValueError("GROQ_API_KEY not configured")
 
-        model = self._groq_cfg.get("model", "whisper-large-v3-turbo")
-        temperature = self._groq_cfg.get("temperature", 0.0)
+        if len(audio_bytes) < _MIN_AUDIO_SIZE:
+            return {"text": "", "language": "unknown", "duration": 0}
 
-        # Determine file extension from content type
-        ext_map = {
-            "audio/webm": "webm",
-            "audio/wav": "wav",
-            "audio/mp3": "mp3",
-            "audio/mpeg": "mp3",
-            "audio/ogg": "ogg",
-            "audio/flac": "flac",
-        }
-        ext = ext_map.get(content_type, "webm")
-        filename = f"chunk.{ext}"
+        filename, _ = resolve_extension(content_type)
 
-        form_data = {
-            "model": (None, model),
-            "response_format": (None, "verbose_json"),
-            "temperature": (None, str(temperature)),
-        }
+        # Build form data from config (model, temperature, language, prompt — all YAML-driven)
+        form = self._build_form(language_hint)
+        files = {"file": (filename, audio_bytes, content_type)}
 
-        # Language hint (improves accuracy for known language)
-        hint = language_hint or self._groq_cfg.get("language_hint")
-        if hint:
-            form_data["language"] = (None, hint)
-
-        # Initial prompt — biases Whisper toward expected languages/vocabulary
-        # This is the key trick for Hindi/Hinglish/multilingual accuracy
-        initial_prompt = self._groq_cfg.get("initial_prompt")
-        if initial_prompt:
-            form_data["prompt"] = (None, initial_prompt)
-
-        files = {
-            "file": (filename, audio_bytes, content_type),
-        }
-
-        # Build URL from config (never hardcode — Software Factory rule)
+        # URL from providers config (never hardcode)
         from app.services.intelligence.brain import _cfg
-        providers_cfg = _cfg("providers", default={})
-        groq_base_url = providers_cfg.get("groq", {}).get("base_url", "https://api.groq.com/openai/v1")
-        transcription_url = f"{groq_base_url.rstrip('/')}/audio/transcriptions"
+        base_url = _cfg("providers", default={}).get("groq", {}).get(
+            "base_url", "https://api.groq.com/openai/v1"
+        )
 
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                transcription_url,
+            resp = await client.post(
+                f"{base_url.rstrip('/')}/audio/transcriptions",
                 headers={"Authorization": f"Bearer {api_key}"},
-                data={k: v[1] for k, v in form_data.items()},
+                data={k: v[1] for k, v in form.items()},
                 files=files,
             )
 
-            if response.status_code != 200:
-                logger.error(f"Groq Whisper error: {response.status_code} - {response.text[:200]}")
-                raise ValueError(f"Groq STT failed ({response.status_code}): {response.text[:100]}")
+        if resp.status_code != 200:
+            logger.error(f"Groq STT {resp.status_code}: {resp.text[:200]}")
+            raise ValueError(f"Groq STT failed ({resp.status_code}): {resp.text[:100]}")
 
-            result = response.json()
-            text = result.get("text", "").strip()
-            language = result.get("language", "unknown")
-            duration = result.get("duration", 0)
+        return self._parse_response(resp.json())
 
-            logger.info(
-                f"🎤 Groq STT: '{text[:60]}...' "
-                f"(lang={language}, dur={duration:.1f}s, model={model})"
-            )
+    def _build_form(self, language_hint: Optional[str]) -> dict:
+        """Config-driven form params — no hardcoded values."""
+        form = {
+            "model": (None, self._cfg.get("model", "whisper-large-v3-turbo")),
+            "response_format": (None, "verbose_json"),
+            "temperature": (None, str(self._cfg.get("temperature", 0.0))),
+        }
+        hint = language_hint or self._cfg.get("language_hint")
+        if hint:
+            form["language"] = (None, hint)
+        prompt = self._cfg.get("initial_prompt")
+        if prompt:
+            form["prompt"] = (None, prompt)
+        return form
 
-            return {
-                "text": text,
-                "language": language,
-                "duration": duration,
-            }
+    @staticmethod
+    def _parse_response(result: dict) -> dict:
+        """Normalize Groq's response to standard format."""
+        return {
+            "text": result.get("text", "").strip(),
+            "language": normalize_language(result.get("language", "unknown")),
+            "duration": result.get("duration", 0),
+        }
 
+
+# ═══════════════════════════════════════════════════════════════
+#  OPENAI WHISPER — Fallback provider
+# ═══════════════════════════════════════════════════════════════
 
 class OpenAIBatchSTT(RealtimeSTTProvider):
-    """
-    OpenAI Whisper — batch fallback STT.
-
-    Used when Groq is unavailable. Same Whisper API as existing voice_service.
-    """
-
-    def __init__(self):
-        voice_cfg = get_voice_config()
-        realtime_cfg = voice_cfg.get("realtime", {})
-        self._oai_cfg = realtime_cfg.get("openai_batch", {})
+    """OpenAI Whisper — batch fallback STT via existing voice_service."""
 
     async def transcribe(
         self,
@@ -154,37 +177,33 @@ class OpenAIBatchSTT(RealtimeSTTProvider):
         language_hint: Optional[str] = None,
         content_type: str = "audio/webm",
     ) -> dict:
-        # Reuse the existing transcribe_audio function
         from app.services.voice.voice_service import transcribe_audio
-
-        ext_map = {"audio/webm": "webm", "audio/wav": "wav", "audio/mp3": "mp3"}
-        ext = ext_map.get(content_type, "webm")
-
-        return await transcribe_audio(audio_bytes, f"chunk.{ext}", language_hint)
+        filename, _ = resolve_extension(content_type)
+        return await transcribe_audio(audio_bytes, filename, language_hint)
 
 
-# ─── Factory ─────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════
+#  FACTORY — Registry-based provider resolution (no if/elif)
+# ═══════════════════════════════════════════════════════════════
+
+_PROVIDER_REGISTRY: dict[str, Type[RealtimeSTTProvider]] = {
+    "groq": GroqChunkedSTT,
+    "openai": OpenAIBatchSTT,
+    "openai_batch": OpenAIBatchSTT,
+}
 
 _provider_cache: dict[str, RealtimeSTTProvider] = {}
 
 
 def get_realtime_stt(provider_override: Optional[str] = None) -> RealtimeSTTProvider:
-    """
-    Factory — returns the correct STT provider from YAML config.
+    """Factory — returns STT provider from YAML config. Registry-based, no conditionals."""
+    name = provider_override or get_voice_config().get("realtime", {}).get("stt_provider", "groq")
 
-    Config path: config/voice.yaml → realtime.stt_provider
-    """
-    voice_cfg = get_voice_config()
-    realtime_cfg = voice_cfg.get("realtime", {})
-    provider_name = provider_override or realtime_cfg.get("stt_provider", "groq")
+    if name not in _provider_cache:
+        cls = _PROVIDER_REGISTRY.get(name)
+        if not cls:
+            logger.warning(f"Unknown STT provider '{name}', defaulting to Groq")
+            cls = GroqChunkedSTT
+        _provider_cache[name] = cls()
 
-    if provider_name not in _provider_cache:
-        if provider_name == "groq":
-            _provider_cache[provider_name] = GroqChunkedSTT()
-        elif provider_name in ("openai", "openai_batch"):
-            _provider_cache[provider_name] = OpenAIBatchSTT()
-        else:
-            logger.warning(f"Unknown STT provider '{provider_name}', defaulting to Groq")
-            _provider_cache[provider_name] = GroqChunkedSTT()
-
-    return _provider_cache[provider_name]
+    return _provider_cache[name]
