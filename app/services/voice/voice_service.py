@@ -357,6 +357,11 @@ def clean_for_tts(text: str) -> str:
     Aggressive cleaning to strip ALL markdown, emojis, and formatting noise.
     Ensures the TTS only receives pure pronounceable text.
     """
+    # 0. Remove think and config blocks entirely
+    text = re.sub(r'<think>[\s\S]*?</think>', '', text)
+    text = re.sub(r'<config>[\s\S]*?</config>', '', text)
+    text = re.sub(r'<[^>]+>', '', text) # Any remaining stray tags
+
     # 1. Remove code blocks (```...```) entirely
     text = re.sub(r'```[\s\S]*?```', '', text)
     

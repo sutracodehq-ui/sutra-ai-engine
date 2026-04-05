@@ -94,8 +94,8 @@ class Memory:
     # 1. CACHE (absorbs cache_engine.py)
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    async def cache_get(self, agent_type: str, prompt: str, strategy: str = "cascade") -> dict | None:
-        """Get cached response. Strategy: 'exact', 'hash', 'semantic', or 'cascade'."""
+    async def cache_get(self, tenant_id: int, agent_type: str, prompt: str, strategy: str = "cascade") -> dict | None:
+        """Get cached response strictly scoped to the tenant. Strategy: 'exact', 'hash', 'semantic', or 'cascade'."""
         try:
             from app.services.connectivity.webhooks import get_redis
             redis = get_redis()
@@ -108,15 +108,15 @@ class Memory:
 
         if strategy == "cascade":
             for s in ["exact", "hash"]:
-                result = await self._cache_strategy(redis, s, agent_type, prompt, cfg)
+                result = await self._cache_strategy(redis, s, tenant_id, agent_type, prompt, cfg)
                 if result:
                     return result
             return None
 
-        return await self._cache_strategy(redis, strategy, agent_type, prompt, cfg)
+        return await self._cache_strategy(redis, strategy, tenant_id, agent_type, prompt, cfg)
 
-    async def cache_put(self, agent_type: str, prompt: str, response: str, strategy: str = "hash") -> None:
-        """Store response in cache."""
+    async def cache_put(self, tenant_id: int, agent_type: str, prompt: str, response: str, strategy: str = "hash", ttl_override: int | None = None) -> None:
+        """Store response in cache isolated by tenant_id."""
         try:
             from app.services.connectivity.webhooks import get_redis
             redis = get_redis()
@@ -124,35 +124,99 @@ class Memory:
             return
 
         cfg = _sec("cache", {})
-        ttl = cfg.get("ttl_seconds", 3600)
+        # Flexible TTL (default 24h as requested)
+        ttl = ttl_override or cfg.get("ttl_seconds", 86400)
 
         if strategy == "exact":
-            key = f"sutra:cache:exact:{agent_type}:{prompt[:200]}"
+            key = f"sutra:cache:t{tenant_id}:exact:{agent_type}:{prompt[:200]}"
         else:
             h = hashlib.sha256(f"{agent_type}:{prompt}".encode()).hexdigest()[:16]
-            key = f"sutra:cache:hash:{h}"
+            key = f"sutra:cache:t{tenant_id}:hash:{h}"
 
         try:
             await redis.setex(key, ttl, json.dumps({"response": response, "ts": time.time()}))
         except Exception as e:
             logger.debug(f"Memory.cache_put: {e}")
 
-    async def _cache_strategy(self, redis, strategy: str, agent_type: str, prompt: str, cfg: dict) -> dict | None:
+    async def _cache_strategy(self, redis, strategy: str, tenant_id: int, agent_type: str, prompt: str, cfg: dict) -> dict | None:
         try:
             if strategy == "exact":
-                key = f"sutra:cache:exact:{agent_type}:{prompt[:200]}"
+                key = f"sutra:cache:t{tenant_id}:exact:{agent_type}:{prompt[:200]}"
             else:
                 h = hashlib.sha256(f"{agent_type}:{prompt}".encode()).hexdigest()[:16]
-                key = f"sutra:cache:hash:{h}"
+                key = f"sutra:cache:t{tenant_id}:hash:{h}"
             data = await redis.get(key)
             if data:
                 parsed = json.loads(data)
                 age = time.time() - parsed.get("ts", 0)
-                if age < cfg.get("ttl_seconds", 3600):
-                    logger.info(f"Memory: cache HIT ({strategy}) for {agent_type}")
+                # Valid for up to 24h by default unless overridden
+                if age < cfg.get("ttl_seconds", 86400):
+                    logger.info(f"Memory: cache HIT ({strategy}) for t{tenant_id}:{agent_type}")
                     return parsed
         except Exception:
             pass
+        return None
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 1.5 EARCON CACHE (Edge-TTS Background Hydration)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async def get_voice_earcon(self, tenant_id: int, phase: str, language_code: str = "en", requested_voice: str | None = None) -> bytes | None:
+        """
+        Retrieves pre-generated conversational fillers (Earcons).
+        If not in Redis, generates it via Edge-TTS and caches it permanently.
+        """
+        try:
+            from app.services.connectivity.webhooks import get_redis
+            redis = get_redis()
+        except Exception:
+            return None
+
+        # Normalize regional fallback
+        supported_langs = ["en", "hi", "mr", "te", "ta", "bn", "gu", "kn"]
+        lang = language_code if language_code in supported_langs else "hi"  # fallback
+
+        # 1. Resolve exact Voice ID using the global router
+        from app.services.voice.router import get_voice_router
+        voice_id = get_voice_router().route(text="test", requested_voice=requested_voice, tenant_slug=str(tenant_id)).get("voice_id", "hi-IN-SwaraNeural")
+
+        key = f"sutra:cache:t{tenant_id}:earcon:{phase}:{lang}:{voice_id}"
+        
+        # 2. Check Redis L1
+        try:
+            data = await redis.get(key)
+            if data:
+                return data
+        except Exception:
+            pass
+
+        # 3. Cache Miss -> Hydrate via Edge-TTS
+        import edge_tts
+        import io
+        from app.services.intelligence.brain import _cfg
+
+        phrases = _cfg("voice", default={}).get("realtime", {}).get("earcons", {})
+        text = phrases.get(phase, {}).get(lang) or phrases.get(phase, {}).get("en")
+
+        if not text:
+            return None
+
+        try:
+            communicate = edge_tts.Communicate(text, voice_id)
+            audio_buffer = io.BytesIO()
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_buffer.write(chunk["data"])
+            
+            raw_bytes = audio_buffer.getvalue()
+            if len(raw_bytes) > 0:
+                # Permanent TTL for system Earcons
+                await redis.set(key, raw_bytes)
+                logger.info(f"🎤 Earcon Hydrated: [{phase}:{lang}] -> Redis")
+                return raw_bytes
+        except Exception as e:
+            logger.warning(f"Memory.get_voice_earcon failed: {e}")
+        
         return None
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1037,7 +1037,8 @@ resilience:
   rate_limiter:
     default_rpm: 60
     default_rpd: 10000
-
+  timeouts:
+    stream_first_token_s: 20.0
 
 # ─── Quality Configuration ─────────────────────────────────
 quality:
@@ -1189,6 +1190,37 @@ voice:
       agent_type: "personal_assistant"
       language: "en"
       voice_nickname: "alloy"
+
+    # Earcons (System Feedbacks/Fillers)
+    # Mapped by stage and standard language codes
+    earcons:
+      transcribing:
+        en: "Hmm..."
+        hi: "हम्म..."
+        mr: "हम्म..."
+        te: "ఉమ్..."
+        ta: "உம்..."
+        bn: "হুম..."
+        gu: "હમ્મ..."
+        kn: "ಹ್ಮ್..."
+      thinking:
+        en: "Wait while we are resolving your query."
+        hi: "कृपया प्रतीक्षा करें, हम आपका उत्तर खोज रहे हैं।"
+        mr: "कृपया प्रतीक्षा करा, आम्ही तुमचे उत्तर शोधत आहोत।"
+        te: "దయచేసి వేచి ఉండండి, మేము సమాధానం కోసం వెతుకుతున్నాము।"
+        ta: "காத்திருக்கவும், நாங்கள் உங்கள் கேள்வியைத் தீர்க்கிறோம்।"
+        bn: "দয়া করে অপেক্ষা করুন, আমরা আপনার প্রশ্নের সমাধান করছি।"
+        gu: "કૃપા કરીને રાહ જુઓ, અમે તમારો પ્રશ્ન ઉકેલી રહ્યા છીએ।"
+        kn: "ದಯವಿಟ್ಟು ನಿರೀಕ್ಷಿಸಿ, ನಾವು ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ಪರಿಹರಿಸುತ್ತಿದ್ದೇವೆ।"
+      welcome:
+        en: "What do you want to ask?"
+        hi: "आप क्या पूछना चाहते हैं?"
+        mr: "तुम्हाला काय विचारायचे आहे?"
+        te: "మీరు ఏమి అడగాలనుకుంటున్నారు?"
+        ta: "நீங்கள் என்ன கேட்க விரும்புகிறீர்கள்?"
+        bn: "আপনি কি জিজ্ঞাসা করতে চান?"
+        gu: "તમે શું પૂછવા માંગો છો?"
+        kn: "ನೀವು ಏನು ಕೇಳಲು ಬಯಸುತ್ತೀರಿ?"
 
     # VAD (Voice Activity Detection) — sent to client for silence-based end_turn
     # Tuned for natural conversation cadence (industry standard defaults)

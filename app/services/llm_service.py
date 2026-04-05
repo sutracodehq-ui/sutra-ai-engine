@@ -29,6 +29,24 @@ class LlmService:
         **kwargs
     ) -> LlmResponse:
         """Single-turn completion via hardened registry."""
+        if "messages" in kwargs and kwargs["messages"] is not None:
+            messages = kwargs.pop("messages")
+            merged = []
+            merged.extend(messages)
+            
+            if system_prompt and not any(m["role"] == "system" for m in merged):
+                merged.insert(0, {"role": "system", "content": system_prompt})
+                
+            if prompt:
+                merged.append({"role": "user", "content": prompt})
+                
+            return await self._registry.chat(
+                merged,
+                driver_override=driver,
+                model_override=model,
+                **kwargs
+            )
+            
         return await self._registry.complete(
             system_prompt=system_prompt,
             user_prompt=prompt,
@@ -66,10 +84,20 @@ class LlmService:
         **kwargs
     ) -> AsyncGenerator[str, None]:
         """Streaming completion via hardened registry."""
+        merged = []
+        if messages is not None:
+            merged.extend(messages)
+            
+        if system_prompt and not any(m["role"] == "system" for m in merged):
+            merged.insert(0, {"role": "system", "content": system_prompt})
+            
+        if prompt:
+            merged.append({"role": "user", "content": prompt})
+
         async for chunk in self._registry.stream(
-            system_prompt=system_prompt,
-            user_prompt=prompt,
-            messages=messages,
+            system_prompt=None,
+            user_prompt=None,
+            messages=merged,
             driver_override=driver,
             model_override=model,
             **kwargs

@@ -432,7 +432,7 @@ class Brain:
             valid[0][1].metadata = {"consensus": "single_valid"}; return valid[0][1]
 
         # Judge
-        judge_driver, judge_model = cfg.get("judge_driver", "groq"), cfg.get("judge_model", "llama-3.3-70b-versatile")
+        judge_driver, judge_model = cfg.get("judge_driver", "groq"), cfg.get("judge_model", "llama-3.1-8b-instant")
         comparison = f"PROMPT: {prompt[:500]}\n\n"
         for i, (drv, resp) in enumerate(valid[:2]):
             comparison += f"RESPONSE {'AB'[i]} ({drv}):\n{resp.content[:2000]}\n\n"
@@ -593,7 +593,7 @@ class Brain:
             resp = await get_llm_service().complete(
                 prompt=f"AGENT: {agent_type}\nCURRENT PROMPT:\n{current.prompt_text}\nWIN RATE: {current.win_rate:.1f}%\nGenerate improved version. Output ONLY the new prompt.",
                 system_prompt="You are a Prompt Engineer. Improve this AI agent prompt.",
-                driver="groq", model=_cfg("fallback_models", "meta_optimizer", default="llama-3.3-70b-versatile"))
+                driver="groq", model=_cfg("fallback_models", "meta_optimizer", default="llama-3.1-8b-instant"))
             return resp.content.strip() if resp.content else None
         except Exception: return None
 

@@ -121,6 +121,21 @@ class WhisperFlowSession:
         self.state = SessionState.IDLE
         vad = self._cfg.get("vad", {})
 
+        # Resolve Voice Nickname from Brand Persona (Software Factory)
+        self._requested_voice = self._cfg.get("realtime", {}).get("defaults", {}).get("voice_nickname", "alloy")
+        if getattr(self, "voice_profile_id", None):
+            try:
+                from sqlalchemy import select
+                from app.models.voice_profile import VoiceProfile
+                async with self._db_factory() as db:
+                    stmt = select(VoiceProfile).where(VoiceProfile.id == self.voice_profile_id)
+                    res = await db.execute(stmt)
+                    vp = res.scalar_one_or_none()
+                    if vp and vp.tone_attributes:
+                        self._requested_voice = vp.tone_attributes.get("voice_nickname", self._requested_voice)
+            except Exception as e:
+                logger.warning(f"WhisperFlow: Failed to fetch VoiceProfile override: {e}")
+
         await self._send({
             "type": "session_start",
             "session_id": self.session_id,
@@ -138,7 +153,7 @@ class WhisperFlowSession:
         if self._cfg.get("persist_conversations", True):
             await self._create_conversation()
 
-        logger.info(f"✅ Session {self.session_id} started")
+        logger.info(f"✅ Session {self.session_id} started with Voice '{self._requested_voice}'")
 
     async def close(self):
         """Graceful shutdown."""
@@ -231,8 +246,22 @@ class WhisperFlowSession:
 
         await self._cancel_turn()
 
-        # Transcribe
+        # Transcribe (and optionally stream native Earcon)
         self.state = SessionState.TRANSCRIBING
+        
+        if not self._client_cfg.get("browser_tts"):
+            from app.services.intelligence.memory import Memory
+            earcon_bytes = await Memory().get_voice_earcon(
+                self.tenant.id, "transcribing", self._language or "en", getattr(self, "_requested_voice", None)
+            )
+            if earcon_bytes:
+                import base64
+                await self._send({
+                    "type": "ai_audio",
+                    "data": base64.b64encode(earcon_bytes).decode("utf-8"),
+                    "is_final": True
+                })
+
         await self._send({"type": "status", "stage": "transcribing"})
 
         transcription = await self._transcribe_with_fallback(audio, content_type)
@@ -292,6 +321,21 @@ class WhisperFlowSession:
         """Step 2: LLM → sentence-level streaming TTS."""
         t0 = time.monotonic()
         self.state = SessionState.THINKING
+        
+        # Thinking Regional Earcon
+        if not self._client_cfg.get("browser_tts"):
+            from app.services.intelligence.memory import Memory
+            earcon_bytes = await Memory().get_voice_earcon(
+                self.tenant.id, "thinking", language, getattr(self, "_requested_voice", None)
+            )
+            if earcon_bytes:
+                import base64
+                await self._send({
+                    "type": "ai_audio",
+                    "data": base64.b64encode(earcon_bytes).decode("utf-8"),
+                    "is_final": True
+                })
+
         await self._send({"type": "status", "stage": "thinking"})
         self._turn_count += 1
 
@@ -308,6 +352,7 @@ class WhisperFlowSession:
                     prompt=user_text,
                     conversation_id=self._conversation_id,
                     voice_profile_id=self.voice_profile_id,
+                    agent_type=self.agent_type,
                     stream=True,
                 )
 
@@ -370,9 +415,16 @@ class WhisperFlowSession:
             # Sentence boundary?
             current = "".join(sentence_buf).strip()
             last_ch = token.strip()[-1] if token.strip() else ""
+            
+            # Prevent splitting mid-block so clean_for_tts can strip them entirely
+            think_open = current.count("<think>") - current.count("</think>")
+            config_open = current.count("<config>") - current.count("</config>")
+            code_open = current.count("```") % 2
+            is_blocked = (think_open > 0) or (config_open > 0) or (code_open != 0)
 
             if (
-                last_ch in self._sentence_terminals
+                not is_blocked
+                and last_ch in self._sentence_terminals
                 and len(current) >= self._min_sentence_len
                 and self._auto_reply
             ):

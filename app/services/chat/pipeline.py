@@ -99,7 +99,7 @@ class ChatPipeline:
         # Step 3: Cache Lookup (Memory)
         cache_key = None
         if not stream:
-            cached = await memory.cache_get("chatbot", safe_prompt)
+            cached = await memory.cache_get(self.tenant.id, "chatbot", safe_prompt)
             if cached:
                 logger.info("⚡ Cache hit via Memory!")
                 from app.services.drivers.base import LlmResponse
@@ -152,7 +152,7 @@ class ChatPipeline:
 
             # Save to cache (Memory)
             if result.content:
-                await memory.cache_put("chatbot", safe_prompt, result.content)
+                await memory.cache_put(self.tenant.id, "chatbot", safe_prompt, result.content)
             
             return result
 
