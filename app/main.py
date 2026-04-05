@@ -109,6 +109,13 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(v1_router)
 
+    # ─── WebSocket Routes (mounted directly — WS paths include /v1 prefix) ───
+    from app.api.routes.chatbot_ws import router as chatbot_ws_router
+    from app.api.routes.voice_ws import router as voice_ws_router
+
+    app.include_router(chatbot_ws_router)
+    app.include_router(voice_ws_router)
+
     # Serve Interactive Developer Docs
     docs_path = str(project_root / "docs")
     if (project_root / "docs").exists():

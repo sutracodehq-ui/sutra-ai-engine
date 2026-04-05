@@ -44,6 +44,31 @@ tts:
       voice: "en-US-AriaNeural"                  # Free Microsoft Edge TTS
       cost_per_1k_chars: 0.00
 
+# Edge-TTS Voice Map (used by SmartVoiceRouter)
+edge:
+  default_edge_voice: "en-IN-NeerjaNeural"
+  voice_map:
+    # English voices
+    alloy: "en-US-GuyNeural"
+    nova: "en-IN-NeerjaNeural"
+    shimmer: "en-US-AriaNeural"
+    echo: "en-US-ChristopherNeural"
+    onyx: "en-US-EricNeural"
+    # Hindi voices
+    swara: "hi-IN-SwaraNeural"
+    madhur: "hi-IN-MadhurNeural"
+    # Regional Indian voices
+    tamil: "ta-IN-PallaviNeural"
+    telugu: "te-IN-ShrutiNeural"
+    kannada: "kn-IN-SapnaNeural"
+    malayalam: "ml-IN-MidhunNeural"
+    gujarati: "gu-IN-DhwaniNeural"
+    bengali: "bn-IN-TanishaaNeural"
+    marathi: "mr-IN-AarohiNeural"
+
+# Default TTS provider for routing
+default_provider: "edge"
+
 # R2 Storage for voice recordings
 storage:
   bucket_prefix: "voice"  # Files stored under voice/{tenant}/{date}/
@@ -55,3 +80,65 @@ language_detection:
   auto_detect: true           # Let Whisper detect language
   hint_from_context: true     # Use tenant's locale as a hint
   fallback_language: "hi"     # Default to Hindi if detection fails
+
+# ─── Real-Time Voice Conversation (Whisper Flow) ─────────────
+# WebSocket-based bidirectional voice pipeline:
+# Browser audio → WebSocket → Groq Whisper STT → Agent → Edge-TTS → audio back
+realtime:
+  enabled: true
+  defaults:
+    agent_type: "personal_assistant"
+    language: "en"
+    voice_nickname: "alloy"
+
+  # Streaming & Parallelism (Software Factory)
+  streaming:
+    sentence_terminals: [".", "!", "?", "।", "।", "\n"]
+    min_sentence_length_chars: 15
+    max_tokens_before_force_speak: 50
+    audio_chunk_size_bytes: 32768
+
+  # STT provider for live transcription
+  stt_provider: "groq"
+
+  # Language Scripts (Software Factory: config-driven regex for detection)
+  language_scripts:
+    tamil:     "[\u0B80-\u0BFF]"
+    telugu:    "[\u0C00-\u0C7F]"
+    kannada:   "[\u0C80-\u0CFF]"
+    malayalam: "[\u0D00-\u0D7F]"
+    gujarati:  "[\u0A80-\u0AFF]"
+    bengali:   "[\u0980-\u09FF]"
+    marathi:   "[\u0900-\u097F]"
+    hindi:     "[\u0900-\u097F]"
+
+  # Groq Whisper (chunked REST — fast, free-tier friendly)
+  groq:
+    model: "whisper-large-v3-turbo"
+    chunk_duration_ms: 2500
+    language_hint: null
+    max_silence_ms: 1500
+    temperature: 0.0
+
+  # OpenAI Whisper (batch fallback)
+  openai_batch:
+    model: "whisper-1"
+    response_format: "verbose_json"
+
+  # TTS for voice replies
+  tts:
+    auto_reply: true
+    provider: "edge_tts"
+    prosody:
+      rate: "-5%"
+      pitch: "-2Hz"
+      volume: "+0%"
+
+  # Session limits
+  max_session_duration_s: 300
+  max_concurrent_sessions: 50
+  idle_timeout_s: 30
+
+  # Conversation persistence
+  persist_conversations: true
+  persist_audio: false

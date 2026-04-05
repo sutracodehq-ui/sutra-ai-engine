@@ -1,5 +1,7 @@
 import logging
 
+logger = logging.getLogger(__name__)
+
 _voice_config = None
 
 def get_voice_config() -> dict:
@@ -9,18 +11,25 @@ def get_voice_config() -> dict:
     """
     global _voice_config
     
-    # Dynamic path injection for Edge-TTS (ensures global install is visible to venv)
-    import sys
-    import os
-    global_path = "/home/sutra/.local/lib/python3.12/site-packages"
-    if os.path.exists(global_path) and global_path not in sys.path:
-        sys.path.append(global_path)
-        
     if _voice_config is None:
         try:
             from app.services.intelligence.brain import _cfg
             _voice_config = _cfg("voice", default={})
-        except Exception:
-            # Fallback for scripts or outside-of-app calls
+            realtime = _voice_config.get("realtime", {})
+            logger.info(
+                f"🎙️ Voice config loaded: "
+                f"realtime.enabled={realtime.get('enabled', 'MISSING')}, "
+                f"stt_provider={realtime.get('stt_provider', 'MISSING')}, "
+                f"edge.voice_map keys={list(_voice_config.get('edge', {}).get('voice_map', {}).keys())[:5]}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to load voice config: {e}")
             return {}
     return _voice_config
+
+
+def reset_voice_config():
+    """Force reload of voice config (after YAML changes)."""
+    global _voice_config
+    _voice_config = None
+

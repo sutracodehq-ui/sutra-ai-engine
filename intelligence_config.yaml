@@ -1113,8 +1113,8 @@ voice:
 
   # Edge-TTS — free, no API key needed (Microsoft Edge neural voices)
   edge:
-    rate: "+0%"                  # Speed control: +0% (default), -10% (slower), +10% (faster)
-    pitch: "+0Hz"                 # Pitch control: +0Hz (default)
+    rate: "-5%"                  # Slightly slower = warmer, more human (not robotic)
+    pitch: "-2Hz"                 # Lower pitch = natural warmth
     volume: "+0%"                # Volume boost: +0% (default)
     voice_map:
       nova: "en-IN-NeerjaNeural"          # Indian English female (natural)
@@ -1179,6 +1179,80 @@ voice:
       voice: "onyx"             # deep, articulate male voice
       greeting: "Hello. I am Sutra, your intelligent companion. Welcome to the SutraCode AI Engine. What shall we build together today?"
       speed: 1.05                # slightly faster for that AI-snappiness
+
+  # ─── Real-Time Voice Conversation (Whisper Flow) ─────────
+  # WebSocket-based bidirectional voice pipeline:
+  # Browser audio → WebSocket → Groq Whisper STT → Agent → Edge-TTS → audio back
+  realtime:
+    enabled: true
+    defaults:
+      agent_type: "personal_assistant"
+      language: "en"
+      voice_nickname: "alloy"
+
+    # VAD (Voice Activity Detection) — sent to client for silence-based end_turn
+    # Tuned for natural conversation cadence (industry standard defaults)
+    vad:
+      poll_interval_ms: 100           # How often to check volume (100ms = smooth)
+      silence_threshold: 0.015        # RMS below this = silence (0-1 scale)
+      speech_threshold: 0.02          # RMS above this = speech detected
+      silence_duration_ms: 1500       # Silence this long → auto end_turn
+      min_speech_duration_ms: 500     # Must speak at least this long before silence counts
+
+    # Streaming thresholds
+    streaming:
+      sentence_terminals: [".", "!", "?", "।", "\n"]
+      min_sentence_length_chars: 15
+      max_tokens_before_force_speak: 50
+      audio_chunk_size_bytes: 32768
+
+    # STT provider for live transcription
+    stt_provider: "groq"
+
+    # Language Scripts (config-driven regex for detection)
+    language_scripts:
+      tamil:     "[\u0B80-\u0BFF]"
+      telugu:    "[\u0C00-\u0C7F]"
+      kannada:   "[\u0C80-\u0CFF]"
+      malayalam: "[\u0D00-\u0D7F]"
+      gujarati:  "[\u0A80-\u0AFF]"
+      bengali:   "[\u0980-\u09FF]"
+      marathi:   "[\u0900-\u097F]"
+      hindi:     "[\u0900-\u097F]"
+
+    # Groq Whisper (chunked REST)
+    groq:
+      model: "whisper-large-v3-turbo"
+      chunk_duration_ms: 2500
+      language_hint: null            # Set to "hi" to force Hindi, null = auto-detect
+      max_silence_ms: 1500
+      temperature: 0.0
+      # Whisper prompt — biases transcription toward Hindi/English/Hinglish
+      # This is the industry standard trick for multilingual STT accuracy
+      initial_prompt: "Namaste, main Tryambaka AI assistant hoon. Main Hindi, English, aur Hinglish mein baat kar sakta hoon. Marketing, branding, aur digital tools ke baare mein help kar sakta hoon."
+
+    # OpenAI Whisper (batch fallback)
+    openai_batch:
+      model: "whisper-1"
+      response_format: "verbose_json"
+
+    # TTS for voice replies
+    tts:
+      auto_reply: true
+      provider: "edge_tts"
+      prosody:
+        rate: "-5%"
+        pitch: "-2Hz"
+        volume: "+0%"
+
+    # Session limits
+    max_session_duration_s: 300
+    max_concurrent_sessions: 50
+    idle_timeout_s: 30
+
+    # Persistence
+    persist_conversations: true
+    persist_audio: false
 
 # ─── Budget & Cost Configuration ───────────────────────────
 budget:

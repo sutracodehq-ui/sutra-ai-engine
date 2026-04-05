@@ -1,9 +1,17 @@
+"""
+SmartVoiceRouter — Config-driven voice routing (Software Factory).
+
+All language detection patterns and voice mappings come from config/voice.yaml.
+No hardcoded regex, no hardcoded voice IDs.
+"""
+
 import logging
 import re
 from typing import Dict, Any, Optional
 from app.services.voice.config import get_voice_config
 
 logger = logging.getLogger(__name__)
+
 
 class SmartVoiceRouter:
     """
@@ -17,41 +25,40 @@ class SmartVoiceRouter:
     def route(self, text: str, requested_voice: Optional[str] = None, tenant_slug: str = "default") -> Dict[str, Any]:
         """
         Routes the request to the optimal voice and provider.
-        Returns: {provider, voice_id, settings}
+        Returns: {provider, voice_id, metadata, edge_settings}
         """
         # 1. Base Configuration
+        realtime_cfg = self.config.get("realtime", {})
         edge_config = self.config.get("edge", {})
         voice_map = edge_config.get("voice_map", {})
-        requested_nickname = requested_voice or self.config.get("default_voice", "nova")
-        
-        # 2. Script-based Auto-Detection
+        default_voice = edge_config.get("default_edge_voice", "en-IN-NeerjaNeural")
+
+        defaults = realtime_cfg.get("defaults", {})
+        requested_nickname = requested_voice or defaults.get("voice_nickname", "alloy")
+
+        # 2. Script-based Auto-Detection (Software Factory: Load from Config)
         lang_detected = None
-        scripts = {
-            "tamil": r"[\u0B80-\u0BFF]",
-            "telugu": r"[\u0C00-\u0C7F]",
-            "kannada": r"[\u0C80-\u0CFF]",
-            "malayalam": r"[\u0D00-\u0D7F]",
-            "gujarati": r"[\u0A80-\u0AFF]",
-            "bengali": r"[\u0980-\u09FF]",
-            "marathi": r"[\u0900-\u097F]", # Devnagari (handled below)
-            "hindi": r"[\u0900-\u097F]"   # Devnagari
-        }
+        scripts = realtime_cfg.get("language_scripts", {})
 
         for lang, pattern in scripts.items():
-            if re.search(pattern, text):
-                lang_detected = lang
-                break
+            try:
+                if re.search(pattern, text):
+                    lang_detected = lang
+                    break
+            except Exception as e:
+                logger.warning(f"Invalid regex pattern for {lang}: {e}")
 
         # 3. Gender Mapping
-        gender = "female" # default for nova/shimmer/swara
-        if requested_nickname in ["alloy", "echo", "onyx", "madhur"]:
+        gender = "female"
+        male_voices = ["alloy", "echo", "onyx", "madhur"]
+        if requested_nickname in male_voices:
             gender = "male"
 
         # 4. Final Voice Selection
         final_voice_id = None
-        
+
         if lang_detected:
-            if lang_detected == "hindi" or lang_detected == "marathi":
+            if lang_detected in ["hindi", "marathi"]:
                 # Smart Gender Switching for Devnagari based languages
                 if gender == "female":
                     final_voice_id = voice_map.get("swara", "hi-IN-SwaraNeural")
@@ -60,34 +67,41 @@ class SmartVoiceRouter:
             else:
                 # Direct regional mapping (Pallavi, Shruti, etc.)
                 final_voice_id = voice_map.get(lang_detected)
-        
+
         # Fallback if no script detected or mapping failed (English/Global)
         if not final_voice_id:
-            final_voice_id = voice_map.get(requested_nickname, edge_config.get("default_edge_voice"))
+            final_voice_id = voice_map.get(requested_nickname, default_voice)
 
-        # 5. Metadata for logging/frontend
+        # 5. TTS prosody settings from config
+        prosody = realtime_cfg.get("tts", {}).get("prosody", {})
+
+        # 6. Metadata for logging/frontend
+        provider = self.config.get("default_provider", "edge")
+
         metadata = {
             "requested_nickname": requested_nickname,
             "detected_lang": lang_detected,
-            "provider": self.config.get("default_provider", "edge"),
+            "provider": provider,
             "voice_id": final_voice_id,
         }
 
-        logger.info(f"SmartVoiceRouter: {metadata}")
-        
+        logger.debug(f"SmartVoiceRouter: {metadata}")
+
         return {
-            "provider": metadata["provider"],
+            "provider": provider,
             "voice_id": final_voice_id,
             "metadata": metadata,
             "edge_settings": {
-                "rate": edge_config.get("rate", "+0%"),
-                "pitch": edge_config.get("pitch", "+0Hz"),
-                "volume": edge_config.get("volume", "+0%")
+                "rate": prosody.get("rate", "-5%"),
+                "pitch": prosody.get("pitch", "-2Hz"),
+                "volume": prosody.get("volume", "+0%"),
             }
         }
 
-# Singleton instance
+
+# Singleton instance (lazy init)
 _router = None
+
 
 def get_voice_router() -> SmartVoiceRouter:
     global _router
