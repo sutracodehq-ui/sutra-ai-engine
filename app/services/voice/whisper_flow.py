@@ -165,7 +165,13 @@ class WhisperFlowSession:
     # ═══════════════════════════════════════════════════════════
 
     async def handle_audio_chunk(self, audio_data: bytes, content_type: str = "audio/webm"):
-        """Buffer audio chunk. Barge-in if AI is speaking."""
+        """Buffer audio chunk. Barge-in if AI is speaking.
+
+        NOTE: We never auto-process here. Only process on explicit end_turn
+        from VAD — this ensures the full WebM container (header + data) is intact.
+        Auto-processing mid-stream would split the container, producing chunks
+        without the WebM header that Groq rejects as 'Invalid file format'.
+        """
         if self.state == SessionState.CLOSED:
             return
 
@@ -178,10 +184,6 @@ class WhisperFlowSession:
 
         if self.state != SessionState.LISTENING:
             self.state = SessionState.LISTENING
-
-        # Auto-process when buffer is large enough (~4 bytes/ms at 32kbps)
-        if len(self._audio_buffer) >= self._chunk_ms * 4:
-            await self._process_buffer(content_type)
 
     async def handle_end_turn(self, content_type: str = "audio/webm"):
         """VAD silence → process whatever is buffered."""
@@ -234,7 +236,7 @@ class WhisperFlowSession:
             return
 
         text = transcription["text"]
-        language = transcription["language"]
+        language = normalize_language(transcription.get("language", "unknown"))
         duration = transcription["duration"]
 
         # Language auto-lock
@@ -288,7 +290,11 @@ class WhisperFlowSession:
         await self._send({"type": "status", "stage": "thinking"})
         self._turn_count += 1
 
+        full_resp = ""
+        sentence_count = 0
+
         try:
+            # Use separate DB session for ChatEngine (short-lived)
             async with self._db_factory() as db:
                 from app.services.chat.engine import ChatEngine
 
@@ -304,12 +310,13 @@ class WhisperFlowSession:
                     stream, language, t0
                 )
 
-                # Signal: all TTS sent
-                await self._send({"type": "tts_complete", "total_sentences": sentence_count})
+            # Signal: all TTS sent
+            await self._send({"type": "tts_complete", "total_sentences": sentence_count})
 
-                # Persist + teach brain
-                if self._cfg.get("persist_conversations", True) and self._conversation_id:
-                    await self._persist_turn(db, user_text, full_resp, language, audio_dur)
+            # Persist in a SEPARATE DB session to avoid session state conflicts
+            if self._cfg.get("persist_conversations", True) and self._conversation_id:
+                async with self._db_factory() as persist_db:
+                    await self._persist_turn(persist_db, user_text, full_resp, language, audio_dur)
 
         except asyncio.CancelledError:
             logger.info(f"Turn {self._turn_count} cancelled (barge-in)")
