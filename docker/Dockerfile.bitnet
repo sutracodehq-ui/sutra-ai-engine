@@ -18,24 +18,34 @@ RUN apt-get update && apt-get install -y \
 ENV CC=clang-18
 ENV CXX=clang++-18
 
-# Clone and build bitnet.cpp (replicating setup_env.py pipeline exactly)
+# Fetch TARGETARCH populated automatically by Docker Buildx
+ARG TARGETARCH
+
+# Clone and build bitnet.cpp
 WORKDIR /opt/bitnet
 RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
-    # Step 1: Install gguf package (override PEP 668 for builder stage)
+    # Step 1: Install gguf package
     pip3 install --break-system-packages 3rdparty/llama.cpp/gguf-py && \
-    # Step 2: Generate bitnet-lut-kernels.h into include/ (gen_code in setup_env.py)
-    # This is the ONLY file missing from root include/ — ggml-bitnet.h already ships there.
-    # Do NOT copy other headers: CMake adds BOTH ../include/ AND ../../../../include/
-    # as include paths, so duplicating ggml.h into root include/ causes redefinitions.
-    python3 utils/codegen_tl1.py --model bitnet_b1_58-large \
-        --BM 256,128,256 --BK 128,64,128 --bm 32,64,32 && \
-    # Step 3: CMake configure with official aarch64 flags (compile in setup_env.py)
-    cmake -B build \
-        -DBITNET_ARM_TL1=OFF \
-        -DCMAKE_C_COMPILER=clang-18 \
-        -DCMAKE_CXX_COMPILER=clang++-18 && \
+    # Step 2 & 3: Architecture-specific code generation and CMake config
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        echo "Building for ARM64 architecture..." && \
+        python3 utils/codegen_tl1.py --model bitnet_b1_58-large \
+            --BM 256,128,256 --BK 128,64,128 --bm 32,64,32 && \
+        cmake -B build \
+            -DBITNET_ARM_TL1=OFF \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_COMPILER=clang++-18; \
+    else \
+        echo "Building for AMD64 architecture..." && \
+        python3 utils/codegen_tl2.py --model bitnet_b1_58-large \
+            --BM 256,128,256 --BK 96,192,96 --bm 32,32,32 && \
+        cmake -B build \
+            -DBITNET_X86_TL2=OFF \
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_COMPILER=clang++-18; \
+    fi && \
     # Step 4: Build
-    cmake --build build --config Release -j$(nproc)
+    cmake --build build --config Release -j$(expr $(nproc) / 2 + 1)
 
 # Verify build and list libraries for debugging
 RUN ls -l /opt/bitnet/build/bin/llama-cli
