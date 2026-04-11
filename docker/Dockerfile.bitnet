@@ -24,6 +24,8 @@ ARG TARGETARCH
 # Clone and build bitnet.cpp
 WORKDIR /opt/bitnet
 RUN git clone --recursive https://github.com/microsoft/BitNet.git . && \
+    # Patch: fix const-correctness bug in upstream (Nx1 dot product, x86 only)
+    sed -i 's/int8_t \* y_col = y + col \* by;/const int8_t * y_col = y + col * by;/' src/ggml-bitnet-mad.cpp && \
     # Step 1: Install gguf package
     pip3 install --break-system-packages 3rdparty/llama.cpp/gguf-py && \
     # Step 2 & 3: Architecture-specific code generation and CMake config
