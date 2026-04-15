@@ -369,7 +369,41 @@ class EmergencyFallbackDriver(LlmDriver):
     @staticmethod
     def _wants_strict_json(system: str) -> bool:
         lower = system.lower()
-        return "strict json" in lower or ("valid json" in lower and "only" in lower)
+        if "strict json" in lower or ("valid json" in lower and "only" in lower):
+            return True
+        if "required top-level keys:" in lower:
+            return True
+        if "json only" in lower and ("must" in lower or "respond" in lower):
+            return True
+        return False
+
+    @staticmethod
+    def _sanitize_user_hint(hint: str) -> str:
+        """
+        Last user message often includes injected [SYSTEM CONTEXT] / policy blocks.
+        Never echo that into user-visible briefing or JSON content.
+        """
+        if not hint or not str(hint).strip():
+            return ""
+        h = str(hint).strip()
+        lower = h.lower()
+        pollution = (
+            "[system context]",
+            "your name is",
+            "critical rule:",
+            "you are a powerful ai",
+            "you are the personal ai assistant",
+            "response_schema",
+            "output format",
+            "required top-level keys",
+            "conversational markdown",
+            "vidyantra ai",
+            "embedded inside",
+            "education management",
+        )
+        if any(p in lower for p in pollution) or len(h) > 800:
+            return ""
+        return h[:350]
 
     @staticmethod
     def _parse_json_keys(system: str) -> list[str]:
@@ -391,8 +425,8 @@ class EmergencyFallbackDriver(LlmDriver):
     def _briefing_markdown(self, tenant: str | None, user_hint: str) -> str:
         who = tenant or "there"
         day = self._day_part()
-        hint = (user_hint or "").strip()
-        hint_line = f"\n\n*You asked about:* {hint[:400]}{'…' if len(hint) > 400 else ''}\n" if hint else ""
+        hint = self._sanitize_user_hint(user_hint)
+        hint_line = f"\n\n*You asked about:* {hint}\n" if hint else ""
 
         return (
             f"## Good {day}, {who}!\n\n"
@@ -415,13 +449,13 @@ class EmergencyFallbackDriver(LlmDriver):
     def _generic_markdown(self, tenant: str | None, user_hint: str) -> str:
         who = tenant or "there"
         day = self._day_part()
-        hint = (user_hint or "").strip()
+        hint = self._sanitize_user_hint(user_hint)
         body = (
             f"Good {day}, **{who}** — connected assistants are offline right now, "
             f"but you can keep working with saved data in the app.\n\n"
         )
         if hint:
-            body += f"*Regarding:* {hint[:500]}{'…' if len(hint) > 500 else ''}\n\n"
+            body += f"*Regarding:* {hint}\n\n"
         body += (
             "**Suggestions:**\n"
             "- Retry shortly.\n"
@@ -432,6 +466,11 @@ class EmergencyFallbackDriver(LlmDriver):
     def _compose_text(self, messages: list[dict]) -> str:
         system, user = self._gather_messages(messages)
         tenant = self._tenant_from_system(system)
+        user_safe = self._sanitize_user_hint(user)
+        lower = system.lower()
+        is_briefing = any(
+            w in lower for w in ("briefing", "daily brief", "morning brief", "morning intelligence")
+        )
         if self._wants_strict_json(system):
             keys = self._parse_json_keys(system)
             if not keys:
@@ -445,16 +484,29 @@ class EmergencyFallbackDriver(LlmDriver):
                         "Continue with manual steps using data already in your workspace.",
                     ]
                 elif kl in ("content", "message", "response", "answer", "text", "body", "summary"):
-                    text = self._generic_markdown(tenant, user)
-                    payload[k] = text[:8000] if len(text) > 8000 else text
+                    # Human-visible string only — never inject raw system policy or mega user blobs.
+                    if is_briefing:
+                        inner = self._briefing_markdown(tenant, user_safe)
+                    else:
+                        inner = self._generic_markdown(tenant, user_safe)
+                    payload[k] = inner[:8000] if len(inner) > 8000 else inner
+                elif kl == "result" and "result" in keys:
+                    payload[k] = {
+                        "advice": self._briefing_markdown(tenant, user_safe)
+                        if is_briefing
+                        else self._generic_markdown(tenant, user_safe),
+                        "action_items": [
+                            "Retry this assistant when AI services are back.",
+                            "Use saved dashboard data in the meantime.",
+                        ],
+                    }
                 else:
                     payload[k] = ""
             return json.dumps(payload, ensure_ascii=False)
 
-        lower = system.lower()
-        if any(w in lower for w in ("briefing", "daily brief", "morning brief", "morning intelligence")):
-            return self._briefing_markdown(tenant, user)
-        return self._generic_markdown(tenant, user)
+        if is_briefing:
+            return self._briefing_markdown(tenant, user_safe)
+        return self._generic_markdown(tenant, user_safe)
 
     async def complete(self, system_prompt: str, user_prompt: str, **opts) -> LlmResponse:
         return await self.chat(
