@@ -22,33 +22,58 @@ providers:
     base_url: "https://api.openai.com/v1"
     timeout_connect_s: 10
     timeout_read_s: 120
+    # Tiny-model cascade (same driver, lighter / alternate models on failure)
+    fallback_models:
+      - gpt-4o-mini
+      - gpt-3.5-turbo
   groq:
     base_url: "https://api.groq.com/openai/v1"
     timeout_connect_s: 10
     timeout_read_s: 120
+    fallback_models:
+      - llama-3.1-8b-instant
+      - llama-3.3-70b-versatile
   nvidia:
     base_url: "https://integrate.api.nvidia.com/v1"
     timeout_connect_s: 10
     timeout_read_s: 120
+    fallback_models:
+      - meta/llama-3.1-8b-instruct
+      - meta/llama-3.1-70b-instruct
   sarvam:
     base_url: "https://api.sarvam.ai/v1"
     timeout_connect_s: 10
     timeout_read_s: 120
+    fallback_models: []
   bitnet:
     base_url: "http://sutra-ai-bitnet:8081/v1"
     timeout_connect_s: 5
     timeout_read_s: 60
+    fallback_models:
+      - bitnet-2b
   ollama:
     base_url: "http://sutra-ai-ollama:11434"
     timeout_connect_s: 10
     timeout_read_s: 300
-    fallback_model: "qwen3:1.7b"       # Light model — tried when primary times out
+    fallback_model: "qwen3:1.7b"       # Legacy single fallback (merged into fallback_models)
+    fallback_models:
+      - qwen3:1.7b
+      - qwen2.5:3b
+      - qwen2.5:1.5b
+      - phi4-mini
+      - smollm2:360m
   gemini:
     timeout_connect_s: 10
     timeout_read_s: 120
+    fallback_models:
+      - gemini-2.0-flash
+      - gemini-2.0-flash-lite
   anthropic:
     timeout_connect_s: 10
     timeout_read_s: 120
+    fallback_models:
+      - claude-3-5-haiku-20241022
+      - claude-3-5-haiku-latest
 
 
 # ─── Stock Market ───────────────────────────────────────────
@@ -1026,6 +1051,18 @@ safety:
 
 # ─── Resilience Configuration ──────────────────────────────
 resilience:
+  # Ordered driver fallback when Settings.ai_driver_chain is empty.
+  # Filtered at runtime to drivers with valid keys + provider metadata.
+  global_driver_chain:
+    - ollama
+    - bitnet
+    - groq
+    - openai
+    - gemini
+    - anthropic
+    - sarvam
+    - nvidia
+  max_fallback_models_per_driver: 6
   circuit_breaker:
     threshold: 3
     cooldown_seconds: 60

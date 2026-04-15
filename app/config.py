@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # ─── AI Driver (primary text completion) ────────
     ai_driver: str = "ollama"
     ai_fallback_driver: str = "groq"
+    # Comma-separated override for DriverRegistry chain (empty = use intelligence_config resilience.global_driver_chain)
+    ai_driver_chain: str = ""
 
     # ─── Pipeline Routing (capability-specific) ─────
     # Vision: image analysis, OCR, visual understanding

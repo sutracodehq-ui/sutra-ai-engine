@@ -212,8 +212,12 @@ class Brain:
         scout = await self._assess_complexity(prompt, agent_type)
         complexity, intent, needs_web = scout["complexity"], scout.get("intent", "general"), scout.get("needs_web", False)
         chain = self._get_chain(complexity, language)
-        driver = self._pick_driver(complexity, language, circuit_breaker)
-        model = self._pick_model(driver, complexity)
+        from app.services.intelligence.guardian import get_guardian
+        route_hint = await get_guardian().get_route_hint(agent_type)
+        chain = self._order_chain_for_route_hint(chain, route_hint)
+        driver = self._pick_driver(complexity, language, circuit_breaker, chain_override=chain)
+        scout_score = scout.get("scout_score")
+        model = self._pick_model(driver, complexity, scout_score=scout_score)
 
         parts = []
         if language != "english": parts.append(f"{language}")
@@ -243,23 +247,72 @@ class Brain:
                     return result
             except Exception as e:
                 logger.debug(f"Brain: Scout failed ({e}), heuristic")
-        return {"complexity": self._heuristic_complexity(prompt, agent_type), "intent": "general", "needs_web": False}
+        return {
+            "complexity": self._heuristic_complexity(prompt, agent_type),
+            "intent": "general",
+            "needs_web": False,
+            "scout_score": None,
+        }
+
+    @staticmethod
+    def _order_chain_for_route_hint(chain: list[str], route_hint: str) -> list[str]:
+        """Reorder driver chain using Redis quality routing hints (never blocks routing)."""
+        locals_first = frozenset({"ollama", "bitnet"})
+        if not chain:
+            return chain
+        if route_hint == "fast_local":
+            return [d for d in chain if d in locals_first] + [d for d in chain if d not in locals_first]
+        if route_hint == "direct_cloud":
+            return [d for d in chain if d not in locals_first] + [d for d in chain if d in locals_first]
+        return list(chain)
 
     async def _scout_score(self, prompt: str, cfg: dict) -> dict | None:
+        """Scout LLM; any failure returns None so heuristic routing always applies."""
         from app.services.llm_service import get_llm_service
         tiers = cfg.get("complexity_tiers", {"simple": [1, 3], "moderate": [4, 6], "complex": [7, 10]})
-        resp = await asyncio.wait_for(
-            get_llm_service().complete(
-                prompt=prompt[:cfg.get("max_prompt_chars", 300)],
-                system_prompt=cfg.get("system_prompt", "Classify task complexity 1-10 as JSON."),
-                driver=cfg.get("driver", "ollama"), model=cfg.get("model", "qwen3:1.7b"),
-                max_tokens=100, temperature=0.0,
-            ), timeout=cfg.get("timeout_ms", 2000) / 1000.0)
-        if not resp.content: return None
-        data = json.loads(resp.content.strip().removeprefix("```json").removesuffix("```").strip())
-        score = int(data.get("complexity", 5))
+        try:
+            resp = await asyncio.wait_for(
+                get_llm_service().complete(
+                    prompt=prompt[: cfg.get("max_prompt_chars", 300)],
+                    system_prompt=cfg.get("system_prompt", "Classify task complexity 1-10 as JSON."),
+                    driver=cfg.get("driver", "ollama"),
+                    model=cfg.get("model", "qwen3:1.7b"),
+                    max_tokens=100,
+                    temperature=0.0,
+                ),
+                timeout=cfg.get("timeout_ms", 2000) / 1000.0,
+            )
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.debug(f"Brain: Scout transport failed ({e}), heuristic routing")
+            return None
+        raw = (resp.content or "").strip()
+        if not raw:
+            logger.debug("Brain: Scout empty body, heuristic routing")
+            return None
+        text = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            logger.debug("Brain: Scout invalid JSON, heuristic routing")
+            return None
+        if not isinstance(data, dict):
+            return None
+        try:
+            score = int(data.get("complexity", 5))
+        except (TypeError, ValueError):
+            score = 5
+        score = max(1, min(10, score))
         tier = next((t for t, (lo, hi) in tiers.items() if lo <= score <= hi), "moderate")
-        return {"complexity": tier, "intent": data.get("intent", "general"), "needs_web": bool(data.get("needs_web", False))}
+        intent = data.get("intent", "general")
+        if not isinstance(intent, str):
+            intent = "general"
+        needs_web = bool(data.get("needs_web", False))
+        return {
+            "complexity": tier,
+            "intent": intent,
+            "needs_web": needs_web,
+            "scout_score": score,
+        }
 
     def _heuristic_complexity(self, prompt: str, agent_type: str) -> str:
         _ensure_sets()
@@ -280,26 +333,51 @@ class Brain:
         except Exception: pass
         return sr.get("decision_table", {}).get(f"{bucket}_{signal}_{agent_tier}", sr.get("default_complexity", "moderate"))
 
-    def _pick_driver(self, complexity: str, language: str, cb=None) -> str:
-        chain = self._get_chain(complexity, language)
+    def _pick_driver(self, complexity: str, language: str, cb=None, chain_override: list[str] | None = None) -> str:
+        chain = chain_override if chain_override is not None else self._get_chain(complexity, language)
         s = get_settings()
-        key_map = {"openai": bool(s.openai_api_key), "anthropic": bool(s.anthropic_api_key),
-                    "gemini": bool(s.gemini_api_key), "groq": bool(s.groq_api_key),
-                    "sarvam": bool(s.sarvam_api_key), "nvidia": bool(s.nvidia_api_key), "ollama": True}
+        key_map = {
+            "openai": bool(s.openai_api_key),
+            "anthropic": bool(s.anthropic_api_key),
+            "gemini": bool(s.gemini_api_key),
+            "groq": bool(s.groq_api_key),
+            "sarvam": bool(s.sarvam_api_key),
+            "nvidia": bool(s.nvidia_api_key),
+            "bitnet": True,
+            "ollama": True,
+        }
         for d in chain:
             if key_map.get(d, False) and (not cb or cb.is_available(d)):
                 return d
+        for d in chain:
+            if key_map.get(d, False):
+                return d
         return s.ai_driver
 
-    def _pick_model(self, driver: str, complexity: str) -> Optional[str]:
-        model = _cfg("smart_router", default={}).get("model_tiers", {}).get(driver, {}).get(complexity)
+    def _pick_model(
+        self, driver: str, complexity: str, scout_score: int | None = None
+    ) -> Optional[str]:
+        """Pick model tier; nudge toward heavier tier when Scout numeric score disagrees with bucket."""
+        tiers = _cfg("smart_router", default={}).get("model_tiers", {})
+        eff = complexity
+        if scout_score is not None:
+            if scout_score >= 8 and complexity == "simple":
+                eff = "moderate"
+            elif scout_score >= 8 and complexity == "moderate":
+                eff = "complex"
+            elif scout_score <= 2 and complexity == "complex":
+                eff = "moderate"
+            elif scout_score <= 2 and complexity == "moderate":
+                eff = "simple"
+        model = tiers.get(driver, {}).get(eff) or tiers.get(driver, {}).get(complexity)
         if not model:
             s = get_settings()
             model = {"ollama": s.ollama_model, "sarvam": s.sarvam_model, "nvidia": s.nvidia_model}.get(driver)
         return model
 
     async def select_model(self, prompt: str, agent_type: str, driver: str) -> Optional[str]:
-        return self._pick_model(driver, (await self._assess_complexity(prompt, agent_type))["complexity"])
+        sc = await self._assess_complexity(prompt, agent_type)
+        return self._pick_model(driver, sc["complexity"], scout_score=sc.get("scout_score"))
 
     # ── Execution ─────────────────────────────────────────────
 
@@ -309,7 +387,9 @@ class Brain:
         from app.services.intelligence.guardian import get_guardian
 
         scout = await self._assess_complexity(prompt, agent_type)
-        complexity, needs_web = scout["complexity"], scout.get("needs_web", False)
+        complexity = scout["complexity"]
+        needs_web = scout.get("needs_web", False)
+        scout_score = scout.get("scout_score")
         system_prompt = self._inject_thinking(system_prompt, complexity, agent_type)
 
         # Web augmentation
@@ -331,15 +411,18 @@ class Brain:
                 logger.warning(f"Brain: consensus failed ({e}), single model")
 
         if not get_settings().ai_hybrid_routing:
-            return await self._call_driver(prompt, system_prompt, **options)
+            out = await self._call_driver(prompt, system_prompt, **options)
+            return await self._finalize_nonempty_response(prompt, system_prompt, out, **options)
 
         guardian = get_guardian()
         route_hint = await guardian.get_route_hint(agent_type)
 
         if route_hint == "direct_cloud":
-            resp = await self._call_cloud(prompt, system_prompt, agent_type=agent_type, **options)
+            resp = await self._call_cloud(
+                prompt, system_prompt, agent_type=agent_type, scout_score=scout_score, **options
+            )
             await self._auto_train(agent_type, prompt, resp)
-            return resp
+            return await self._finalize_nonempty_response(prompt, system_prompt, resp, **options)
 
         start = time.monotonic()
         local_resp = await self._call_local(prompt, system_prompt, **options)
@@ -347,22 +430,43 @@ class Brain:
 
         if route_hint == "fast_local":
             await guardian.record_quality(agent_type, 8.0)
-            return local_resp
+            return await self._finalize_nonempty_response(prompt, system_prompt, local_resp, **options)
 
         score_result = guardian.score_response(local_resp, expected_fields)
         score = score_result["total"]
         if score_result["passed"]:
             await guardian.record_quality(agent_type, score)
-            return local_resp
+            return await self._finalize_nonempty_response(prompt, system_prompt, local_resp, **options)
 
         logger.info(f"Brain: ESCALATING {agent_type} (score={score})")
-        cloud_resp = await self._call_cloud(prompt, system_prompt, agent_type=agent_type, **options)
+        cloud_resp = await self._call_cloud(
+            prompt, system_prompt, agent_type=agent_type, scout_score=scout_score, **options
+        )
         cloud_score = guardian.score_response(cloud_resp, expected_fields)["total"]
         await guardian.record_quality(agent_type, score)
         if cloud_score >= score_result["threshold"]:
             await self._auto_train(agent_type, prompt, cloud_resp)
-            return cloud_resp
-        return cloud_resp if cloud_score > score else local_resp
+            return await self._finalize_nonempty_response(prompt, system_prompt, cloud_resp, **options)
+        chosen = cloud_resp if cloud_score > score else local_resp
+        return await self._finalize_nonempty_response(prompt, system_prompt, chosen, **options)
+
+    async def _finalize_nonempty_response(
+        self, prompt: str, system_prompt: str, resp: LlmResponse, **opts
+    ) -> LlmResponse:
+        """Registry-wide chain + offline emergency — never return an empty body to callers."""
+        if resp and (resp.content or "").strip():
+            return resp
+        logger.warning("Brain: empty model output; running global driver chain + emergency fallback")
+        try:
+            from app.services.llm_service import get_llm_service
+            call_opts = {k: v for k, v in opts.items() if k != "agent_type"}
+            return await get_llm_service().complete(
+                prompt=prompt, system_prompt=system_prompt, driver=None, **call_opts
+            )
+        except Exception as e:
+            logger.warning(f"Brain: registry finalize failed ({e}), offline synthesizer")
+        from app.services.intelligence.driver import EmergencyFallbackDriver
+        return await EmergencyFallbackDriver().complete(system_prompt, prompt)
 
     async def _call_local(self, prompt: str, system_prompt: str, **opts) -> LlmResponse:
         from app.services.intelligence.guardian import get_guardian
@@ -378,20 +482,31 @@ class Brain:
     async def _call_cloud(self, prompt: str, system_prompt: str, **opts) -> LlmResponse:
         from app.services.llm_service import get_llm_service
         svc = get_llm_service()
-        agent_type = opts.pop("agent_type", "unknown")
-        # Use config-driven chain instead of hardcoded tiers
+        opts.pop("agent_type", "unknown")
+        scout_score = opts.pop("scout_score", None)
         chain = self._get_chain("complex", "english")
-        cloud_drivers = [d for d in chain if d != "ollama"]  # Skip local in cloud escalation
+        cloud_drivers = [d for d in chain if d not in ("ollama", "bitnet")]
         for driver in cloud_drivers:
             try:
-                model = self._pick_model(driver, "complex")
-                resp = await svc.complete(prompt=prompt, system_prompt=system_prompt, driver=driver, model=model, **opts)
+                model = self._pick_model(driver, "complex", scout_score=scout_score)
+                resp = await svc.complete(
+                    prompt=prompt, system_prompt=system_prompt, driver=driver, model=model, **opts
+                )
+                if not (resp.content or "").strip():
+                    logger.warning(f"Brain: cloud {driver} returned empty body, trying next")
+                    continue
                 resp.metadata = resp.metadata or {}
                 resp.metadata["cloud_driver"] = driver
                 return resp
             except Exception as e:
                 logger.warning(f"Brain: cloud {driver} failed: {e}")
-        return LlmResponse(content="", total_tokens=0, driver="none", model="none", metadata={"error": "all cloud failed"})
+        logger.warning("Brain: all cloud drivers empty or failed; full registry chain")
+        try:
+            return await svc.complete(prompt=prompt, system_prompt=system_prompt, driver=None, **opts)
+        except Exception as e:
+            logger.warning(f"Brain: registry chain after cloud failed: {e}")
+        from app.services.intelligence.driver import EmergencyFallbackDriver
+        return await EmergencyFallbackDriver().complete(system_prompt, prompt)
 
     async def _call_driver(self, prompt: str, system_prompt: str, **opts) -> LlmResponse:
         from app.services.llm_service import get_llm_service

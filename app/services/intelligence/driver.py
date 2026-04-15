@@ -18,19 +18,51 @@ Architecture:
 """
 
 import asyncio
-import importlib
 import json
 import logging
+import re
 import threading
+from datetime import datetime
 from typing import AsyncGenerator, Optional
 
 import httpx
 
 from app.config import get_settings
-from app.services.intelligence.config_loader import get_provider_config
+from app.services.intelligence.config_loader import get_intelligence_config, get_provider_config
 from app.services.drivers.base import LlmDriver, LlmResponse
 
 logger = logging.getLogger(__name__)
+
+# Strip YAML-only keys before passing provider dict into OpenAICompatDriver(...)
+_PROVIDER_CFG_STRIP = frozenset(
+    {"fallback_model", "fallback_models", "timeout_connect_s", "timeout_read_s"}
+)
+
+
+def provider_fallback_model_list(driver: str) -> list[str]:
+    """Ordered tiny-model cascade for one driver (from intelligence_config providers + resilience cap)."""
+    intel = get_intelligence_config()
+    res = intel.get("resilience") or {}
+    max_n = max(1, int(res.get("max_fallback_models_per_driver", 8)))
+    pc = (intel.get("providers") or {}).get(driver, {}) or {}
+    raw = pc.get("fallback_models")
+    legacy = pc.get("fallback_model")
+    out: list[str] = []
+    if isinstance(raw, list):
+        out.extend(str(x).strip() for x in raw if x)
+    elif raw:
+        out.append(str(raw).strip())
+    if legacy:
+        leg = str(legacy).strip()
+        if leg and leg not in out:
+            out.insert(0, leg)
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for m in out:
+        if m and m not in seen:
+            seen.add(m)
+            uniq.append(m)
+    return uniq[:max_n]
 
 
 # ─── OpenAI-Compatible Adapter (covers: openai, groq, nvidia, sarvam) ──
@@ -279,6 +311,175 @@ class AnthropicAdapter(LlmDriver):
                 yield text
 
 
+# ─── Offline emergency driver (no keys, no network) ───────────
+
+class EmergencyFallbackDriver(LlmDriver):
+    """
+    Last-resort synthesizer when every cloud/local model is down or circuit-open.
+
+    Returns safe, user-visible text so agents never surface RuntimeError to end users.
+    """
+
+    _CHUNK = 56
+
+    def name(self) -> str:
+        return "offline"
+
+    @staticmethod
+    def _flatten_content(content) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for p in content:
+                if isinstance(p, dict) and p.get("type") == "text":
+                    parts.append(str(p.get("text", "")))
+                elif isinstance(p, str):
+                    parts.append(p)
+            return " ".join(parts)
+        return str(content)
+
+    @classmethod
+    def _gather_messages(cls, messages: list[dict]) -> tuple[str, str]:
+        systems: list[str] = []
+        users: list[str] = []
+        for m in messages:
+            role = m.get("role", "")
+            text = cls._flatten_content(m.get("content"))
+            if role == "system":
+                systems.append(text)
+            elif role == "user":
+                users.append(text)
+        return "\n".join(systems), (users[-1] if users else "")
+
+    @staticmethod
+    def _tenant_from_system(system: str) -> str | None:
+        for pat in (
+            r"assistant for \*\*([^*]+)\*\*",
+            r"personal AI assistant for \*\*([^*]+)\*\*",
+            r"\*\*Brand\*\*:\s*\*\*([^*]+)\*\*",
+        ):
+            m = re.search(pat, system, re.IGNORECASE)
+            if m:
+                return re.sub(r"\*+", "", m.group(1)).strip() or None
+        return None
+
+    @staticmethod
+    def _wants_strict_json(system: str) -> bool:
+        lower = system.lower()
+        return "strict json" in lower or ("valid json" in lower and "only" in lower)
+
+    @staticmethod
+    def _parse_json_keys(system: str) -> list[str]:
+        m = re.search(r"Required top-level keys:\s*([^\n]+)", system, re.IGNORECASE)
+        if m:
+            keys = re.findall(r'"([^"]+)"', m.group(1))
+            if keys:
+                return keys
+        return []
+
+    def _day_part(self) -> str:
+        h = datetime.now().hour
+        if h < 12:
+            return "morning"
+        if h < 17:
+            return "afternoon"
+        return "evening"
+
+    def _briefing_markdown(self, tenant: str | None, user_hint: str) -> str:
+        who = tenant or "there"
+        day = self._day_part()
+        hint = (user_hint or "").strip()
+        hint_line = f"\n\n*You asked about:* {hint[:400]}{'…' if len(hint) > 400 else ''}\n" if hint else ""
+
+        return (
+            f"## Good {day}, {who}!\n\n"
+            f"Your live AI models are **temporarily unavailable** (network, keys, or load). "
+            f"Here is a **standby briefing** so your day can keep moving.{hint_line}\n"
+            f"### 📋 Today at a glance\n"
+            f"- Skim your calendar and task list for must-dos.\n"
+            f"- Block 25 minutes for your hardest task first.\n\n"
+            f"### 🌤️ Weather & commute\n"
+            f"- Check your local weather app before you head out.\n\n"
+            f"### 📰 News & markets\n"
+            f"- Open your preferred finance and news sources for a two-minute scan.\n\n"
+            f"### 💡 Quick tip\n"
+            f"- Pick **one** outcome that would make today a win — protect time for it.\n\n"
+            f"**Suggestions:**\n"
+            f"- Retry this briefing in a few minutes when models are back.\n"
+            f"- Open tasks or calendar in your workspace to sync priorities.\n"
+        )
+
+    def _generic_markdown(self, tenant: str | None, user_hint: str) -> str:
+        who = tenant or "there"
+        day = self._day_part()
+        hint = (user_hint or "").strip()
+        body = (
+            f"Good {day}, **{who}** — connected assistants are offline right now, "
+            f"but you can keep working with saved data in the app.\n\n"
+        )
+        if hint:
+            body += f"*Regarding:* {hint[:500]}{'…' if len(hint) > 500 else ''}\n\n"
+        body += (
+            "**Suggestions:**\n"
+            "- Retry shortly.\n"
+            "- Verify API keys and local model services if you administer this deployment.\n"
+        )
+        return body
+
+    def _compose_text(self, messages: list[dict]) -> str:
+        system, user = self._gather_messages(messages)
+        tenant = self._tenant_from_system(system)
+        if self._wants_strict_json(system):
+            keys = self._parse_json_keys(system)
+            if not keys:
+                keys = ["content", "suggestions"]
+            payload: dict = {}
+            for k in keys:
+                kl = k.lower()
+                if kl == "suggestions":
+                    payload[k] = [
+                        "Retry when live models are available.",
+                        "Continue with manual steps using data already in your workspace.",
+                    ]
+                elif kl in ("content", "message", "response", "answer", "text", "body", "summary"):
+                    text = self._generic_markdown(tenant, user)
+                    payload[k] = text[:8000] if len(text) > 8000 else text
+                else:
+                    payload[k] = ""
+            return json.dumps(payload, ensure_ascii=False)
+
+        lower = system.lower()
+        if any(w in lower for w in ("briefing", "daily brief", "morning brief", "morning intelligence")):
+            return self._briefing_markdown(tenant, user)
+        return self._generic_markdown(tenant, user)
+
+    async def complete(self, system_prompt: str, user_prompt: str, **opts) -> LlmResponse:
+        return await self.chat(
+            [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            **opts,
+        )
+
+    async def chat(self, messages: list[dict], **opts) -> LlmResponse:
+        text = self._compose_text(messages)
+        return LlmResponse(
+            content=text,
+            raw_response=text,
+            prompt_tokens=0,
+            completion_tokens=len(text.split()),
+            total_tokens=len(text.split()),
+            model="offline-emergency",
+            driver=self.name(),
+        )
+
+    async def stream(self, messages: list[dict], **opts) -> AsyncGenerator[str, None]:
+        text = self._compose_text(messages)
+        for i in range(0, len(text), self._CHUNK):
+            yield text[i : i + self._CHUNK]
+
+
 # ─── Driver Registry (absorbs driver_manager.py) ─────────────
 
 class DriverRegistry:
@@ -340,8 +541,11 @@ class DriverRegistry:
             raise ValueError(f"Unknown driver or missing configuration: {name}")
 
         full_cfg = {
-            # Strip provider-level timeout keys (only used by OllamaAdapter)
-            **{k: v for k, v in meta.items() if not k.startswith("timeout_")},
+            **{
+                k: v
+                for k, v in meta.items()
+                if not k.startswith("timeout_") and k not in _PROVIDER_CFG_STRIP
+            },
             "api_key": api_key,
             "model": getattr(s, f"{name}_model", None),
             "max_tokens": getattr(s, f"{name}_max_tokens", 512),
@@ -362,13 +566,45 @@ class DriverRegistry:
             self._instances[name] = self._create_driver(name)
         return self._instances[name]
 
-    def driver_chain(self) -> list[str]:
-        """Get ordered driver fallback chain."""
+    def _driver_configured(self, name: str) -> bool:
+        """True if this driver can be constructed (keys + minimal provider metadata)."""
         s = get_settings()
-        chain = [s.ai_driver]
-        if s.ai_fallback_driver and s.ai_fallback_driver != s.ai_driver:
-            chain.append(s.ai_fallback_driver)
-        return chain
+        if name == "ollama":
+            meta = get_provider_config("ollama")
+            return bool((meta or {}).get("base_url") or s.ollama_base_url)
+        if name == "gemini":
+            return bool(s.gemini_api_key and get_provider_config("gemini"))
+        if name == "anthropic":
+            return bool(s.anthropic_api_key and get_provider_config("anthropic"))
+        auth_keys = {
+            "openai": s.openai_api_key,
+            "groq": s.groq_api_key,
+            "nvidia": s.nvidia_api_key,
+            "sarvam": s.sarvam_api_key,
+            "bitnet": "local",
+        }
+        api_key = auth_keys.get(name)
+        meta = get_provider_config(name)
+        if not api_key or not isinstance(meta, dict) or not meta.get("base_url"):
+            return False
+        return True
+
+    def driver_chain(self) -> list[str]:
+        """Ordered fallback chain: Settings.ai_driver_chain > YAML global_driver_chain > primary+fallback."""
+        s = get_settings()
+        raw = (getattr(s, "ai_driver_chain", None) or "").strip()
+        if raw:
+            chain = [x.strip() for x in raw.split(",") if x.strip()]
+        else:
+            intel = get_intelligence_config()
+            g = (intel.get("resilience") or {}).get("global_driver_chain")
+            if isinstance(g, list) and g:
+                chain = [str(x).strip() for x in g if str(x).strip()]
+            else:
+                chain = [s.ai_driver]
+                if s.ai_fallback_driver and s.ai_fallback_driver != s.ai_driver:
+                    chain.append(s.ai_fallback_driver)
+        return [d for d in chain if self._driver_configured(d)]
 
     # Keys to strip from options before passing to drivers
     _STRIP = {"messages", "driver_override", "model_override", "driver", "model_name"}
@@ -383,11 +619,8 @@ class DriverRegistry:
         self, driver_override: str, callback, operation: str, guardian, **clean
     ) -> LlmResponse | None:
         """
-        Try primary driver, then lighter fallback_model if it fails.
-        Returns None if both fail (caller should fall to chain).
+        Try primary driver, then each tiny model in fallback_models (YAML), then chain.
         """
-        from app.services.intelligence.config_loader import get_intelligence_config
-
         if not guardian.circuit_breaker.is_available(driver_override):
             logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
             return None
@@ -400,23 +633,24 @@ class DriverRegistry:
         except Exception as e:
             logger.warning(f"Driver: {driver_override} {operation} failed ({e})")
 
-            # Try lighter fallback model before going to cloud
-            provider_cfg = get_intelligence_config().get("providers", {}).get(driver_override, {})
-            fallback_model = provider_cfg.get("fallback_model")
-            if fallback_model:
-                logger.warning(f"Driver: {driver_override} retrying with light model: {fallback_model}")
-                try:
-                    light_clean = {**clean, "model": fallback_model}
-                    result = await guardian.with_retry(callback, d, **light_clean)
-                    guardian.circuit_breaker.record_success(driver_override)
-                    return result
-                except Exception as e2:
-                    guardian.circuit_breaker.record_failure(driver_override)
-                    logger.warning(f"Driver: {driver_override} light model also failed ({e2})")
-            else:
-                guardian.circuit_breaker.record_failure(driver_override)
+        models = provider_fallback_model_list(driver_override)
+        primary_model = clean.get("model")
+        for hop, fb_model in enumerate(models):
+            if primary_model and fb_model == primary_model:
+                continue
+            logger.warning(
+                f"Driver: {driver_override} retrying tiny-model hop {hop + 1}/{len(models)}: {fb_model}"
+            )
+            try:
+                light_clean = {**clean, "model": fb_model}
+                result = await guardian.with_retry(callback, d, **light_clean)
+                guardian.circuit_breaker.record_success(driver_override)
+                return result
+            except Exception as e2:
+                logger.warning(f"Driver: {driver_override} model {fb_model} failed ({e2})")
 
-            return None
+        guardian.circuit_breaker.record_failure(driver_override)
+        return None
 
     async def complete(self, system_prompt: str, user_prompt: str,
                        driver_override: str | None = None, model_override: str | None = None,
@@ -513,51 +747,33 @@ class DriverRegistry:
             if not guardian.circuit_breaker.is_available(driver_override):
                 logger.warning(f"Driver: {driver_override} circuit OPEN, falling back to chain")
             else:
-                # ── Stage 1: Primary model with first-token timeout ──
-                try:
-                    async for chunk in self._stream_with_first_token_timeout(
-                        driver_override, messages, first_token_timeout, **clean
-                    ):
-                        yield chunk
-                    guardian.circuit_breaker.record_success(driver_override)
-                    return
-                except asyncio.TimeoutError:
-                    logger.warning(
-                        f"Driver: {driver_override} no first token in {first_token_timeout}s"
-                    )
-                    # ── Stage 2: Try lighter fallback model on SAME driver ──
-                    # Don't mark circuit OPEN yet — the driver may be fine,
-                    # just the heavy model is slow to load.
-                    provider_cfg = intel_cfg.get("providers", {}).get(driver_override, {})
-                    fallback_model = provider_cfg.get("fallback_model")
-
-                    if fallback_model:
+                primary_model = clean.get("model")
+                tiny_chain = [None] + provider_fallback_model_list(driver_override)
+                for hop, fb_model in enumerate(tiny_chain):
+                    stream_clean = clean if fb_model is None else {**clean, "model": fb_model}
+                    if fb_model is not None and fb_model == primary_model:
+                        continue
+                    label = "primary" if fb_model is None else fb_model
+                    try:
+                        async for chunk in self._stream_with_first_token_timeout(
+                            driver_override, messages, first_token_timeout, **stream_clean
+                        ):
+                            yield chunk
+                        guardian.circuit_breaker.record_success(driver_override)
+                        return
+                    except asyncio.TimeoutError:
                         logger.warning(
-                            f"Driver: {driver_override} retrying with light model: {fallback_model}"
+                            f"Driver: {driver_override} stream hop {hop} ({label}) "
+                            f"no first token in {first_token_timeout}s"
                         )
-                        try:
-                            light_clean = {**clean, "model": fallback_model}
-                            async for chunk in self._stream_with_first_token_timeout(
-                                driver_override, messages, first_token_timeout, **light_clean
-                            ):
-                                yield chunk
-                            guardian.circuit_breaker.record_success(driver_override)
-                            return
-                        except Exception as e2:
-                            # Light model also failed → driver is truly down
-                            guardian.circuit_breaker.record_failure(driver_override)
-                            logger.warning(
-                                f"Driver: {driver_override} light model also failed ({e2}), "
-                                f"driver is down — falling to chain"
-                            )
-                    else:
-                        # No fallback model configured — mark circuit OPEN
-                        guardian.circuit_breaker.record_failure(driver_override)
-                        logger.warning(f"Driver: {driver_override} no fallback_model, falling to chain")
-
-                except Exception as e:
-                    guardian.circuit_breaker.record_failure(driver_override)
-                    logger.warning(f"Driver: {driver_override} stream failed ({e}), falling back to chain")
+                    except Exception as e:
+                        logger.warning(
+                            f"Driver: {driver_override} stream hop {hop} ({label}) failed: {e}"
+                        )
+                guardian.circuit_breaker.record_failure(driver_override)
+                logger.warning(
+                    f"Driver: {driver_override} exhausted primary + tiny models — falling to chain"
+                )
 
         # ── Stage 3: Fall back through chain (bitnet → groq → gemini → ...) ──
         chain = fallback_chain or self.driver_chain()
@@ -571,6 +787,10 @@ class DriverRegistry:
                 continue
             try:
                 d = self.driver(driver_name)
+            except ValueError as ve:
+                logger.warning(f"Driver: {driver_name} stream skip (not configured): {ve}")
+                continue
+            try:
                 async for chunk in d.stream(messages, **chain_clean):
                     yield chunk
                 guardian.circuit_breaker.record_success(driver_name)
@@ -578,7 +798,9 @@ class DriverRegistry:
             except Exception as e:
                 guardian.circuit_breaker.record_failure(driver_name)
                 logger.warning(f"Driver: {driver_name} stream failed: {e}")
-        raise RuntimeError("All AI drivers failed")
+        logger.error("DriverRegistry: all drivers failed for stream; emitting offline emergency text")
+        async for chunk in EmergencyFallbackDriver().stream(messages, **chain_clean):
+            yield chunk
 
     async def _with_fallback(self, callback, operation: str) -> LlmResponse:
         from app.services.intelligence.guardian import get_guardian
@@ -590,6 +812,10 @@ class DriverRegistry:
                 continue
             try:
                 d = self.driver(driver_name)
+            except ValueError as ve:
+                logger.warning(f"Driver: {driver_name} skipped (not configured): {ve}")
+                continue
+            try:
                 result = await guardian.with_retry(callback, d)
                 guardian.circuit_breaker.record_success(driver_name)
                 return result
@@ -597,7 +823,11 @@ class DriverRegistry:
                 guardian.circuit_breaker.record_failure(driver_name)
                 last_err = e
                 logger.warning(f"Driver: {driver_name} failed for {operation}: {e}")
-        raise last_err or RuntimeError("All AI drivers failed")
+        logger.error(
+            "DriverRegistry: all drivers failed for %s; returning offline emergency response",
+            operation,
+        )
+        return await callback(EmergencyFallbackDriver())
 
 
 # ─── Singleton ──────────────────────────────────────────────────
