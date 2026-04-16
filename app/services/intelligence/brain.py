@@ -922,6 +922,7 @@ class Brain:
 
     async def select_prompt(self, agent_type: str, db: AsyncSession) -> Tuple[str, Optional[int]]:
         """Select prompt using Thompson Sampling bandit (Beta distribution)."""
+        logger.debug("Brain.select_prompt: agent_type=%s", agent_type)
         pe = _cfg("prompt_engine", default={})
         algorithm = pe.get("bandit_algorithm", "thompson_sampling")
         min_trials = pe.get("min_trials_before_bandit", 5)

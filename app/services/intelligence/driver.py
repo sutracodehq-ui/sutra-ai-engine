@@ -82,6 +82,11 @@ def _has_text_response(resp: LlmResponse | None) -> bool:
     return bool(resp and isinstance(resp.content, str) and resp.content.strip())
 
 
+def _driver_default_model(d: LlmDriver) -> str | None:
+    """Best-effort default model id for deduping YAML fallback_models vs the constructed adapter."""
+    return getattr(d, "_model", None) or getattr(d, "_model_name", None)
+
+
 def _is_provider_rate_limit(exc: BaseException) -> bool:
     """True when we should try the next model on the same OpenAI-compat driver before hopping providers."""
     from app.services.intelligence.guardian import _http_status_from_error
@@ -1017,7 +1022,7 @@ class DriverRegistry:
             except ValueError as ve:
                 logger.warning(f"Driver: {driver_name} stream skip (not configured): {ve}")
                 continue
-            primary_model = getattr(d0, "_model", None)
+            primary_model = _driver_default_model(d0)
             fb_models = provider_fallback_model_list(driver_name)
             models_to_try: list[str | None] = [None]
             for fb in fb_models:
