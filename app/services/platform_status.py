@@ -22,6 +22,7 @@ from app.config import get_settings
 from app.services.intelligence.config_loader import (
     get_global_driver_chain,
     get_intelligence_config,
+    get_local_driver_ids,
     get_provider_config,
 )
 from app.services.intelligence.driver import get_driver_registry
@@ -137,9 +138,41 @@ def collect_api_key_flags() -> dict[str, bool]:
         "groq": bool(s.groq_api_key),
         "nvidia": bool(s.nvidia_api_key),
         "sarvam": bool(s.sarvam_api_key),
+        "together": bool(getattr(s, "together_api_key", "")),
+        "fireworks": bool(getattr(s, "fireworks_api_key", "")),
         "fal": bool(s.fal_key),
         "elevenlabs": bool(s.elevenlabs_api_key),
         "tavily": bool(s.tavily_api_key),
+    }
+
+
+def _chain_key_diagnostics() -> dict[str, Any]:
+    """Explain when fallback chain effectively starts local due missing cloud keys."""
+    key_flags = collect_api_key_flags()
+    reg = get_driver_registry()
+    raw_chain = [n for n in get_global_driver_chain() if n]
+    configured_chain = [n for n in raw_chain if reg._driver_configured(n)]
+    local_ids = set(get_local_driver_ids())
+    cloud_chain = [n for n in raw_chain if n not in local_ids]
+    missing_cloud = [n for n in cloud_chain if not reg._driver_configured(n)]
+    first_configured = configured_chain[0] if configured_chain else None
+    starts_local = bool(first_configured and first_configured in local_ids)
+    return {
+        "raw_chain": raw_chain,
+        "configured_chain": configured_chain,
+        "first_configured_driver": first_configured,
+        "starts_local": starts_local,
+        "missing_cloud_drivers": missing_cloud,
+        "api_keys_present": {
+            "groq": key_flags.get("groq", False),
+            "nvidia": key_flags.get("nvidia", False),
+            "openai": key_flags.get("openai", False),
+            "anthropic": key_flags.get("anthropic", False),
+            "gemini": key_flags.get("gemini", False),
+            "sarvam": key_flags.get("sarvam", False),
+            "together": key_flags.get("together", False),
+            "fireworks": key_flags.get("fireworks", False),
+        },
     }
 
 
@@ -301,7 +334,7 @@ async def probe_llm_driver(name: str) -> dict[str, Any]:
         return await probe_gemini()
     if name == "anthropic":
         return await probe_anthropic()
-    if name in ("groq", "openai", "nvidia", "sarvam", "bitnet", "fast_local"):
+    if name in ("groq", "openai", "nvidia", "sarvam", "together", "fireworks", "bitnet", "fast_local"):
         return await probe_openai_compatible(name)
     return {"status": "skipped", "reason": f"no probe for driver {name!r}"}
 
@@ -378,7 +411,7 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
     chain = [n for n in get_global_driver_chain() if n]
     if not chain:
         logger.warning("resilience.global_driver_chain empty — probing default LLM set for /health/full")
-        chain = ["ollama", "groq", "openai", "nvidia", "sarvam", "bitnet", "fast_local", "gemini", "anthropic"]
+        chain = ["ollama", "groq", "nvidia", "together", "fireworks", "openai", "sarvam", "bitnet", "fast_local", "gemini", "anthropic"]
 
     remote_tasks = await asyncio.gather(
         probe_qdrant(),
@@ -424,6 +457,13 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
         notices.append(
             "fast_local: optional vLLM/TGI URL not reachable (DNS or service down)."
         )
+    chain_diag = _chain_key_diagnostics()
+    if chain_diag.get("starts_local") and chain_diag.get("missing_cloud_drivers"):
+        missing = ", ".join(chain_diag["missing_cloud_drivers"])
+        notices.append(
+            "Configured fallback chain currently starts local because cloud drivers are not configured: "
+            f"{missing}. Set API keys so cloud fallback happens before Ollama under load."
+        )
 
     return {
         "status": overall,
@@ -440,6 +480,7 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
         "limits": collect_limits_and_config(),
         "drivers": collect_driver_and_circuit_snapshot(),
         "api_keys_present": collect_api_key_flags(),
+        "chain_diagnostics": chain_diag,
     }
 
 

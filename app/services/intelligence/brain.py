@@ -42,6 +42,7 @@ from app.services.intelligence.config_loader import (
     get_global_driver_chain,
     get_hybrid_local_driver,
     get_local_driver_ids,
+    get_model_matrix_profile,
     get_provider_config,
     order_chain_by_global_reference,
 )
@@ -287,6 +288,13 @@ class Brain:
         sr = _cfg("smart_router", default={})
         lang_key = "english" if language == "english" else "indic"
         row = (sr.get("driver_chains") or {}).get(lang_key, {}) or {}
+        profile = get_model_matrix_profile()
+        profile_chains = (profile.get("driver_chains") or {}) if isinstance(profile, dict) else {}
+        prof_row = (profile_chains.get(lang_key) or {}) if isinstance(profile_chains, dict) else {}
+        if isinstance(prof_row, dict):
+            merged_row = dict(row)
+            merged_row.update({k: v for k, v in prof_row.items() if isinstance(v, list) and v})
+            row = merged_row
         ch = row.get(complexity)
         if isinstance(ch, list) and ch:
             return [str(x).strip() for x in ch if str(x).strip()]
@@ -470,6 +478,8 @@ class Brain:
             "groq": bool(s.groq_api_key),
             "sarvam": bool(s.sarvam_api_key),
             "nvidia": bool(s.nvidia_api_key),
+            "together": bool(getattr(s, "together_api_key", "")),
+            "fireworks": bool(getattr(s, "fireworks_api_key", "")),
             "bitnet": True,
             "ollama": True,
             "fast_local": bool((get_provider_config("fast_local") or {}).get("base_url")),
@@ -491,6 +501,16 @@ class Brain:
     ) -> Optional[str]:
         """Pick model tier; nudge when Scout score is confident and disagrees with bucket."""
         tiers = _cfg("smart_router", default={}).get("model_tiers", {})
+        profile = get_model_matrix_profile()
+        prof_tiers = (profile.get("model_tiers") or {}) if isinstance(profile, dict) else {}
+        if isinstance(prof_tiers, dict) and prof_tiers:
+            merged_tiers = dict(tiers)
+            for drv, m in prof_tiers.items():
+                if isinstance(m, dict):
+                    merged = dict(merged_tiers.get(drv, {}) or {})
+                    merged.update(m)
+                    merged_tiers[drv] = merged
+            tiers = merged_tiers
         eff = complexity
         scout_cfg = _cfg("smart_router", default={}).get("scout", {})
         min_conf = float(scout_cfg.get("min_confidence_for_tier_nudge", 0.6))
@@ -509,7 +529,13 @@ class Brain:
         model = tiers.get(driver, {}).get(eff) or tiers.get(driver, {}).get(complexity)
         if not model:
             s = get_settings()
-            model = {"ollama": s.ollama_model, "sarvam": s.sarvam_model, "nvidia": s.nvidia_model}.get(driver)
+            model = {
+                "ollama": s.ollama_model,
+                "sarvam": s.sarvam_model,
+                "nvidia": s.nvidia_model,
+                "together": getattr(s, "together_model", None),
+                "fireworks": getattr(s, "fireworks_model", None),
+            }.get(driver)
         if not model and driver == "fast_local":
             model = s.fast_local_model
         return model

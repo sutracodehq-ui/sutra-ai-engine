@@ -8,6 +8,8 @@ load_balancer:
     ollama: 1          # CPU-bound — keep in sync with OLLAMA_NUM_PARALLEL on small hosts
     groq: 20           # Cloud API — high concurrency
     sarvam: 10         # Cloud API
+    together: 12       # OpenAI-compatible OSS cloud
+    fireworks: 12      # OpenAI-compatible OSS cloud
     openai: 20         # Cloud API
     anthropic: 10      # Cloud API
     gemini: 20         # Cloud API
@@ -48,6 +50,20 @@ providers:
     timeout_connect_s: 10
     timeout_read_s: 120
     fallback_models: []
+  together:
+    base_url: "https://api.together.xyz/v1"
+    timeout_connect_s: 10
+    timeout_read_s: 120
+    fallback_models:
+      - Qwen/Qwen2.5-72B-Instruct-Turbo
+      - meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+  fireworks:
+    base_url: "https://api.fireworks.ai/inference/v1"
+    timeout_connect_s: 10
+    timeout_read_s: 120
+    fallback_models:
+      - accounts/fireworks/models/llama-v3p1-8b-instruct
+      - accounts/fireworks/models/qwen2p5-72b-instruct
   bitnet:
     base_url: "http://sutra-ai-bitnet:8081/v1"
     timeout_connect_s: 5
@@ -524,8 +540,57 @@ routing_policy:
     - quality_gate_fail
     - circuit_breaker_open
     - latency_budget_exceeded
-  paid_providers: [openai, anthropic]
+  paid_providers: [openai, anthropic, together, fireworks]
   free_providers: [ollama, fast_local, bitnet, groq, gemini, nvidia, sarvam]
+
+# ─── Model Matrix Profiles (balanced cost-effective rollout) ──
+model_matrix:
+  active_profile: balanced_default
+  # Overrides via env AI_MATRIX_PROFILE; fallback to active_profile if empty.
+  profiles:
+    budget_strict:
+      monthly_budget_usd: 100
+      max_cost_per_request_usd: 0.02
+      global_driver_chain: [groq, nvidia, gemini, together, ollama, fireworks, openai, anthropic, sarvam]
+      driver_chains:
+        english:
+          simple: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+          moderate: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+          complex: [groq, nvidia, gemini, together, fireworks, ollama, openai, anthropic, sarvam]
+        indic:
+          simple: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+          moderate: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+          complex: [groq, nvidia, gemini, together, fireworks, ollama, openai, anthropic, sarvam]
+    balanced_default:
+      monthly_budget_usd: 100
+      max_cost_per_request_usd: 0.05
+      global_driver_chain: [groq, nvidia, gemini, together, fireworks, ollama, openai, anthropic, sarvam]
+    quality_burst:
+      monthly_budget_usd: 250
+      max_cost_per_request_usd: 0.15
+      global_driver_chain: [nvidia, openai, anthropic, gemini, groq, together, fireworks, ollama, sarvam]
+      driver_chains:
+        english:
+          complex: [nvidia, openai, anthropic, gemini, groq, together, fireworks, ollama, sarvam]
+        indic:
+          complex: [nvidia, openai, anthropic, gemini, groq, together, fireworks, ollama, sarvam]
+  rollback:
+    max_emergency_fallback_rate: 0.05
+    max_empty_response_rate: 0.02
+    max_p95_complete_ms: 8000
+
+# ─── Provider Trial Harness (A/B by benchmark only) ──────────
+provider_trials:
+  enabled: true
+  candidates:
+    - together
+    - fireworks
+  benchmark_gates:
+    require_cost_non_increase: true
+    require_text_quality_non_regression: true
+    require_json_parse_non_regression: true
+    max_stream_interrupt_rate: 0.02
+  compare_against_profile: balanced_default
 
 # ─── Routing (driver roles — order is resilience.global_driver_chain only) ───
 routing:
@@ -1053,16 +1118,16 @@ smart_router:
   default_complexity: moderate
 
   # Driver chains per complexity tier (first available wins)
-  # Primary: Groq (fast free-tier cloud) → Ollama (local) → other providers
+  # Balanced matrix default: free/low-cost cloud first, controlled local fallback, premium last.
   driver_chains:
     english:
-      simple: [groq, ollama, gemini, sarvam, openai]
-      moderate: [groq, ollama, gemini, sarvam, openai, anthropic]
-      complex: [groq, gemini, ollama, sarvam, anthropic, openai]
+      simple: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+      moderate: [groq, nvidia, gemini, together, fireworks, ollama, openai, sarvam, anthropic]
+      complex: [groq, nvidia, gemini, together, fireworks, openai, anthropic, ollama, sarvam]
     indic:
-      simple: [groq, ollama, gemini, sarvam, openai]
-      moderate: [groq, ollama, gemini, sarvam, openai, anthropic]
-      complex: [groq, gemini, ollama, sarvam, anthropic, openai]
+      simple: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+      moderate: [groq, nvidia, gemini, together, fireworks, ollama, openai, sarvam, anthropic]
+      complex: [groq, nvidia, gemini, together, fireworks, openai, anthropic, ollama, sarvam]
 
   # Model tiers per driver per complexity
   model_tiers:
@@ -1100,6 +1165,14 @@ smart_router:
       simple: nvidia/mistral-nemo-minitron-8b-base
       moderate: meta/llama-3.1-8b-instruct
       complex: meta/llama-3.1-70b-instruct
+    together:
+      simple: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+      moderate: Qwen/Qwen2.5-72B-Instruct-Turbo
+      complex: Qwen/Qwen2.5-72B-Instruct-Turbo
+    fireworks:
+      simple: accounts/fireworks/models/llama-v3p1-8b-instruct
+      moderate: accounts/fireworks/models/llama-v3p1-70b-instruct
+      complex: accounts/fireworks/models/qwen2p5-72b-instruct
 
   # A/B Testing: Gradually rollout tuned models
   # DISABLED until tuned models are trained and loaded in Ollama.
@@ -1122,6 +1195,14 @@ smart_router:
 
 # ─── Intent Routes (moved from hub.py) ─────────────────────
 # Adding a new route = add entry here. Zero Python code changes.
+intent_routing:
+  enabled: true
+  # Only these entrypoint agents are allowed to auto-reroute by keyword intent.
+  # Prevents specialists like form_filler / visual_designer from being hijacked.
+  apply_to_agents: [education_guru, personal_assistant]
+  # Batch requests can force-disable intent routing with this option key.
+  skip_option_key: "skip_intent_routing"
+
 intent_routes:
   # EdTech
   - keywords: [quiz, mcq, question paper, test paper, question bank]
@@ -1171,9 +1252,9 @@ intent_routes:
     agent: rti_drafter
     actions: [draft, write, create, file]
   # Personal Assistant (catch-all for general queries)
-  - keywords: [help, advice, suggest, recommend, what should, how can, strategy, plan, guide, think]
+  - keywords: [help me, need help, advice, recommend, what should i do, how can i]
     agent: personal_assistant
-    actions: [help, advise, suggest, recommend, plan, think, guide, assist]
+    actions: [help, advise, suggest, recommend, assist]
 
 
 # ─── Safety Configuration ──────────────────────────────────
@@ -1197,16 +1278,17 @@ safety:
 resilience:
   # Ordered driver fallback when Settings.ai_driver_chain is empty.
   # Filtered at runtime to drivers with valid keys + provider metadata.
+  # Balanced default fallback order (cloud-first, local as pressure valve, premium paid late).
   global_driver_chain:
     - groq
-    - ollama
-    - bitnet
-    - fast_local
-    - openai
+    - nvidia
     - gemini
+    - together
+    - fireworks
+    - ollama
+    - openai
     - anthropic
     - sarvam
-    - nvidia
   max_fallback_models_per_driver: 6
   admission_control:
     max_local_streams: 1
@@ -1480,12 +1562,18 @@ budget:
   default_monthly_tokens: 1000000
   redis_ttl_days: 60
   model_costs:
+    llama-3.1-8b-instant:
+      input: 0.00005
+      output: 0.00008
     gpt-4o:
       input: 0.0025
       output: 0.010
     gpt-4o-mini:
       input: 0.00015
       output: 0.0006
+    claude-haiku-4-20250514:
+      input: 0.0008
+      output: 0.004
     claude-sonnet-4-20250514:
       input: 0.003
       output: 0.015
@@ -1495,6 +1583,48 @@ budget:
     gemini-2.0-flash:
       input: 0.0001
       output: 0.0004
+    nvidia/mistral-nemo-minitron-8b-base:
+      input: 0.00008
+      output: 0.00016
+    meta/llama-3.1-8b-instruct:
+      input: 0.00012
+      output: 0.0003
+    meta/llama-3.1-70b-instruct:
+      input: 0.0012
+      output: 0.0012
+    Qwen/Qwen2.5-72B-Instruct-Turbo:
+      input: 0.0009
+      output: 0.0012
+    meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo:
+      input: 0.00018
+      output: 0.00018
+    accounts/fireworks/models/llama-v3p1-8b-instruct:
+      input: 0.0002
+      output: 0.0002
+    accounts/fireworks/models/llama-v3p1-70b-instruct:
+      input: 0.0009
+      output: 0.0009
+    accounts/fireworks/models/qwen2p5-72b-instruct:
+      input: 0.00095
+      output: 0.00095
+    qwen3:1.7b:
+      input: 0.0
+      output: 0.0
+    qwen3:4b:
+      input: 0.0
+      output: 0.0
+    qwen2.5:3b:
+      input: 0.0
+      output: 0.0
+    qwen2.5:1.5b:
+      input: 0.0
+      output: 0.0
+    phi4-mini:
+      input: 0.0
+      output: 0.0
+    smollm2:360m:
+      input: 0.0
+      output: 0.0
     llama-3.3-70b-versatile:
       input: 0.00059
       output: 0.00079

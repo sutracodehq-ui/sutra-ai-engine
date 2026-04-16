@@ -652,6 +652,8 @@ class DriverRegistry:
             "groq": s.groq_api_key,
             "nvidia": s.nvidia_api_key,
             "sarvam": s.sarvam_api_key,
+            "together": getattr(s, "together_api_key", ""),
+            "fireworks": getattr(s, "fireworks_api_key", ""),
             "bitnet": "local",
             "fast_local": s.fast_local_api_key or "local",
         }
@@ -706,6 +708,8 @@ class DriverRegistry:
             "groq": s.groq_api_key,
             "nvidia": s.nvidia_api_key,
             "sarvam": s.sarvam_api_key,
+            "together": getattr(s, "together_api_key", ""),
+            "fireworks": getattr(s, "fireworks_api_key", ""),
             "bitnet": "local",
             "fast_local": s.fast_local_api_key or "local",
         }

@@ -10,6 +10,7 @@ from pathlib import Path
 from functools import lru_cache
 
 import yaml
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,33 @@ def get_provider_config(name: str) -> dict:
 
 
 def get_global_driver_chain() -> list[str]:
-    """Canonical driver order from resilience.global_driver_chain (single source of truth)."""
+    """Canonical driver order from active matrix profile or resilience.global_driver_chain."""
+    matrix = get_model_matrix_profile()
+    mp_chain = matrix.get("global_driver_chain")
+    if isinstance(mp_chain, list) and mp_chain:
+        return [str(x).strip() for x in mp_chain if str(x).strip()]
     g = (get_intelligence_config().get("resilience") or {}).get("global_driver_chain")
     if isinstance(g, list) and g:
         return [str(x).strip() for x in g if str(x).strip()]
     return []
+
+
+def get_model_matrix_section() -> dict:
+    """model_matrix.* configuration (profiles, rollout gates, defaults)."""
+    return get_intelligence_config().get("model_matrix") or {}
+
+
+def get_model_matrix_profile(profile_name: str | None = None) -> dict:
+    """Resolved active matrix profile map."""
+    matrix = get_model_matrix_section()
+    profiles = matrix.get("profiles") or {}
+    if not isinstance(profiles, dict):
+        return {}
+    active = profile_name or get_settings().ai_matrix_profile or matrix.get("active_profile")
+    if not active:
+        return {}
+    prof = profiles.get(str(active), {})
+    return prof if isinstance(prof, dict) else {}
 
 
 def get_routing_section() -> dict:

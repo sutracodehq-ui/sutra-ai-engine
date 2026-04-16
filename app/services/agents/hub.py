@@ -97,7 +97,25 @@ class AiAgentHub:
             config = yaml.safe_load(f) or {}
         return config.get("intent_routes", [])
 
-    def _resolve_agent(self, requested_agent: str, prompt: str) -> str:
+    @staticmethod
+    def _load_intent_routing_config() -> dict:
+        """Load intent_routing controls from intelligence_config.yaml."""
+        import yaml
+        config_path = Path("intelligence_config.yaml")
+        if not config_path.exists():
+            return {}
+        with open(config_path) as f:
+            config = yaml.safe_load(f) or {}
+        return config.get("intent_routing", {}) or {}
+
+    def _resolve_agent(
+        self,
+        requested_agent: str,
+        prompt: str,
+        *,
+        context: dict | None = None,
+        options: dict | None = None,
+    ) -> str:
         """
         Smart agent resolution — detect user intent and route to specialist.
 
@@ -107,6 +125,20 @@ class AiAgentHub:
 
         Routes are loaded from intelligence_config.yaml → intent_routes.
         """
+        route_cfg = self._load_intent_routing_config()
+        if route_cfg.get("enabled", True) is False:
+            return requested_agent
+
+        skip_key = str(route_cfg.get("skip_option_key", "skip_intent_routing"))
+        if bool((options or {}).get(skip_key)) or bool((context or {}).get(skip_key)):
+            return requested_agent
+
+        apply_to = route_cfg.get("apply_to_agents")
+        if isinstance(apply_to, list) and apply_to:
+            allowed = {str(a).strip() for a in apply_to if str(a).strip()}
+            if requested_agent not in allowed:
+                return requested_agent
+
         routes = self._load_intent_routes()
         if not routes:
             return requested_agent
@@ -146,7 +178,13 @@ class AiAgentHub:
     ) -> LlmResponse:
         """Dispatch a task to the appropriate agent, with auto-delegation."""
         # Smart routing: detect specialist intent before execution
-        resolved_type = self._resolve_agent(agent_type, prompt)
+        resolved_type = self._resolve_agent(agent_type, prompt, context=context, options=options)
+        if resolved_type != agent_type:
+            logger.info(
+                "AiAgentHub: resolved agent '%s' from requested '%s'",
+                resolved_type,
+                agent_type,
+            )
         agent = self.get(resolved_type)
         logger.info(f"AiAgentHub: running agent '{resolved_type}'")
         response = await agent.execute(prompt, db=db, context=context, **options)
@@ -212,7 +250,13 @@ class AiAgentHub:
     ) -> AsyncGenerator[str, None]:
         """Stream a task response token-by-token (SSE-ready)."""
         # Smart routing: detect specialist intent before streaming
-        resolved_type = self._resolve_agent(agent_type, prompt)
+        resolved_type = self._resolve_agent(agent_type, prompt, context=context, options=options)
+        if resolved_type != agent_type:
+            logger.info(
+                "AiAgentHub: resolved stream agent '%s' from requested '%s'",
+                resolved_type,
+                agent_type,
+            )
         agent = self.get(resolved_type)
         logger.info(f"AiAgentHub: streaming agent '{resolved_type}'")
         async for token in agent.execute_stream(prompt, db=db, context=context, **options):
@@ -229,7 +273,13 @@ class AiAgentHub:
     ) -> LlmResponse:
         """Run a task within a conversation with full history."""
         # Smart routing: detect specialist intent before conversation execution
-        resolved_type = self._resolve_agent(agent_type, prompt)
+        resolved_type = self._resolve_agent(agent_type, prompt, context=context, options=options)
+        if resolved_type != agent_type:
+            logger.info(
+                "AiAgentHub: resolved conversation agent '%s' from requested '%s'",
+                resolved_type,
+                agent_type,
+            )
         agent = self.get(resolved_type)
         return await agent.execute_in_conversation(prompt, history, db=db, context=context, **options)
 
@@ -244,8 +294,12 @@ class AiAgentHub:
         """Run multiple agents in parallel on the same prompt."""
         import asyncio
 
+        max_parallel = max(1, int(options.pop("max_parallel_agents", 2)))
+        sem = asyncio.Semaphore(max_parallel)
+
         async def _run(agent_type: str):
-            return agent_type, await self.run(agent_type, prompt, db=db, context=context, **options)
+            async with sem:
+                return agent_type, await self.run(agent_type, prompt, db=db, context=context, **options)
 
         results = await asyncio.gather(*[_run(t) for t in agent_types], return_exceptions=True)
 

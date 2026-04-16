@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     ai_fallback_driver: str = "ollama"
     # Comma-separated override for DriverRegistry chain (empty = use intelligence_config resilience.global_driver_chain)
     ai_driver_chain: str = ""
+    # Active matrix profile name (resolved from intelligence_config.model_matrix.profiles).
+    ai_matrix_profile: str = "balanced_default"
 
     # ─── Pipeline Routing (capability-specific) ─────
     # Vision: image analysis, OCR, visual understanding
@@ -89,6 +91,18 @@ class Settings(BaseSettings):
     nvidia_model: str = "meta/llama-3.1-405b-instruct"
     nvidia_max_tokens: int = 2048
     nvidia_temperature: float = 0.7
+
+    # ─── Together (OpenAI-compatible OSS cloud) ───────
+    together_api_key: str = ""
+    together_model: str = "Qwen/Qwen2.5-72B-Instruct-Turbo"
+    together_max_tokens: int = 2048
+    together_temperature: float = 0.7
+
+    # ─── Fireworks (OpenAI-compatible OSS cloud) ─────
+    fireworks_api_key: str = ""
+    fireworks_model: str = "accounts/fireworks/models/llama-v3p1-8b-instruct"
+    fireworks_max_tokens: int = 2048
+    fireworks_temperature: float = 0.7
 
     # ─── Ollama ─────────────────────────────────────
     ollama_base_url: str = "http://sutra-ai-ollama:11434"

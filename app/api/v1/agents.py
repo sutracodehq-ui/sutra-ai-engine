@@ -305,6 +305,10 @@ async def batch_run(body: BatchRunRequest, tenant: CurrentTenant, db: DbSession)
         extra_context = options.pop("context")
         if isinstance(extra_context, dict):
             context.update(extra_context)
+    # Batch jobs should stay on requested specialists unless explicitly overridden.
+    options.setdefault("skip_intent_routing", True)
+    # Prevent unbounded fan-out from saturating local Ollama during benchmark/factory runs.
+    options.setdefault("max_parallel_agents", 2)
 
     results = await hub.batch(body.prompt, body.agent_types, db=db, context=context, **options)
 
