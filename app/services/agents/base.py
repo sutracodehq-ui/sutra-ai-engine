@@ -173,7 +173,7 @@ class BaseAgent:
     async def _fetch_tenant_intelligence(
         self, tenant_id: str | None, prompt: str, settings
     ) -> str | None:
-        """Retrieve tenant intelligence from ChromaDB. Fully config-driven."""
+        """Retrieve tenant intelligence from Qdrant. Fully config-driven."""
         if not tenant_id or not settings.ai_agent_memory_enabled:
             return None
 
@@ -273,7 +273,7 @@ class BaseAgent:
         # ─── Data Source Enrichment ─────
         context_chunks = []
 
-        # 1. Brand Knowledge (per-tenant ChromaDB — FAQs, product info)
+        # 1. Brand Knowledge (per-tenant Qdrant — FAQs, product info)
         tenant_id = (context or {}).get("tenant_id")
         if tenant_id and settings.ai_agent_memory_enabled:
             try:
@@ -287,7 +287,7 @@ class BaseAgent:
             except Exception as e:
                 logger.debug(f"Memory.brand_search skipped: {e}")
 
-        # 1.5 Tenant Intelligence (past analyses from ChromaDB)
+        # 1.5 Tenant Intelligence (past analyses from Qdrant)
         intel_chunk = await self._fetch_tenant_intelligence(tenant_id, prompt, settings)
         if intel_chunk:
             context_chunks.append(intel_chunk)

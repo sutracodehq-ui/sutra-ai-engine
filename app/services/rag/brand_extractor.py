@@ -31,7 +31,7 @@ class BrandExtractor:
 
         Pipeline: fetch HTML → clean text → run_pipeline("brand_analyze")
         Returns whatever schema YAML defines. Never validates fields here.
-        Tenant learning: stores result in ChromaDB if tenant_id provided.
+        Tenant learning: stores result in Qdrant if tenant_id provided.
         """
         # 1. Fetch
         html = await WebCrawler.fetch(url)

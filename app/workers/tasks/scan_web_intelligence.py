@@ -2,7 +2,7 @@
 Web Intelligence Scan — Celery periodic task.
 
 Runs every hour to scan RSS feeds, stock prices, and crypto markets.
-Stores everything in ChromaDB for agent context injection.
+Stores everything in Qdrant for agent context injection.
 """
 
 import logging
@@ -18,7 +18,7 @@ def scan_web_intelligence(self):
     Hourly web intelligence scan.
 
     Fetches latest AI trends, marketing news, stock prices, and crypto data.
-    All data stored in ChromaDB for instant retrieval by agents.
+    All data stored in Qdrant for instant retrieval by agents.
     """
     import asyncio
     asyncio.run(_do_scan())

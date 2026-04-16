@@ -33,7 +33,7 @@ class LanguageService:
 
         Pipeline: run_pipeline("language_detect") → parsed JSON dict
         On failure, returns fallback_response from YAML config.
-        Tenant learning: stores result in ChromaDB if tenant_id provided.
+        Tenant learning: stores result in Qdrant if tenant_id provided.
         """
         from app.lib.llm_pipeline import run_pipeline, get_pipeline_config
 

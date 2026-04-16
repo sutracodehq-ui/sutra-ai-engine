@@ -1,5 +1,5 @@
 """
-Seed Knowledge — Populate ChromaDB with initial brand knowledge.
+Seed Knowledge — Populate Qdrant with initial brand knowledge.
 
 Run this once to give the AI some foundational knowledge to work with.
 After running, the chatbot will answer questions using this data.
@@ -8,12 +8,13 @@ Usage:
     python scripts/seed_knowledge.py --brand-id 1
 """
 
-import asyncio
 import argparse
+import asyncio
 import sys
+
 sys.path.insert(0, ".")
 
-from app.services.intelligence.brand_knowledge import get_brand_knowledge
+from app.services.intelligence.memory import get_memory
 
 
 # ─── Default Knowledge Base (Vidyantra / EdTech) ────────────
@@ -80,26 +81,26 @@ EDUCATION_KB = [
 
 
 async def seed(brand_id: str):
-    """Seed the knowledge base for a brand."""
-    bk = get_brand_knowledge()
+    """Seed the knowledge base for a brand (Qdrant via Memory)."""
+    mem = get_memory()
 
-    # Import FAQ
     print(f"Seeding knowledge for brand {brand_id}...")
-    result = await bk.import_faq(brand_id, VIDYANTRA_FAQ)
+    result = await mem.brand_import_faq(brand_id, VIDYANTRA_FAQ)
     print(f"  ✅ FAQ: {result['imported']}/{result['total']} items imported")
 
-    # Import education KB
-    result = await bk.import_faq(brand_id, EDUCATION_KB)
+    result = await mem.brand_import_faq(brand_id, EDUCATION_KB)
     print(f"  ✅ Education KB: {result['imported']}/{result['total']} items imported")
 
-    # Stats
-    stats = await bk.get_stats(brand_id)
-    print(f"\n  📊 Total knowledge items: {stats['total_knowledge_items']}")
+    from app.services.vector.qdrant_store import get_qdrant_client, qdrant_collection_count
+
+    client = get_qdrant_client()
+    total = qdrant_collection_count(client, f"brand_{brand_id}_knowledge") if client else 0
+    print(f"\n  📊 Total knowledge points in Qdrant: {total}")
     print("  Done! The AI will now use this knowledge to answer questions.")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Seed ChromaDB with initial knowledge")
+    parser = argparse.ArgumentParser(description="Seed Qdrant with initial brand knowledge")
     parser.add_argument("--brand-id", default="1", help="Brand/tenant ID to seed (default: 1)")
     args = parser.parse_args()
 

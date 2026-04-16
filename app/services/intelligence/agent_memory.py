@@ -2,25 +2,28 @@
 Agent Memory Service — RAG-powered few-shot context injection.
 
 Self-Learning Tier 1: Every successful agent response is stored as a vector
-in ChromaDB. On new requests, similar past responses are retrieved and
+in Qdrant. On new requests, similar past responses are retrieved and
 injected as few-shot examples, making the model progressively smarter.
 """
 
 import hashlib
-import json
 import logging
-from typing import Optional
 
-import chromadb
-
-from app.config import get_settings
+from app.services.vector.qdrant_store import (
+    embed_texts,
+    get_qdrant_client,
+    qdrant_collection_count,
+    search_points,
+    stable_point_id,
+    upsert_points,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class AgentMemoryService:
     """
-    ChromaDB-backed agent memory.
+    Qdrant-backed agent memory.
 
     Flow:
     1. On new request: query for similar past (prompt, response) pairs
@@ -31,9 +34,6 @@ class AgentMemoryService:
     COLLECTION_PREFIX = "agent_memory_"
 
     def __init__(self):
-        settings = get_settings()
-        self._client = chromadb.HttpClient(host=settings.chromadb_url.replace("http://", "").split(":")[0],
-                                           port=int(settings.chromadb_url.split(":")[-1]))
         self._enabled = True
 
     def _collection_name(self, agent_type: str) -> str:
@@ -46,7 +46,7 @@ class AgentMemoryService:
     async def recall(self, agent_type: str, prompt: str, n_results: int = 2) -> list[dict]:
         """
         Retrieve similar past (prompt, response) pairs for few-shot injection.
-        
+
         Uses Agentic RAG: decomposes complex prompts into multiple sub-queries
         for more targeted retrieval, then deduplicates and ranks results.
 
@@ -56,40 +56,43 @@ class AgentMemoryService:
             return []
 
         try:
-            collection = self._client.get_or_create_collection(
-                name=self._collection_name(agent_type),
-                metadata={"hnsw:space": "cosine"},
-            )
-
-            if collection.count() == 0:
+            client = get_qdrant_client()
+            if not client:
                 return []
 
-            # ─── Agentic RAG: Multi-Query Decomposition ─────
+            collection = self._collection_name(agent_type)
+            if qdrant_collection_count(client, collection) == 0:
+                return []
+
             queries = self._decompose_query(prompt)
-            all_examples: dict[str, dict] = {}  # id → example (dedup)
+            all_examples: dict[str, dict] = {}
 
             for query in queries:
-                results = collection.query(
-                    query_texts=[query],
-                    n_results=min(n_results, collection.count()),
+                qvecs = embed_texts([query])
+                if not qvecs or not qvecs[0]:
+                    continue
+                rows = search_points(
+                    client,
+                    collection,
+                    qvecs[0],
+                    limit=min(n_results, max(1, qdrant_collection_count(client, collection))),
                 )
 
-                if results and results["metadatas"] and results["metadatas"][0]:
-                    for i, meta in enumerate(results["metadatas"][0]):
-                        distance = results["distances"][0][i] if results["distances"] else 1.0
-                        similarity = 1 - distance
-                        doc_id = results["ids"][0][i]
+                for row in rows:
+                    similarity = float(row.get("score", 0.0))
+                    pl = row.get("payload") or {}
+                    doc_id = str(row.get("id", ""))
+                    doc_prompt = pl.get("document", pl.get("prompt", ""))
+                    response = pl.get("response", "")
 
-                        # Only use examples with >70% similarity, keep best per doc
-                        if similarity >= 0.7:
-                            if doc_id not in all_examples or all_examples[doc_id]["similarity"] < similarity:
-                                all_examples[doc_id] = {
-                                    "prompt": results["documents"][0][i],
-                                    "response": meta.get("response", ""),
-                                    "similarity": round(similarity, 3),
-                                }
+                    if similarity >= 0.7:
+                        if doc_id not in all_examples or all_examples[doc_id]["similarity"] < similarity:
+                            all_examples[doc_id] = {
+                                "prompt": doc_prompt,
+                                "response": response,
+                                "similarity": round(similarity, 3),
+                            }
 
-            # Sort by similarity, take top N
             examples = sorted(all_examples.values(), key=lambda x: x["similarity"], reverse=True)[:n_results]
 
             if examples:
@@ -104,7 +107,6 @@ class AgentMemoryService:
             logger.warning(f"AgentMemory recall failed for {agent_type}: {e}")
             return []
 
-    # ─── Agent Affinity Groups (shared knowledge pools) ─────
     AFFINITY_GROUPS = {
         "education": [
             "education_guru", "edtech", "udise_compliance_advisor",
@@ -152,35 +154,39 @@ class AgentMemoryService:
 
         all_examples: list[dict] = []
 
+        client = get_qdrant_client()
+        if not client:
+            return []
+
         for peer in peers:
             try:
-                collection = self._client.get_or_create_collection(
-                    name=self._collection_name(peer),
-                    metadata={"hnsw:space": "cosine"},
-                )
-                if collection.count() == 0:
+                collection = self._collection_name(peer)
+                if qdrant_collection_count(client, collection) == 0:
                     continue
 
-                results = collection.query(
-                    query_texts=[prompt],
-                    n_results=min(1, collection.count()),  # 1 per peer
+                qvecs = embed_texts([prompt])
+                if not qvecs or not qvecs[0]:
+                    continue
+                rows = search_points(
+                    client,
+                    collection,
+                    qvecs[0],
+                    limit=min(1, qdrant_collection_count(client, collection)),
                 )
 
-                if results and results["metadatas"] and results["metadatas"][0]:
-                    for i, meta in enumerate(results["metadatas"][0]):
-                        distance = results["distances"][0][i] if results["distances"] else 1.0
-                        similarity = 1 - distance
-                        if similarity >= 0.75:  # Higher bar for cross-agent
-                            all_examples.append({
-                                "prompt": results["documents"][0][i],
-                                "response": meta.get("response", ""),
-                                "similarity": round(similarity, 3),
-                                "source_agent": peer,
-                            })
+                for row in rows:
+                    similarity = float(row.get("score", 0.0))
+                    pl = row.get("payload") or {}
+                    if similarity >= 0.75:
+                        all_examples.append({
+                            "prompt": pl.get("document", pl.get("prompt", "")),
+                            "response": pl.get("response", ""),
+                            "similarity": round(similarity, 3),
+                            "source_agent": peer,
+                        })
             except Exception as e:
                 logger.debug(f"Cross-agent recall from {peer} skipped: {e}")
 
-        # Sort by similarity, take top N
         all_examples.sort(key=lambda x: x["similarity"], reverse=True)
         result = all_examples[:n_results]
 
@@ -196,21 +202,18 @@ class AgentMemoryService:
     def _decompose_query(self, prompt: str) -> list[str]:
         """
         Decompose a complex prompt into multiple sub-queries for better retrieval.
-        
+
         Agentic RAG: Instead of searching for the entire prompt as one vector,
         break it into semantic chunks that might match different past examples.
         """
-        queries = [prompt]  # Always include the full prompt
+        queries = [prompt]
 
-        # Split by sentences for multi-part prompts
         sentences = [s.strip() for s in prompt.replace("?", ".").replace("!", ".").split(".") if s.strip()]
         if len(sentences) > 1:
-            # Add meaningful sentences (not too short)
             for sentence in sentences:
                 if len(sentence.split()) >= 5:
                     queries.append(sentence)
 
-        # Extract key phrases (text between quotes or after "about/for/on")
         import re
         quoted = re.findall(r'"([^"]+)"', prompt)
         queries.extend(quoted)
@@ -218,7 +221,6 @@ class AgentMemoryService:
         topic_matches = re.findall(r'(?:about|for|on|regarding)\s+(.+?)(?:\.|,|$)', prompt, re.I)
         queries.extend(topic_matches)
 
-        # Deduplicate while preserving order, limit to 4 queries max
         seen = set()
         unique_queries = []
         for q in queries:
@@ -231,7 +233,6 @@ class AgentMemoryService:
 
         return unique_queries
 
-
     async def remember(self, agent_type: str, prompt: str, response: str, quality_score: float = 1.0) -> None:
         """
         Store a successful (prompt, response) pair for future recall.
@@ -242,25 +243,27 @@ class AgentMemoryService:
             return
 
         try:
-            collection = self._client.get_or_create_collection(
-                name=self._collection_name(agent_type),
-                metadata={"hnsw:space": "cosine"},
-            )
+            client = get_qdrant_client()
+            if not client:
+                return
 
+            collection = self._collection_name(agent_type)
             doc_id = self._make_id(prompt)
-
-            # Truncate response to fit ChromaDB metadata limits (~32KB)
             truncated_response = response[:30000] if len(response) > 30000 else response
 
-            collection.upsert(
-                ids=[doc_id],
-                documents=[prompt],
-                metadatas=[{
-                    "response": truncated_response,
-                    "quality_score": str(quality_score),
-                    "agent_type": agent_type,
-                }],
-            )
+            vecs = embed_texts([prompt])
+            if not vecs or not vecs[0]:
+                return
+
+            pid = stable_point_id(doc_id)
+            payload = {
+                "document": prompt,
+                "prompt": prompt,
+                "response": truncated_response,
+                "quality_score": str(quality_score),
+                "agent_type": agent_type,
+            }
+            upsert_points(client, collection, [pid], [vecs[0]], [payload])
 
             logger.debug(f"AgentMemory: stored example for {agent_type}, id={doc_id[:16]}...")
 
@@ -270,18 +273,17 @@ class AgentMemoryService:
     async def get_stats(self, agent_type: str) -> dict:
         """Get memory stats for an agent."""
         try:
-            collection = self._client.get_or_create_collection(
-                name=self._collection_name(agent_type),
-            )
+            client = get_qdrant_client()
+            if not client:
+                return {"agent_type": agent_type, "total_memories": 0}
+            collection = self._collection_name(agent_type)
             return {
                 "agent_type": agent_type,
-                "total_memories": collection.count(),
+                "total_memories": qdrant_collection_count(client, collection),
             }
         except Exception as e:
             return {"agent_type": agent_type, "total_memories": 0, "error": str(e)}
 
-
-# ─── Singleton ──────────────────────────────────────────────────
 
 _memory: AgentMemoryService | None = None
 

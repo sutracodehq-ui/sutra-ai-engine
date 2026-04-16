@@ -12,7 +12,7 @@ class ReadyResponse(BaseModel):
     status: str = "ok"
     database: str = "connected"
     redis: str = "connected"
-    chromadb: str = "unknown"
+    qdrant: str = "unknown"
 
 
 class ErrorResponse(BaseModel):

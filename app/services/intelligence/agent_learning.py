@@ -3,13 +3,13 @@ Agent Learning System — Continuous improvement through feedback and memory.
 
 How agents keep learning:
 1. Feedback Loop: Users rate responses (👍/👎) + provide corrections
-2. Agent Memory: Good responses stored in per-agent vector DB (ChromaDB)
+2. Agent Memory: Good responses stored in per-agent vector DB (Qdrant)
 3. Quality Score: Track accuracy over time, auto-flag degrading agents
 4. Context Enrichment: Inject top past learnings into prompts
 5. Correction Learning: Bad responses + corrections = new training examples
 
 Flow:
-    User gives feedback → Store in ChromaDB → 
+    User gives feedback → Store in Qdrant → 
     Next call: inject relevant past learnings into system prompt →
     Agent gets smarter over time
 """
@@ -53,12 +53,9 @@ class AgentLearningSystem:
     """
     Continuous learning engine.
     
-    Stores feedback and good examples in ChromaDB per agent.
+    Stores feedback and good examples in Qdrant per agent.
     Before each agent call, injects relevant past learnings
     to improve response quality.
-    
-    In production: ChromaDB with persistent storage.
-    Currently: In-memory for development.
     """
 
     def __init__(self):
@@ -66,19 +63,22 @@ class AgentLearningSystem:
         self._quality: dict[str, AgentQuality] = {}
         self._learnings: dict[str, list[dict]] = {}  # agent_id → [{prompt, good_response}]
         self._corrections: dict[str, list[dict]] = {}  # agent_id → [{prompt, bad_response, correction}]
-        self._vector_store = None
+        self._vector_client = None
 
     def _init_vector_store(self):
-        """Initialize ChromaDB for storing learnings."""
-        if self._vector_store:
+        """Initialize Qdrant client for storing learnings."""
+        if self._vector_client is not None:
             return
-
         try:
-            import chromadb
-            self._vector_store = chromadb.Client()
-            logger.info("AgentLearning: ChromaDB initialized for learning memory")
-        except ImportError:
-            logger.warning("AgentLearning: ChromaDB not available, using in-memory fallback")
+            from app.services.vector.qdrant_store import get_qdrant_client
+
+            self._vector_client = get_qdrant_client()
+            if self._vector_client:
+                logger.info("AgentLearning: Qdrant initialized for learning memory")
+            else:
+                logger.warning("AgentLearning: Qdrant URL not configured, vector learnings disabled")
+        except Exception as e:
+            logger.warning("AgentLearning: Qdrant unavailable: %s", e)
 
     def submit_feedback(
         self,
@@ -243,36 +243,58 @@ class AgentLearningSystem:
         self._quality[agent_id] = q
 
     def _store_in_vector_db(self, agent_id: str, prompt: str, content: str, doc_type: str):
-        """Store learning in ChromaDB for semantic search."""
+        """Store learning in Qdrant for semantic search."""
         self._init_vector_store()
-        if not self._vector_store:
+        if not self._vector_client:
             return
 
         try:
-            collection_name = f"agent_learnings_{agent_id}"
-            collection = self._vector_store.get_or_create_collection(collection_name)
-            doc_id = hashlib.md5(f"{prompt}{content}".encode()).hexdigest()
+            from app.services.vector.qdrant_store import embed_texts, stable_point_id, upsert_points
 
-            collection.upsert(
-                ids=[doc_id],
-                documents=[f"Q: {prompt}\nA: {content}"],
-                metadatas=[{"type": doc_type, "agent_id": agent_id, "timestamp": time.time()}],
-            )
+            collection_name = f"agent_learnings_{agent_id}"
+            doc_text = f"Q: {prompt}\nA: {content}"
+            doc_id = hashlib.md5(f"{prompt}{content}".encode()).hexdigest()
+            vecs = embed_texts([doc_text])
+            if not vecs or not vecs[0]:
+                return
+            pid = stable_point_id(doc_id)
+            payload = {
+                "document": doc_text,
+                "type": doc_type,
+                "agent_id": agent_id,
+                "timestamp": time.time(),
+            }
+            upsert_points(self._vector_client, collection_name, [pid], [vecs[0]], [payload])
         except Exception as e:
             logger.debug(f"AgentLearning: vector store write failed: {e}")
 
     def _search_vector_db(self, agent_id: str, prompt: str, max_results: int) -> list[str]:
-        """Search ChromaDB for relevant past learnings."""
+        """Search Qdrant for relevant past learnings."""
         self._init_vector_store()
-        if not self._vector_store:
+        if not self._vector_client:
             return []
 
         try:
-            collection_name = f"agent_learnings_{agent_id}"
-            collection = self._vector_store.get_or_create_collection(collection_name)
+            from app.services.vector.qdrant_store import (
+                embed_texts,
+                qdrant_collection_count,
+                search_points,
+            )
 
-            results = collection.query(query_texts=[prompt], n_results=max_results)
-            return results.get("documents", [[]])[0]
+            collection_name = f"agent_learnings_{agent_id}"
+            cnt = qdrant_collection_count(self._vector_client, collection_name)
+            if cnt == 0:
+                return []
+            qvecs = embed_texts([prompt])
+            if not qvecs or not qvecs[0]:
+                return []
+            rows = search_points(
+                self._vector_client,
+                collection_name,
+                qvecs[0],
+                limit=min(max_results, cnt),
+            )
+            return [(r.get("payload") or {}).get("document", "") for r in rows if (r.get("payload") or {}).get("document")]
         except Exception as e:
             logger.debug(f"AgentLearning: vector search failed: {e}")
             return []

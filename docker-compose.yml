@@ -1,3 +1,5 @@
+# Compose v2 — works with Docker (`docker compose`) and Podman (`podman compose`).
+# Rootless Podman: use `podman compose up -d --build`; service DNS names match Docker Compose.
 services:
   # ─── API Server (FastAPI + Uvicorn) ─────────────────────
   sutra-ai-api:
@@ -19,12 +21,14 @@ services:
       - ./docker/entrypoint.sh:/app/docker/entrypoint.sh
       - ./docs:/app/docs
       - ./intelligence_config.yaml:/app/intelligence_config.yaml
-      - sutra_home:/home/sutra        # ChromaDB embedding cache
+      - sutra_home:/home/sutra        # shared app cache (e.g. embeddings temp)
       - training_data:/app/training    # chat logs, training data
     depends_on:
       sutra-ai-postgres:
         condition: service_healthy
       sutra-ai-redis:
+        condition: service_healthy
+      sutra-ai-qdrant:
         condition: service_healthy
     networks:
       - sutra-ai-network
@@ -48,12 +52,14 @@ services:
       - ./scripts:/app/scripts
       - ./docs:/app/docs
       - ./intelligence_config.yaml:/app/intelligence_config.yaml
-      - sutra_home:/home/sutra        # ChromaDB embedding cache
+      - sutra_home:/home/sutra        # shared app cache (e.g. embeddings temp)
       - training_data:/app/training    # chat logs, training data
     depends_on:
       sutra-ai-postgres:
         condition: service_healthy
       sutra-ai-redis:
+        condition: service_healthy
+      sutra-ai-qdrant:
         condition: service_healthy
     networks:
       - sutra-ai-network
@@ -197,22 +203,21 @@ services:
       - sutra-ai-network
     restart: unless-stopped
 
-  # ─── ChromaDB (Vector DB for Agent Memory) ───────────
-  sutra-ai-chromadb:
-    image: chromadb/chroma:latest
-    container_name: sutra-ai-chromadb
+  # ─── Qdrant (Vector DB for agent memory / RAG) ───────
+  # Official image is Debian-based with bash; TCP check avoids needing curl/wget in slim images.
+  sutra-ai-qdrant:
+    image: qdrant/qdrant:latest
+    container_name: sutra-ai-qdrant
     ports:
-      - "8000:8000"
+      - "6333:6333"
     volumes:
-      - chromadb_data:/chroma/chroma
-    environment:
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
+      - qdrant_data:/qdrant/storage
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
     networks:
       - sutra-ai-network
     restart: unless-stopped
@@ -220,10 +225,10 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  chromadb_data:
+  qdrant_data:
   ollama_data:
   bitnet_models:
-  sutra_home:          # /home/sutra — ChromaDB embedding cache
+  sutra_home:          # /home/sutra — shared app cache
   training_data:       # /app/training — chat logs, escalations, training data
 
 networks:

@@ -205,7 +205,7 @@ The beauty of the factory model: **every new agent is a new revenue stream** wit
 | **Execution** | 6 Drivers, Fallback, CircuitBreaker, Retry, Streaming | ✅ Complete |
 | **Learning** | OPRO, EditDiff, A/B Testing, Click Learning | ✅ Complete |
 | **Agents** | 10 registered (Copy, SEO, Social, Email, WhatsApp, SMS, Ad, Brand Auditor, Content Repurposer, Click Shield) | ✅ Complete |
-| **Infrastructure** | Docker, PostgreSQL, Redis, ChromaDB, Celery | ✅ Complete |
+| **Infrastructure** | Docker, PostgreSQL, Redis, Qdrant, Celery | ✅ Complete |
 
 ---
 

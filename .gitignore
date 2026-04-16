@@ -33,7 +33,7 @@ env/
 # Docker volumes
 postgres_data/
 redis_data/
-chromadb_data/
+qdrant_local/
 ollama_data/
 
 # Testing

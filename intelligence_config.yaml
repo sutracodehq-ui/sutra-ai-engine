@@ -1540,7 +1540,7 @@ personal_assistant_config:
         - **Industry**: {tenant_industry}
         - **Contact**: {tenant_email}
 
-    # Injector 2: ChromaDB Intelligence → message context
+    # Injector 2: Qdrant Intelligence → message context
     tenant_intelligence:
       enabled: true
       max_chunks: 5
@@ -1550,7 +1550,7 @@ personal_assistant_config:
     # Injector 3: (Future) Competitor Data → system prompt
     # competitor_context:
     #   enabled: false
-    #   source: "chromadb"
+    #   source: "qdrant"
     #   collection_suffix: "_competitors"
     #   template: |
     #     ## Competitor Landscape
@@ -1564,7 +1564,7 @@ personal_assistant_config:
 
     {intelligence_context}
 
-# ─── Tenant Learning (ChromaDB) ─────────────────────────────
+# ─── Tenant Learning (Qdrant) ─────────────────────────────
 # Every analysis result is stored in a tenant-scoped vector collection.
 # Future calls retrieve past context to produce personalized responses.
 # Collection format: "{collection_prefix}_{tenant_id}_intelligence"

@@ -53,7 +53,7 @@ class HybridRouter:
 **Key features:**
 - **Local-first**: Every request hits Qwen 2.5:3b first (0 cost, ~200ms)
 - **Quality-gated escalation**: Only escalates to cloud if local output scores < 7/10
-- **Auto-training loop**: Cloud responses are stored in both ChromaDB (immediate recall) and JSONL (periodic fine-tune)
+- **Auto-training loop**: Cloud responses are stored in both Qdrant (immediate recall) and JSONL (periodic fine-tune)
 - **Per-agent quality tracking**: Tracks local success rate per agent — agents with high local scores skip the quality check entirely (fast path)
 
 ### [MODIFY] [base.py](file:///Users/piyushprashant/Documents/personal-projects/sutracode-ai-engine/app/services/agents/base.py)
@@ -86,5 +86,5 @@ ai_hybrid_direct_cloud_threshold: float = 5.0
 
 1. Run quiz_generator with hybrid routing → verify local attempt + quality check
 2. Force a low-quality local response → verify cloud escalation
-3. Check ChromaDB memory after escalation → verify auto-training storage
+3. Check Qdrant memory after escalation → verify auto-training storage
 4. Run same prompt again → verify local recall uses the cloud-trained example

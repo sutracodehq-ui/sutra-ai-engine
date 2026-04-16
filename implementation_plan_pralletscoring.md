@@ -103,7 +103,7 @@ knowledge_augment:
 #### [MODIFY] [brain.py](file:///Users/piyushprashant/Documents/personal-projects/sutracode-workspace/sutracode-ai-engine/app/services/intelligence/brain.py)
 - New `_augment_with_web()` helper — calls `WebScraperService`, extracts body text, injects as context
 - Injected into the execution path between Scout and Driver call
-- Results cached in ChromaDB via Memory service
+- Results cached in Qdrant via Memory service
 
 ---
 
@@ -112,7 +112,7 @@ knowledge_augment:
 Leverage the existing `teaching_alliances` YAML config to enable knowledge sharing.
 
 #### [MODIFY] [memory.py](file:///Users/piyushprashant/Documents/personal-projects/sutracode-workspace/sutracode-ai-engine/app/services/intelligence/memory.py)
-- New `search_alliance_traces()` method — queries ChromaDB for successful traces from *allied* agents
+- New `search_alliance_traces()` method — queries Qdrant for successful traces from *allied* agents
 - Uses `alliances` config from YAML to scope the search
 - Injects top-K traces as few-shot examples in the system prompt
 
@@ -140,7 +140,7 @@ self_improvement:
   1. Analyzes model win rates from consensus logs
   2. Updates `parallel_drivers` order based on performance
   3. Runs prompt optimization cycle (existing `run_optimization_cycle()`)
-  4. Prunes stale teaching traces from ChromaDB
+  4. Prunes stale teaching traces from Qdrant
 
 ---
 
@@ -191,7 +191,7 @@ User Prompt
 │            │                                     │
 │            ▼                                     │
 │  ┌──────────────────────────┐                    │
-│  │  Record Gold Trace       │ ──▶ ChromaDB       │
+│  │  Record Gold Trace       │ ──▶ Qdrant       │
 │  │  Update Model Win Rates  │ ──▶ Memory         │
 │  │  Share to Alliance       │ ──▶ Peer Teaching  │
 │  └──────────────────────────┘                    │
@@ -222,7 +222,7 @@ User Prompt
 - `pytest tests/test_scout_scorer.py` — Mock Ollama response, verify complexity tier mapping
 - `pytest tests/test_consensus.py` — Mock two LLM outputs, verify Judge picks the correct winner
 - `pytest tests/test_web_augment.py` — Mock WebScraperService, verify context injection into prompt
-- `pytest tests/test_alliance_teaching.py` — Verify cross-agent trace retrieval from ChromaDB
+- `pytest tests/test_alliance_teaching.py` — Verify cross-agent trace retrieval from Qdrant
 
 ### Integration Tests
 - `curl` the stream endpoint with a complex prompt → verify logs show "Consensus triggered: Groq vs Gemini"

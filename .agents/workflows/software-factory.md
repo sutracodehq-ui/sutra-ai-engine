@@ -53,7 +53,7 @@ User Request → Agent → QualityGate → Score
 
 ## 7. Cloud-Native & Infrastructure-Agnostic
 - Runs in Podman containers (local dev) or Kubernetes (production)
-- Redis, PostgreSQL, ChromaDB, Ollama — all containerized services
+- Redis, PostgreSQL, Qdrant, Ollama — all containerized services
 - Horizontal scaling: add more Celery workers, not bigger machines
 - Driver abstraction: swap Ollama ↔ Groq ↔ Gemini ↔ Anthropic without code changes
 

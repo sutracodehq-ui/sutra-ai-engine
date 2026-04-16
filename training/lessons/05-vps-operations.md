@@ -12,7 +12,7 @@ k3s cluster (Hostinger VPS)
 ├── sutra-ai-api        (FastAPI app)
 ├── sutra-ai-ollama     (Ollama local inference)
 ├── sutra-ai-redis      (caching, rate limits, quality tracking)
-├── sutra-ai-chromadb   (RAG vector store)
+├── sutra-ai-qdrant     (RAG vector store)
 └── sutra-ai-postgres   (persistent storage)
 ```
 

@@ -1,5 +1,5 @@
 """
-Platform status — DB, Redis, LLM endpoints, Chroma, limits, host metrics.
+Platform status — DB, Redis, LLM endpoints, Qdrant, limits, host metrics.
 
 Used by /health/full and /metrics. No secrets in responses (only booleans / counts).
 """
@@ -149,17 +149,21 @@ async def _http_json(method: str, url: str, **kwargs) -> tuple[int, Any | None, 
         return 0, None, str(e)[:200]
 
 
-async def probe_chromadb() -> dict[str, Any]:
+async def probe_qdrant() -> dict[str, Any]:
     s = get_settings()
-    base = (s.chromadb_url or "").rstrip("/")
+    base = (s.qdrant_url or "").rstrip("/")
     if not base:
-        return {"status": "skipped", "reason": "no chromadb_url"}
-    for path in ("/api/v2/heartbeat", "/api/v1/heartbeat"):
-        code, body, err = await _http_json("GET", f"{base}{path}")
-        if code == 200:
-            return {"status": "ok", "endpoint": path, "sample": body}
-    code, body, err = await _http_json("GET", f"{base}/api/v1/version")
-    return {"status": "ok" if code == 200 else "error", "http_status": code, "error": err, "body": body}
+        return {"status": "skipped", "reason": "no qdrant_url"}
+    code, body, err = await _http_json("GET", f"{base}/collections")
+    if code == 200:
+        return {"status": "ok", "endpoint": "/collections", "collections": isinstance(body, dict)}
+    code2, body2, err2 = await _http_json("GET", f"{base}/")
+    return {
+        "status": "ok" if code2 == 200 else "error",
+        "http_status": code2,
+        "error": err2 if code2 != 200 else err,
+        "body": body2 if code2 == 200 else body,
+    }
 
 
 async def probe_ollama_models() -> dict[str, Any]:
@@ -294,7 +298,7 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
     )
 
     remote_tasks = await asyncio.gather(
-        probe_chromadb(),
+        probe_qdrant(),
         probe_ollama_models(),
         probe_openai_compatible("groq"),
         probe_openai_compatible("openai"),
@@ -308,7 +312,7 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
     )
 
     names = (
-        "chromadb",
+        "qdrant",
         "ollama",
         "groq",
         "openai",

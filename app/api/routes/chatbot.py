@@ -160,12 +160,12 @@ async def knowledge_stats(brand_id: str = Query(...)):
     mem = get_memory()
     # Stats: count documents in brand collection
     try:
-        chroma = mem._get_chroma() if hasattr(mem, '_get_chroma') else None
-        from app.services.intelligence.memory import _get_chroma
-        client = _get_chroma()
+        from app.services.vector.qdrant_store import get_qdrant_client, qdrant_collection_count
+
+        client = get_qdrant_client()
         if client:
-            coll = client.get_or_create_collection(name=f"brand_{brand_id}_knowledge")
-            return {"brand_id": brand_id, "total_entries": coll.count()}
+            coll = f"brand_{brand_id}_knowledge"
+            return {"brand_id": brand_id, "total_entries": qdrant_collection_count(client, coll)}
     except Exception:
         pass
     return {"brand_id": brand_id, "total_entries": 0}

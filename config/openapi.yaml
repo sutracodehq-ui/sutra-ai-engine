@@ -63,7 +63,7 @@ tags:
       | Method | Path | Purpose |
       |--------|------|---------|
       | `GET` | `/health` | **Liveness** — process up; no DB/Redis I/O. Use for Kubernetes liveness. |
-      | `GET` | `/ready` | **Readiness** — PostgreSQL, Redis, Alembic, active tenants; Chroma + driver summary (informational). `503` if critical checks fail. |
+      | `GET` | `/ready` | **Readiness** — PostgreSQL, Redis, Alembic, active tenants; Qdrant + driver summary (informational). `503` if critical checks fail. |
       | `GET` | `/health/full` | **Deep health** — all readiness checks plus LLM provider `/v1/models` (or equivalent), Ollama tags vs configured models, CPU/load/process memory, admission limits, circuit breakers, queue stats. `503` if DB/Redis/migrations fail. |
       | `GET` | `/metrics` | **Metrics JSON** — same rich snapshot as deep health for dashboards/scrapers; always `200` with full body. |
 

@@ -162,7 +162,7 @@ sutracode-ai-engine/
 ├── intelligence_config.yaml        # Master AI configuration
 ├── product_catalog.yaml            # 23 products, 3 bundles
 ├── scanner_feeds.yaml              # External data feeds
-├── docker-compose.yml              # Docker orchestration
+├── docker-compose.yml              # Compose (Docker / Podman)
 └── pyproject.toml                  # Python dependencies
 ```
 
@@ -573,7 +573,7 @@ alerts = learning.get_degrading_agents()
 **Learning flow:**
 
 ```
-Rating ≥ 4 → Stored as good example (ChromaDB)
+Rating ≥ 4 → Stored as good example (Qdrant)
 Rating ≤ 2 + correction → Stored as training data
 Next call → Relevant past learnings injected into system prompt
 Agent improves over time 📈
@@ -884,10 +884,12 @@ ROUTING_RULES.append({
 
 ## Deployment
 
-### Docker
+### Docker or Podman Compose
 
 ```bash
-docker-compose up -d
+docker compose up -d --build
+# or:
+podman compose up -d --build
 ```
 
 ### Environment Variables
@@ -898,12 +900,12 @@ docker-compose up -d
 | `REDIS_URL` | Redis for caching/queues | `redis://localhost:6379` |
 | `OLLAMA_HOST` | Ollama LLM server | `http://localhost:11434` |
 | `AI_AGENT_MEMORY_ENABLED` | Enable RAG memory | `true` |
-| `CHROMADB_HOST` | ChromaDB for vector search | `localhost` |
+| `QDRANT_URL` | Qdrant HTTP API for vector search | `http://localhost:6333` |
 
 ### Health Check
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8090/health
 ```
 
 ---

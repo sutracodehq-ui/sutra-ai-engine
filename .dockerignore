@@ -42,7 +42,7 @@ README.md
 # Volumes
 postgres_data/
 redis_data/
-chromadb_data/
+qdrant_local/
 ollama_data/
 
 # Misc

@@ -9,6 +9,7 @@ Absorbs: cache_engine, agent_memory, brand_knowledge, knowledge_graph,
          web_scraper, training_collector, feedback_collector, click_scorer
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -22,6 +23,14 @@ import httpx
 import yaml
 
 from app.config import get_settings
+from app.services.vector.qdrant_store import (
+    embed_texts,
+    get_qdrant_client,
+    qdrant_collection_count,
+    search_points,
+    stable_point_id,
+    upsert_points,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,23 +55,10 @@ def _sec(section: str, default=None):
     return _load_cfg().get(section, default or {})
 
 
-# ─── ChromaDB Client (lazy singleton) ─────────────────────────
+# ─── Qdrant client (lazy singleton via vector module) ─────────
 
-_chroma = None
-
-
-def _get_chroma():
-    global _chroma
-    if _chroma is None:
-        try:
-            import chromadb
-            from urllib.parse import urlparse
-            s = get_settings()
-            parsed = urlparse(s.chromadb_url)
-            _chroma = chromadb.HttpClient(host=parsed.hostname or "localhost", port=parsed.port or 8000)
-        except Exception as e:
-            logger.warning(f"Memory: ChromaDB unavailable: {e}")
-    return _chroma
+def _get_qdrant():
+    return get_qdrant_client()
 
 
 # ─── Memory: The Unified Storage Engine ───────────────────────
@@ -73,7 +69,7 @@ class Memory:
 
     Modules:
     1. Cache      — exact/hash/semantic caching (from cache_engine)
-    2. RAG        — ChromaDB vector retrieval + PageIndex reasoning (from agentic_rag, pageindex_retriever)
+    2. RAG        — Qdrant vector retrieval + PageIndex reasoning (from agentic_rag, pageindex_retriever)
     3. Brand KB   — per-brand knowledge base (from brand_knowledge)
     4. Agent mem  — per-agent memory for self-learning (from agent_memory)
     5. Web intel  — real-time web search (from web_search)
@@ -224,47 +220,61 @@ class Memory:
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def remember(self, agent_type: str, prompt: str, response: str, quality_score: float = 0.8) -> None:
-        """Store a prompt-response pair in ChromaDB for future recall."""
-        client = _get_chroma()
-        if not client:
-            return
-        try:
-            coll = client.get_or_create_collection(name=f"agent_memory_{agent_type}")
-            doc_id = hashlib.md5(f"{prompt}:{response[:100]}".encode()).hexdigest()[:16]
-            coll.upsert(
-                ids=[f"mem_{doc_id}"],
-                documents=[f"Q: {prompt}\nA: {response[:2000]}"],
-                metadatas=[{"agent_type": agent_type, "quality": quality_score,
-                            "ts": datetime.now(timezone.utc).isoformat()}],
-            )
-        except Exception as e:
-            logger.warning(f"Memory.remember: {e}")
+        """Store a prompt-response pair in Qdrant for future recall."""
+
+        def _run():
+            client = _get_qdrant()
+            if not client:
+                return
+            try:
+                coll = f"agent_memory_{agent_type}"
+                doc_id = hashlib.md5(f"{prompt}:{response[:100]}".encode()).hexdigest()[:16]
+                doc_text = f"Q: {prompt}\nA: {response[:2000]}"
+                vecs = embed_texts([doc_text])
+                if not vecs or not vecs[0]:
+                    return
+                pid = stable_point_id(f"mem_{doc_id}")
+                payload = {
+                    "document": doc_text,
+                    "agent_type": agent_type,
+                    "quality": quality_score,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+                upsert_points(client, coll, [pid], [vecs[0]], [payload])
+            except Exception as e:
+                logger.warning(f"Memory.remember: {e}")
+
+        await asyncio.to_thread(_run)
 
     async def recall(self, agent_type: str, prompt: str, n: int = 5) -> list[dict]:
         """Recall similar past interactions for an agent. Applies Auto-Cut pruning."""
-        client = _get_chroma()
-        if not client:
-            return []
-        try:
-            coll = client.get_or_create_collection(name=f"agent_memory_{agent_type}")
-            if coll.count() == 0:
+
+        def _run() -> list[dict]:
+            client = _get_qdrant()
+            if not client:
                 return []
-            # Fetch more than needed, then prune
-            fetch_n = min(n * 3, coll.count(), 20)
-            results = coll.query(query_texts=[prompt], n_results=fetch_n)
-            if not results["documents"] or not results["documents"][0]:
+            try:
+                coll = f"agent_memory_{agent_type}"
+                cnt = qdrant_collection_count(client, coll)
+                if cnt == 0:
+                    return []
+                fetch_n = min(n * 3, cnt, 20)
+                qvecs = embed_texts([prompt])
+                if not qvecs or not qvecs[0]:
+                    return []
+                rows = search_points(client, coll, qvecs[0], limit=fetch_n)
+                raw = []
+                for row in rows:
+                    pl = row.get("payload") or {}
+                    doc = pl.get("document", "")
+                    meta = {k: v for k, v in pl.items() if k != "document"}
+                    raw.append({"content": doc, "meta": meta, "score": float(row.get("score", 0.0))})
+                return self._auto_cut(raw, n)
+            except Exception as e:
+                logger.debug(f"Memory.recall: {e}")
                 return []
-            # Build raw results with scores
-            raw = []
-            distances = results.get("distances", [[]])[0]
-            for i, doc in enumerate(results["documents"][0]):
-                score = max(0.0, 1.0 - distances[i]) if i < len(distances) else 0.0
-                raw.append({"content": doc, "meta": results["metadatas"][0][i], "score": score})
-            # Apply Auto-Cut
-            return self._auto_cut(raw, n)
-        except Exception as e:
-            logger.debug(f"Memory.recall: {e}")
-            return []
+
+        return await asyncio.to_thread(_run)
 
     def _auto_cut(self, results: list[dict], max_chunks: int = 5) -> list[dict]:
         """
@@ -318,45 +328,68 @@ class Memory:
 
     async def brand_search(self, brand_id: str, query: str, n: int = 3) -> dict:
         """Search brand's knowledge base."""
-        client = _get_chroma()
-        if not client:
-            return {"found": False, "confidence": 0.0, "context": ""}
-        try:
-            coll = client.get_or_create_collection(name=f"brand_{brand_id}_knowledge")
-            if coll.count() == 0:
+
+        def _run() -> dict:
+            client = _get_qdrant()
+            if not client:
                 return {"found": False, "confidence": 0.0, "context": ""}
-            results = coll.query(query_texts=[query], n_results=min(n, coll.count()))
-            if not results["documents"] or not results["documents"][0]:
+            try:
+                coll = f"brand_{brand_id}_knowledge"
+                cnt = qdrant_collection_count(client, coll)
+                if cnt == 0:
+                    return {"found": False, "confidence": 0.0, "context": ""}
+                qvecs = embed_texts([query])
+                if not qvecs or not qvecs[0]:
+                    return {"found": False, "confidence": 0.0, "context": ""}
+                rows = search_points(client, coll, qvecs[0], limit=min(n, cnt))
+                if not rows:
+                    return {"found": False, "confidence": 0.0, "context": ""}
+                scores = [float(r.get("score", 0.0)) for r in rows]
+                confidence = max(0.0, max(scores)) if scores else 0.0
+                parts = []
+                for r in rows:
+                    pl = r.get("payload") or {}
+                    doc = pl.get("document", "")
+                    src = pl.get("source", "kb")
+                    parts.append(f"[{src}] {doc}")
+                context = "\n\n".join(parts)
+                return {"found": True, "confidence": round(confidence, 3), "context": context}
+            except Exception as e:
+                logger.warning(f"Memory.brand_search: {e}")
                 return {"found": False, "confidence": 0.0, "context": ""}
-            distances = results.get("distances", [[1.0]])[0]
-            confidence = max(0, 1 - min(distances))
-            context = "\n\n".join(
-                f"[{results['metadatas'][0][i].get('source', 'kb')}] {doc}"
-                for i, doc in enumerate(results["documents"][0])
-            )
-            return {"found": True, "confidence": round(confidence, 3), "context": context}
-        except Exception as e:
-            logger.warning(f"Memory.brand_search: {e}")
-            return {"found": False, "confidence": 0.0, "context": ""}
+
+        return await asyncio.to_thread(_run)
 
     async def brand_learn(self, brand_id: str, question: str, answer: str, source: str = "owner_answer") -> bool:
         """Store Q&A in brand's knowledge base."""
-        client = _get_chroma()
-        if not client:
-            return False
-        try:
-            coll = client.get_or_create_collection(name=f"brand_{brand_id}_knowledge")
-            doc_id = hashlib.md5(f"{question}:{answer}".encode()).hexdigest()[:16]
-            coll.upsert(
-                ids=[f"kb_{doc_id}"],
-                documents=[f"Q: {question}\nA: {answer}"],
-                metadatas=[{"question": question[:500], "answer": answer[:2000], "source": source,
-                            "brand_id": brand_id, "ts": datetime.now(timezone.utc).isoformat()}],
-            )
-            return True
-        except Exception as e:
-            logger.warning(f"Memory.brand_learn: {e}")
-            return False
+
+        def _run() -> bool:
+            client = _get_qdrant()
+            if not client:
+                return False
+            try:
+                coll = f"brand_{brand_id}_knowledge"
+                doc_id = hashlib.md5(f"{question}:{answer}".encode()).hexdigest()[:16]
+                doc_text = f"Q: {question}\nA: {answer}"
+                vecs = embed_texts([doc_text])
+                if not vecs or not vecs[0]:
+                    return False
+                pid = stable_point_id(f"kb_{doc_id}")
+                payload = {
+                    "document": doc_text,
+                    "question": question[:500],
+                    "answer": answer[:2000],
+                    "source": source,
+                    "brand_id": brand_id,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+                upsert_points(client, coll, [pid], [vecs[0]], [payload])
+                return True
+            except Exception as e:
+                logger.warning(f"Memory.brand_learn: {e}")
+                return False
+
+        return await asyncio.to_thread(_run)
 
     async def brand_import_faq(self, brand_id: str, items: list[dict]) -> dict:
         """Bulk import FAQ items."""
@@ -430,30 +463,44 @@ class Memory:
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     async def retrieve(self, query: str, collections: list[str] | None = None, n: int = 5) -> list[dict]:
-        """Retrieve relevant context from ChromaDB collections."""
-        client = _get_chroma()
-        if not client:
-            return []
-        cfg = _sec("agentic_rag", {})
-        target_colls = collections or cfg.get("collections", ["web_articles", "agent_responses"])
-        threshold = cfg.get("min_relevance_threshold", 0.5)
-        all_results = []
-        for coll_name in target_colls:
-            try:
-                coll = client.get_or_create_collection(name=coll_name)
-                if coll.count() == 0:
-                    continue
-                results = coll.query(query_texts=[query], n_results=min(n, coll.count()))
-                for i, doc in enumerate(results.get("documents", [[]])[0]):
-                    dist = results.get("distances", [[1.0]])[0][i] if results.get("distances") else 1.0
-                    relevance = max(0, 1 - dist)
-                    if relevance >= threshold:
-                        all_results.append({"content": doc, "collection": coll_name, "relevance": round(relevance, 3),
-                                            "meta": results.get("metadatas", [[]])[0][i] if results.get("metadatas") else {}})
-            except Exception as e:
-                logger.debug(f"Memory.retrieve: {coll_name} skipped: {e}")
-        all_results.sort(key=lambda x: x["relevance"], reverse=True)
-        return all_results[:n]
+        """Retrieve relevant context from Qdrant collections."""
+
+        def _run() -> list[dict]:
+            client = _get_qdrant()
+            if not client:
+                return []
+            cfg = _sec("agentic_rag", {})
+            target_colls = collections or cfg.get("collections", ["web_articles", "agent_responses"])
+            threshold = cfg.get("min_relevance_threshold", 0.5)
+            all_results: list[dict] = []
+            qvecs = embed_texts([query])
+            if not qvecs or not qvecs[0]:
+                return []
+            qv = qvecs[0]
+            for coll_name in target_colls:
+                try:
+                    cnt = qdrant_collection_count(client, coll_name)
+                    if cnt == 0:
+                        continue
+                    rows = search_points(client, coll_name, qv, limit=min(n, cnt))
+                    for row in rows:
+                        relevance = float(row.get("score", 0.0))
+                        if relevance >= threshold:
+                            pl = row.get("payload") or {}
+                            doc = pl.get("document", "")
+                            meta = {k: v for k, v in pl.items() if k != "document"}
+                            all_results.append({
+                                "content": doc,
+                                "collection": coll_name,
+                                "relevance": round(relevance, 3),
+                                "meta": meta,
+                            })
+                except Exception as e:
+                    logger.debug(f"Memory.retrieve: {coll_name} skipped: {e}")
+            all_results.sort(key=lambda x: x["relevance"], reverse=True)
+            return all_results[:n]
+
+        return await asyncio.to_thread(_run)
 
     async def index_document(self, filepath: str, collection: str = "documents") -> dict:
         """Index a document (PDF/MD) via PageIndex tree reasoning if available."""
@@ -552,7 +599,7 @@ class Memory:
             res = await self.web_scan(url)
             if res.get("status") == "success":
                 articles += 1
-                # Index in ChromaDB
+                # Index in Qdrant
                 await self.remember("web_intel", f"Context from {url}", json.dumps(res))
         return {"articles": articles, "stocks": 0, "crypto": 0, "errors": []}
 

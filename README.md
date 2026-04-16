@@ -2,7 +2,7 @@
 
 **A standalone, multi-tenant AI microservice** that powers intelligent content generation, multi-agent orchestration, and continuous self-learning — designed to serve any product via a simple REST API.
 
-> Built with Python 3.12 · FastAPI · SQLAlchemy · Celery · Redis · PostgreSQL · ChromaDB
+> Built with Python 3.12 · FastAPI · SQLAlchemy · Celery · Redis · PostgreSQL · Qdrant
 
 ---
 
@@ -100,14 +100,16 @@ cd sutracode-ai-engine
 # Copy environment
 cp .env.example .env
 
-# Start all services
-docker compose up -d
+# Start all services (Docker **or** Podman — same compose file)
+docker compose up -d --build
+# Podman: podman compose up -d --build
 
 # Run migrations
 docker compose exec sutra-ai-api alembic upgrade head
+# Podman: podman compose exec sutra-ai-api alembic upgrade head
 
-# Create your first tenant
-curl -X POST http://localhost:8000/v1/tenants \
+# Create your first tenant (API is published on host port 8090 in docker-compose.yml)
+curl -X POST http://localhost:8090/v1/tenants \
   -H "Authorization: Bearer sk_master_your_admin_key" \
   -H "Content-Type: application/json" \
   -d '{"name": "Tryambaka", "slug": "tryambaka"}'
@@ -118,7 +120,7 @@ curl -X POST http://localhost:8000/v1/tenants \
 ### Your First AI Call
 
 ```bash
-curl -X POST http://localhost:8000/v1/chat \
+curl -X POST http://localhost:8090/v1/chat \
   -H "Authorization: Bearer sk_live_xxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -177,7 +179,7 @@ Authorization: Bearer sk_live_xxxxxxxx
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/health` | Liveness probe |
-| `GET` | `/ready` | Readiness (checks DB + Redis + ChromaDB) |
+| `GET` | `/ready` | Readiness (checks DB + Redis + Qdrant, informational) |
 
 ---
 
@@ -204,7 +206,7 @@ sutracode-ai-engine/
 ├── docker/                     # Dockerfiles + nginx
 ├── kubernetes/                 # K8s manifests
 ├── tests/                      # pytest test suite
-├── docker-compose.yml          # Local dev (7 services)
+├── docker-compose.yml          # Local dev (Compose — Docker or Podman)
 └── pyproject.toml              # Dependencies
 ```
 
@@ -217,7 +219,7 @@ sutracode-ai-engine/
 | `sutra-ai-beat` | — | Celery Beat (cron scheduler) |
 | `sutra-ai-postgres` | 5432 | PostgreSQL 16 |
 | `sutra-ai-redis` | 6379 | Redis 7 (cache + queues) |
-| `sutra-ai-chromadb` | 8100 | ChromaDB (vector store) |
+| `sutra-ai-qdrant` | 6333 | Qdrant (vector store) |
 | `sutra-ai-ollama` | 11434 | Ollama (local LLM) |
 
 ---
@@ -275,10 +277,13 @@ curl -X POST https://ai.sutracodehq.com/v1/chat \
 
 ## Deployment
 
-### Docker Compose (Dev/VPS)
+### Compose (Dev/VPS — Docker or Podman)
 ```bash
-docker compose up -d
+docker compose up -d --build
+# Podman:
+podman compose up -d --build
 ```
+Use the same `docker-compose.yml`. On rootless Podman, bind-mounted project dirs work like Docker; if SELinux blocks volume access on Fedora/RHEL, add `:z` to those bind mounts (see Podman docs).
 
 ### Kubernetes
 ```bash
@@ -302,12 +307,15 @@ See [kubernetes/](kubernetes/) for full manifests including HPA, CronJobs, and I
 | `GEMINI_API_KEY` | — | Google Gemini API key |
 | `GROQ_API_KEY` | — | Groq API key |
 | `OLLAMA_BASE_URL` | `http://sutra-ai-ollama:11434` | Ollama endpoint |
-| `CHROMADB_URL` | `http://sutra-ai-chromadb:8000` | ChromaDB endpoint |
+| `QDRANT_URL` | `http://sutra-ai-qdrant:6333` | Qdrant HTTP API |
+| `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama model for vector embeddings (must match `EMBEDDING_VECTOR_SIZE`) |
 | `R2_ACCESS_KEY` | — | Cloudflare R2 access key |
 | `R2_SECRET_KEY` | — | Cloudflare R2 secret key |
 | `R2_BUCKET` | `sutra-ai-storage` | R2 bucket name |
 | `R2_ENDPOINT` | — | R2 endpoint URL |
 | `MASTER_API_KEY` | — | Admin key for tenant management |
+
+**Vector store:** Qdrant replaces Chroma; after upgrade **re-index** brand/FAQ data (e.g. `scripts/seed_knowledge.py` or `brand_import_faq`). Old Chroma vectors are not portable.
 
 See [.env.example](.env.example) for the full list.
 

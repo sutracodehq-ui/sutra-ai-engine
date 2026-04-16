@@ -39,7 +39,7 @@ async def list_agents(tenant: CurrentTenant):
 
 
 async def _enrich_tenant_context(context: dict, tenant, db) -> dict:
-    """Enrich context with full tenant identity + brand persona from DB + ChromaDB."""
+    """Enrich context with full tenant identity + brand persona from DB + Qdrant."""
     context["tenant_slug"] = tenant.slug
     context["tenant_name"] = tenant.name
     context["tenant_description"] = tenant.description or ""
@@ -74,8 +74,8 @@ async def _enrich_tenant_context(context: dict, tenant, db) -> dict:
     except Exception as e:
         logger.debug(f"Brand persona fetch skipped: {e}")
 
-    # ── Brand Knowledge: fetch from ChromaDB ──
-    # (ChromaDB brand collections are populated via brand_learn/brand_import_faq)
+    # ── Brand Knowledge: fetch from Qdrant ──
+    # (Brand collections are populated via brand_learn/brand_import_faq)
     # The actual query happens in BaseAgent.build_messages() using tenant_id
 
     return context

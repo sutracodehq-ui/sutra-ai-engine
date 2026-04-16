@@ -68,11 +68,11 @@ async def run_pipeline(
     Steps:
       1. Load pipeline config from YAML (prompt, drivers, timeout, etc.)
       2. Format the prompt template with input variables
-      3. (If tenant_id) Retrieve past analyses from ChromaDB for context
+      3. (If tenant_id) Retrieve past analyses from Qdrant for context
       4. Loop through driver chain with circuit breaker
       5. Parse output (json_repair for JSON, raw for text)
       6. Validate expected fields
-      7. (If tenant_id) Store result in tenant's ChromaDB (fire-and-forget)
+      7. (If tenant_id) Store result in tenant's Qdrant collection (fire-and-forget)
       8. Return clean result or fallback_response
 
     Args:
@@ -174,7 +174,7 @@ async def run_pipeline(
                     f"({response.total_tokens} tokens)"
                 )
 
-                # ─── Store in tenant's ChromaDB (fire-and-forget) ───
+                # ─── Store in tenant's Qdrant collection (fire-and-forget) ───
                 if tenant_id:
                     asyncio.create_task(
                         _store_tenant_result(name, variables, data, tenant_id, driver_name)
@@ -205,7 +205,7 @@ async def run_pipeline(
     return fallback
 
 
-# ─── Tenant Learning: ChromaDB Store & Retrieve ─────────────────
+# ─── Tenant Learning: Qdrant Store & Retrieve ───────────────────
 
 
 async def _store_tenant_result(
@@ -216,7 +216,7 @@ async def _store_tenant_result(
     driver_name: str = "unknown",
 ) -> None:
     """
-    Store pipeline result in tenant-scoped ChromaDB collection.
+    Store pipeline result in tenant-scoped Qdrant collection.
 
     Runs as fire-and-forget (asyncio.create_task) so it never
     blocks the main response. All config comes from YAML.
@@ -230,39 +230,43 @@ async def _store_tenant_result(
         return
 
     try:
-        from app.services.intelligence.memory import _get_chroma
-        client = _get_chroma()
+        from app.services.vector.qdrant_store import (
+            embed_texts,
+            get_qdrant_client,
+            stable_point_id,
+            upsert_points,
+        )
+
+        client = get_qdrant_client()
         if not client:
             return
 
-        # Build collection name from YAML prefix
         prefix = lc.get("collection_prefix", "tenant")
         collection_name = f"{prefix}_{tenant_id}_intelligence"
-        coll = client.get_or_create_collection(name=collection_name)
 
-        # Build a unique key from the pipeline + primary variable
         key_var = _extract_key_variable(variables)
         doc_id = hashlib.md5(
             f"{pipeline_name}:{key_var}".encode()
         ).hexdigest()[:16]
 
-        # Build the document text (searchable by ChromaDB)
         if isinstance(result, dict):
             doc_text = f"{pipeline_name} | {key_var} | {json.dumps(result, ensure_ascii=False)[:3000]}"
         else:
             doc_text = f"{pipeline_name} | {key_var} | {str(result)[:3000]}"
 
-        coll.upsert(
-            ids=[f"intel_{doc_id}"],
-            documents=[doc_text],
-            metadatas=[{
-                "pipeline": pipeline_name,
-                "key": str(key_var)[:500],
-                "tenant_id": str(tenant_id),
-                "driver": driver_name,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }],
-        )
+        vecs = embed_texts([doc_text])
+        if not vecs or not vecs[0]:
+            return
+        pid = stable_point_id(f"intel_{doc_id}")
+        payload = {
+            "document": doc_text,
+            "pipeline": pipeline_name,
+            "key": str(key_var)[:500],
+            "tenant_id": str(tenant_id),
+            "driver": driver_name,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        upsert_points(client, collection_name, [pid], [vecs[0]], [payload])
         logger.info(
             f"TenantLearning: stored {pipeline_name} for tenant {tenant_id} "
             f"(key={key_var[:50]})"
@@ -278,7 +282,7 @@ async def _retrieve_tenant_context(
     tenant_id: int,
 ) -> str | None:
     """
-    Retrieve relevant past analyses from tenant's ChromaDB collection.
+    Retrieve relevant past analyses from tenant's Qdrant collection.
 
     Returns formatted context string or None if nothing relevant found.
     All thresholds and templates come from YAML config.
@@ -292,42 +296,48 @@ async def _retrieve_tenant_context(
         return None
 
     try:
-        from app.services.intelligence.memory import _get_chroma
-        client = _get_chroma()
+        from app.services.vector.qdrant_store import (
+            embed_texts,
+            get_qdrant_client,
+            qdrant_collection_count,
+            search_points,
+        )
+
+        client = get_qdrant_client()
         if not client:
             return None
 
         prefix = lc.get("collection_prefix", "tenant")
         collection_name = f"{prefix}_{tenant_id}_intelligence"
 
-        try:
-            coll = client.get_or_create_collection(name=collection_name)
-        except Exception:
-            return None
-
-        if coll.count() == 0:
+        cnt = qdrant_collection_count(client, collection_name)
+        if cnt == 0:
             return None
 
         max_chunks = lc.get("max_context_chunks", 3)
         min_relevance = lc.get("min_relevance", 0.4)
 
-        results = coll.query(
-            query_texts=[prompt[:500]],
-            n_results=min(max_chunks * 2, coll.count()),
-        )
-
-        if not results["documents"] or not results["documents"][0]:
+        qvecs = embed_texts([prompt[:500]])
+        if not qvecs or not qvecs[0]:
             return None
 
-        # Filter by relevance (distance → similarity)
+        rows = search_points(
+            client,
+            collection_name,
+            qvecs[0],
+            limit=min(max_chunks * 2, cnt),
+        )
+
+        if not rows:
+            return None
+
         chunks = []
-        distances = results.get("distances", [[]])[0]
-        for i, doc in enumerate(results["documents"][0]):
-            dist = distances[i] if i < len(distances) else 1.0
-            similarity = max(0.0, 1.0 - dist)
+        for row in rows:
+            similarity = float(row.get("score", 0.0))
             if similarity >= min_relevance:
-                meta = results["metadatas"][0][i] if results.get("metadatas") else {}
-                pipeline = meta.get("pipeline", "unknown")
+                pl = row.get("payload") or {}
+                doc = pl.get("document", "")
+                pipeline = pl.get("pipeline", "unknown")
                 chunks.append(f"[{pipeline}] {doc}")
 
             if len(chunks) >= max_chunks:

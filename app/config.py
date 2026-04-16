@@ -108,9 +108,12 @@ class Settings(BaseSettings):
     # ─── LLM Queue ──────────────────────────────────
     llm_max_parallel: int = 10  # concurrent inference slots (cloud APIs handle unlimited)
 
-    # ─── ChromaDB ───────────────────────────────────
-    chromadb_url: str = "http://sutra-ai-chromadb:8000"
+    # ─── Qdrant (vector store) ──────────────────────
+    qdrant_url: str = "http://sutra-ai-qdrant:6333"
+    qdrant_api_key: str = ""
     embedding_model: str = "nomic-embed-text"
+    # Must match the embedding model output size (nomic-embed-text → 768).
+    embedding_vector_size: int = 768
 
     # ─── Cloudflare R2 ──────────────────────────────
     r2_access_key: str = ""

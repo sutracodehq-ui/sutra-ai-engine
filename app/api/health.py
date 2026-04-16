@@ -12,7 +12,7 @@ from app.services.platform_status import (
     build_full_status,
     build_metrics_snapshot,
     collect_driver_and_circuit_snapshot,
-    probe_chromadb,
+    probe_qdrant,
     probe_migrations,
     probe_redis,
     probe_tenants,
@@ -47,26 +47,26 @@ async def liveness():
     summary="Readiness probe",
     description=(
         "Kubernetes-style **readiness**: PostgreSQL (`SELECT 1`), Redis `PING`, "
-        "Alembic version row, count of active tenants, ChromaDB heartbeat (informational only), "
+        "Alembic version row, count of active tenants, Qdrant heartbeat (informational only), "
         "and a per-driver **configured** summary. "
         "**503** if database, Redis, migrations fail, tenants table is missing, or there are zero active tenants. "
-        "ChromaDB being down does **not** fail readiness. **No authentication.**"
+        "Qdrant being down does **not** fail readiness. **No authentication.**"
     ),
     responses=_HEALTH_RESPONSES,
 )
 async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     """
-    Kubernetes readiness — DB, Redis, migrations, tenants, Chroma (informational).
+    Kubernetes readiness — DB, Redis, migrations, tenants, Qdrant (informational).
 
     Returns 200 if critical dependencies pass, 503 otherwise.
-    ChromaDB failure does not fail readiness (optional for RAG-heavy installs).
+    Qdrant failure does not fail readiness (optional for RAG-heavy installs).
     """
     checks = {
         "database": "connected",
         "redis": "connected",
         "migrations": "unknown",
         "tenants": 0,
-        "chromadb": "unknown",
+        "qdrant": "unknown",
         "drivers_summary": {},
     }
     is_healthy = True
@@ -75,10 +75,10 @@ async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)
     redis_task = probe_redis(redis)
     mig_task = probe_migrations(db)
     ten_task = probe_tenants(db)
-    chroma_task = probe_chromadb()
+    qdrant_task = probe_qdrant()
 
-    db_r, redis_r, mig_r, ten_r, chroma_r = await asyncio.gather(
-        db_task, redis_task, mig_task, ten_task, chroma_task
+    db_r, redis_r, mig_r, ten_r, qdrant_r = await asyncio.gather(
+        db_task, redis_task, mig_task, ten_task, qdrant_task
     )
 
     if db_r.get("status") != "ok":
@@ -102,12 +102,12 @@ async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)
         checks["tenants"] = ten_r.get("error", "error")
         is_healthy = False
 
-    if chroma_r.get("status") == "ok":
-        checks["chromadb"] = "ok"
-    elif chroma_r.get("status") == "skipped":
-        checks["chromadb"] = f"skipped ({chroma_r.get('reason', '')})"
+    if qdrant_r.get("status") == "ok":
+        checks["qdrant"] = "ok"
+    elif qdrant_r.get("status") == "skipped":
+        checks["qdrant"] = f"skipped ({qdrant_r.get('reason', '')})"
     else:
-        checks["chromadb"] = f"error: {chroma_r.get('error', chroma_r)}"
+        checks["qdrant"] = f"error: {qdrant_r.get('error', qdrant_r)}"
 
     try:
         checks["drivers_summary"] = {
@@ -130,7 +130,7 @@ async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)
     summary="Deep health (all components)",
     description=(
         "Full platform status in one JSON object: **components** (database, redis, migrations, "
-        "tenants, ChromaDB, Ollama tags vs configured models, each LLM vendor’s model catalog when a key exists), "
+        "tenants, Qdrant, Ollama tags vs configured models, each LLM vendor’s model catalog when a key exists), "
         "**system** (CPU count, load average, process RSS), **limits** (admission, VPS profiles, rate limits, timeouts), "
         "**drivers** / **circuit_breaker** / **brain_queue** / **local_stream_admission**, and **api_keys_present** "
         "(booleans only — never secret values). "
@@ -144,7 +144,7 @@ async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)
 async def health_full(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     """
     Deep health: database, Redis, migrations, tenants, every configured LLM endpoint,
-    Ollama model tags, Chroma, CPU/load/process memory, admission limits, circuit breakers.
+    Ollama model tags, Qdrant, CPU/load/process memory, admission limits, circuit breakers.
 
     503 only when critical path fails (database, redis, or migrations).
     """

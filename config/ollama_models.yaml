@@ -23,4 +23,4 @@ domain:
 
 # ─── Embedding Models ─────────────────────────────────────────
 embeddings:
-  - nomic-embed-text           # ChromaDB vector embeddings
+  - nomic-embed-text           # Qdrant / engine vector embeddings (Ollama)

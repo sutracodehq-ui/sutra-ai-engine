@@ -26,7 +26,7 @@ dependencies = [
     "httpx>=0.28",
 
     # RAG / Vectors
-    "chromadb>=0.6",
+    "qdrant-client>=1.12",
 
     # Object Storage (R2 / S3)
     "boto3>=1.35",
