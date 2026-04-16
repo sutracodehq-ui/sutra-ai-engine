@@ -71,15 +71,11 @@ async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)
     }
     is_healthy = True
 
-    db_task = probe_db(db)
-    redis_task = probe_redis(redis)
-    mig_task = probe_migrations(db)
-    ten_task = probe_tenants(db)
-    qdrant_task = probe_qdrant()
-
-    db_r, redis_r, mig_r, ten_r, qdrant_r = await asyncio.gather(
-        db_task, redis_task, mig_task, ten_task, qdrant_task
-    )
+    # Same AsyncSession: DB probes must be sequential (SQLAlchemy async is not concurrent-safe).
+    db_r = await probe_db(db)
+    mig_r = await probe_migrations(db)
+    ten_r = await probe_tenants(db)
+    redis_r, qdrant_r = await asyncio.gather(probe_redis(redis), probe_qdrant())
 
     if db_r.get("status") != "ok":
         checks["database"] = "disconnected"

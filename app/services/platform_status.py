@@ -106,6 +106,7 @@ def collect_driver_and_circuit_snapshot() -> dict[str, Any]:
 
     try:
         reg = get_driver_registry()
+        reg._ensure_local_stream_semaphore()
         sem = reg._local_stream_sem
         slots = reg._local_stream_slots
         if sem is not None and slots:
@@ -166,6 +167,40 @@ async def probe_qdrant() -> dict[str, Any]:
     }
 
 
+def _ollama_tag_satisfies(required: str, loaded_name: str) -> bool:
+    """
+    True if loaded Ollama tag satisfies a configured requirement.
+
+    Handles: exact match, same repo with :latest/:main, and repo-only match
+    (e.g. required llama3:8b vs loaded llama3:latest — same model family present).
+    """
+    w = (required or "").strip()
+    n = (loaded_name or "").strip()
+    if not w or not n:
+        return False
+    if w == n:
+        return True
+    if len(n) > len(w) and n.startswith(w) and n[len(w)] in ":-_":
+        return True
+    w_parts = w.split(":", 1)
+    n_parts = n.split(":", 1)
+    w_repo, w_tag = (w_parts[0], w_parts[1] if len(w_parts) > 1 else "")
+    n_repo, n_tag = (n_parts[0], n_parts[1] if len(n_parts) > 1 else "")
+    if w_repo != n_repo:
+        return False
+    if not w_tag or not n_tag:
+        return True
+    if w_tag == n_tag:
+        return True
+    if n_tag in ("latest", "main") or w_tag in ("latest", "main"):
+        return True
+    if w_tag in n_tag or n_tag in w_tag:
+        return True
+    if w in n or n in w:
+        return True
+    return False
+
+
 async def probe_ollama_models() -> dict[str, Any]:
     s = get_settings()
     meta = get_provider_config("ollama") or {}
@@ -185,10 +220,12 @@ async def probe_ollama_models() -> dict[str, Any]:
         want.add(str(prov["fallback_model"]).strip())
     want.discard(None)
     want.discard("")
-    missing = [w for w in want if not any(w == n or n.startswith(w + ":") or w in n for n in names)]
+    missing = [w for w in sorted(want) if not any(_ollama_tag_satisfies(w, n) for n in names)]
     return {
         "status": "ok" if not missing else "degraded",
         "base_url": base,
+        "models_loaded": names[:40],
+        "models_loaded_truncated": len(names) > 40,
         "models_loaded_count": len(names),
         "required_in_config": sorted(want),
         "missing_models": missing,
@@ -214,6 +251,22 @@ async def probe_openai_compatible(driver: str) -> dict[str, Any]:
     code, body, err = await _http_json("GET", f"{base}/models", headers=headers)
     ok = code == 200 and isinstance(body, dict)
     nmodels = len(body.get("data", [])) if ok else 0
+    if driver == "bitnet" and code == 404:
+        return {
+            "status": "ok",
+            "http_status": code,
+            "models_reported": 0,
+            "note": "OpenAI /v1/models not exposed; server reachable (bitnet.cpp often has no catalog endpoint).",
+            "error": None,
+        }
+    if driver == "fast_local" and code == 0:
+        return {
+            "status": "skipped",
+            "http_status": code,
+            "models_reported": 0,
+            "reason": "unreachable_or_dns",
+            "error": err,
+        }
     return {
         "status": "ok" if ok else "error",
         "http_status": code,
@@ -261,7 +314,8 @@ async def probe_database(db: AsyncSession) -> dict[str, Any]:
 async def probe_redis(redis) -> dict[str, Any]:
     try:
         pong = await redis.ping()
-        return {"status": "ok" if pong else "error", "ping": str(pong)}
+        ok = pong is True or pong is 1 or str(pong).upper() == "TRUE"
+        return {"status": "ok" if ok else "error", "ping": bool(ok)}
     except Exception as e:
         return {"status": "error", "error": str(e)[:200]}
 
@@ -286,16 +340,20 @@ async def probe_tenants(db: AsyncSession) -> dict[str, Any]:
         return {"status": "error", "error": str(e)[:200]}
 
 
+async def _run_db_probes_sequential(db: AsyncSession) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """One AsyncSession cannot run concurrent operations — run DB checks in order."""
+    db_r = await probe_database(db)
+    mig_r = await probe_migrations(db)
+    ten_r = await probe_tenants(db)
+    return db_r, mig_r, ten_r
+
+
 async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
     """Run core probes + parallel remote probes."""
     t0 = time.perf_counter()
 
-    db_r, redis_r, mig_r, ten_r = await asyncio.gather(
-        probe_database(db),
-        probe_redis(redis),
-        probe_migrations(db),
-        probe_tenants(db),
-    )
+    db_r, mig_r, ten_r = await _run_db_probes_sequential(db)
+    redis_r = await probe_redis(redis)
 
     remote_tasks = await asyncio.gather(
         probe_qdrant(),
@@ -334,16 +392,36 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
         and mig_r.get("status") == "ok"
     )
 
+    notices: list[str] = []
     overall = "ok"
     if not critical_ok:
         overall = "unhealthy"
+    elif ten_r.get("status") != "ok":
+        overall = "degraded"
+        notices.append("Tenants probe failed — see components.tenants.")
     elif ten_r.get("status") == "ok" and ten_r.get("active_tenants", 1) == 0:
         overall = "degraded"
-    elif models.get("ollama", {}).get("status") not in ("ok", "skipped"):
-        overall = "degraded"
+        notices.append("No active tenants — seed a tenant for full readiness.")
+
+    ollama_st = models.get("ollama", {}).get("status")
+    if ollama_st == "degraded":
+        notices.append(
+            "Ollama: not all models listed in config are pulled on this host "
+            "(see components.models_and_endpoints.ollama.missing_models). "
+            "The app can still answer via Groq/Gemini/etc. fallbacks."
+        )
+    elif ollama_st == "error":
+        notices.append(
+            "Ollama: /api/tags failed — local inference may be unavailable until Ollama is healthy."
+        )
+    if models.get("fast_local", {}).get("status") == "skipped":
+        notices.append(
+            "fast_local: optional vLLM/TGI URL not reachable (DNS or service down)."
+        )
 
     return {
         "status": overall,
+        "notices": notices,
         "elapsed_ms": round((time.perf_counter() - t0) * 1000, 2),
         "components": {
             "database": db_r,
@@ -365,6 +443,7 @@ async def build_metrics_snapshot(db: AsyncSession, redis) -> dict[str, Any]:
     return {
         "timestamp_unix": time.time(),
         "status": full.get("status"),
+        "notices": full.get("notices", []),
         "elapsed_ms": full.get("elapsed_ms"),
         "system": full.get("system"),
         "limits": full.get("limits"),
