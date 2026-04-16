@@ -587,15 +587,19 @@ class DriverRegistry:
 
         # 1. Specialized Adapters (Polymorphic Registry)
         # Software Factory Principle: Prefer hashmap over anything.
-        adapters = {
-            "ollama": lambda: OllamaAdapter(
-                base_url=get_provider_config("ollama").get("base_url", s.ollama_base_url),
+        def _ollama_adapter() -> OllamaAdapter:
+            pc = get_provider_config("ollama") or {}
+            return OllamaAdapter(
+                base_url=pc.get("base_url", s.ollama_base_url),
                 model=s.ollama_model,
                 max_tokens=s.ollama_max_tokens,
                 temperature=s.ollama_temperature,
-                timeout_connect=s.ollama_timeout_connect,
-                timeout_read=s.ollama_timeout_read,
-            ),
+                timeout_connect=int(pc.get("timeout_connect_s", s.ollama_timeout_connect)),
+                timeout_read=int(pc.get("timeout_read_s", s.ollama_timeout_read)),
+            )
+
+        adapters = {
+            "ollama": _ollama_adapter,
             "gemini": lambda: GeminiAdapter(
                 api_key=s.gemini_api_key, 
                 model=s.gemini_model,

@@ -103,6 +103,24 @@ RETRYABLE_ERRORS = (TimeoutError, ConnectionError, ConnectionRefusedError, Conne
 RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
 
 
+def _http_status_from_error(exc: BaseException) -> int | None:
+    """Best-effort HTTP status from OpenAI SDK / httpx / chained causes."""
+    sc = getattr(exc, "status_code", None)
+    if isinstance(sc, int):
+        return sc
+    resp = getattr(exc, "response", None)
+    if resp is not None:
+        rsc = getattr(resp, "status_code", None)
+        if isinstance(rsc, int):
+            return rsc
+    cause = getattr(exc, "__cause__", None)
+    if isinstance(cause, BaseException) and cause is not exc:
+        inner = _http_status_from_error(cause)
+        if inner is not None:
+            return inner
+    return None
+
+
 async def _retry(func: Callable, *args, max_retries: int = 2, base_delay: float = 1.0, **kwargs) -> T:
     """Execute with exponential backoff + jitter."""
     last_err = None
@@ -111,10 +129,14 @@ async def _retry(func: Callable, *args, max_retries: int = 2, base_delay: float 
             return await func(*args, **kwargs)
         except Exception as e:
             last_err = e
+            sc = _http_status_from_error(e)
+            # Let driver-registry / chain advance to next provider (e.g. Ollama) instead of burning retries.
+            if sc == 429 and bool(_sec("resilience", {}).get("retry", {}).get("fast_fallback_on_429", True)):
+                logger.warning("Guardian.retry: HTTP 429 — fast-fail (no same-driver retries)")
+                raise
             if attempt >= max_retries:
                 raise
             retryable = isinstance(e, RETRYABLE_ERRORS)
-            sc = getattr(e, "status_code", None) or getattr(e, "status", None)
             if sc and int(sc) in RETRYABLE_STATUS:
                 retryable = True
             msg = str(e).lower()

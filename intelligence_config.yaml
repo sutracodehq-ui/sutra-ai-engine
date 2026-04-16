@@ -5,7 +5,7 @@
 # ─── Load Balancer (per-driver concurrency limits) ──────────
 load_balancer:
   driver_limits:
-    ollama: 2          # CPU-bound — matches OLLAMA_NUM_PARALLEL
+    ollama: 1          # CPU-bound — keep in sync with OLLAMA_NUM_PARALLEL on small hosts
     groq: 20           # Cloud API — high concurrency
     sarvam: 10         # Cloud API
     openai: 20         # Cloud API
@@ -233,6 +233,16 @@ prompt_engine:
   min_win_rate: 60.0
   retirement_trials_multiplier: 2
   retirement_win_rate_threshold: 30.0
+
+# ─── Learning (cloud → local dataset) ─────────────────────
+learning:
+  cloud_teaching:
+    enabled: true
+    # When quality_score is set (Brain paths), drop rows below this (0–10 scale). None/unset in streaming skips this gate.
+    min_quality_score: 0.0
+    max_prompt_chars: 120000
+    max_response_chars: 120000
+    output_dir: "training/cloud_teaching"
 
 # ─── Distillation ─────────────────────────────────────────
 distillation:
@@ -464,7 +474,7 @@ vps_admission:
     normal:
       max_local_streams: 2
       max_queue_wait_s: 0.5
-      prefer_chain: [ollama, groq, gemini]
+      prefer_chain: [groq, gemini, ollama]
     high_load:
       max_local_streams: 1
       max_queue_wait_s: 0.3
@@ -506,8 +516,7 @@ factory_rollout_gates:
     max_tts_latency_ms: 2000
 
 # ─── Routing Policy (OSS-First) ─────────────────────────────
-# Enforces open-source-first model selection. Paid providers
-# are only used when free/local options fail quality gates.
+# Policy notes; primary driver order is smart_router.driver_chains + global_driver_chain.
 routing_policy:
   oss_first: true
   paid_escalation_only_on:
@@ -1028,15 +1037,15 @@ smart_router:
   default_complexity: moderate
 
   # Driver chains per complexity tier (first available wins)
-  # Hardware Factory preference: Local Execution -> Free Cloud -> Paid Cloud
+  # Primary: Groq (fast free-tier cloud) → Ollama (local) → other providers
   driver_chains:
     english:
-      simple: [ollama, groq, gemini, sarvam, openai]
-      moderate: [ollama, groq, gemini, sarvam, openai, anthropic]
+      simple: [groq, ollama, gemini, sarvam, openai]
+      moderate: [groq, ollama, gemini, sarvam, openai, anthropic]
       complex: [groq, gemini, ollama, sarvam, anthropic, openai]
     indic:
-      simple: [ollama, groq, gemini, sarvam, openai]
-      moderate: [ollama, groq, gemini, sarvam, openai, anthropic]
+      simple: [groq, ollama, gemini, sarvam, openai]
+      moderate: [groq, ollama, gemini, sarvam, openai, anthropic]
       complex: [groq, gemini, ollama, sarvam, anthropic, openai]
 
   # Model tiers per driver per complexity
@@ -1172,10 +1181,10 @@ resilience:
   # Ordered driver fallback when Settings.ai_driver_chain is empty.
   # Filtered at runtime to drivers with valid keys + provider metadata.
   global_driver_chain:
-    - fast_local
+    - groq
     - ollama
     - bitnet
-    - groq
+    - fast_local
     - openai
     - gemini
     - anthropic
@@ -1183,7 +1192,7 @@ resilience:
     - nvidia
   max_fallback_models_per_driver: 6
   admission_control:
-    max_local_streams: 2
+    max_local_streams: 1
     max_queue_wait_s: 0.35
   circuit_breaker:
     threshold: 3
@@ -1193,6 +1202,8 @@ resilience:
     base_delay: 1.0
     backoff: exponential
     max_delay: 30.0
+    # If true, HTTP 429 does not retry the same driver — chain advances (e.g. Groq → Ollama) faster.
+    fast_fallback_on_429: true
   rate_limiter:
     default_rpm: 60
     default_rpd: 10000

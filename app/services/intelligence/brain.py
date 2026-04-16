@@ -273,15 +273,17 @@ class Brain:
             else:
                 reordered = ["fast_local"] + [d for d in reordered if d != "fast_local"]
         if strict_json:
-            # Deterministic local path first for strict structured output.
-            if "ollama" in reordered:
+            # Prefer Groq for structured JSON when present; else local Ollama.
+            if "groq" in reordered:
+                reordered = ["groq"] + [d for d in reordered if d != "groq"]
+            elif "ollama" in reordered:
                 reordered = ["ollama"] + [d for d in reordered if d != "ollama"]
         return reordered
 
     def _get_chain(self, complexity: str, language: str) -> list[str]:
         sr = _cfg("smart_router", default={})
         lang_key = "english" if language == "english" else "indic"
-        return sr.get("driver_chains", {}).get(lang_key, {}).get(complexity, ["ollama", "groq"])
+        return sr.get("driver_chains", {}).get(lang_key, {}).get(complexity, ["groq", "ollama"])
 
     async def _assess_complexity(self, prompt: str, agent_type: str) -> dict:
         """Scout LLM (primary) → heuristic fallback."""
@@ -564,7 +566,7 @@ class Brain:
             cloud_lat = round((time.monotonic() - cloud_start) * 1000)
             final_score = guardian.score_response(resp, expected_fields)["total"]
             await guardian.record_quality(agent_type, final_score, driver=resp.driver, latency_ms=cloud_lat)
-            await self._auto_train(agent_type, prompt, resp)
+            await self._auto_train(agent_type, prompt, resp, quality_score=final_score)
             resp = self._annotate_response(
                 resp,
                 route_hint=route_hint,
@@ -617,7 +619,7 @@ class Brain:
         cloud_score = guardian.score_response(cloud_resp, expected_fields)["total"]
         if cloud_score >= score_result["threshold"]:
             await guardian.record_quality(agent_type, cloud_score, driver=cloud_resp.driver, latency_ms=esc_lat)
-            await self._auto_train(agent_type, prompt, cloud_resp)
+            await self._auto_train(agent_type, prompt, cloud_resp, quality_score=cloud_score)
             cloud_resp = self._annotate_response(
                 cloud_resp,
                 route_hint=route_hint,
@@ -631,6 +633,21 @@ class Brain:
         chosen_driver = cloud_resp.driver if cloud_score > score else "ollama"
         chosen_lat = esc_lat if cloud_score > score else latency
         await guardian.record_quality(agent_type, chosen_score, driver=chosen_driver, latency_ms=chosen_lat)
+        # Cloud edged local but did not meet promotion threshold — still log for distillation if cloud won.
+        if cloud_score > score and (chosen.content or "").strip():
+            try:
+                from app.services.learning.cloud_teaching_log import append_cloud_teaching_record
+
+                append_cloud_teaching_record(
+                    agent_type,
+                    prompt,
+                    chosen.content,
+                    source_driver=str(cloud_resp.driver or "unknown"),
+                    model=cloud_resp.model,
+                    quality_score=chosen_score,
+                )
+            except Exception as e:
+                logger.debug("Brain: cloud_teaching log skipped: %s", e)
         chosen = self._annotate_response(
             chosen,
             route_hint=route_hint,
@@ -725,11 +742,34 @@ class Brain:
         from app.services.llm_service import get_llm_service
         return await get_llm_service().complete(prompt=prompt, system_prompt=system_prompt, **opts)
 
-    async def _auto_train(self, agent_type: str, prompt: str, resp: LlmResponse):
-        if not resp.content: return
+    async def _auto_train(
+        self,
+        agent_type: str,
+        prompt: str,
+        resp: LlmResponse,
+        *,
+        quality_score: float | None = None,
+    ):
+        if not resp.content:
+            return
+        try:
+            from app.services.learning.cloud_teaching_log import append_cloud_teaching_record
+
+            append_cloud_teaching_record(
+                agent_type,
+                prompt,
+                resp.content,
+                source_driver=str(resp.driver or "unknown"),
+                model=resp.model,
+                quality_score=quality_score,
+            )
+        except Exception as e:
+            logger.debug("Brain: cloud_teaching unified log skipped: %s", e)
         try:
             from app.services.intelligence.memory import get_memory
-            await get_memory().remember(agent_type, prompt, resp.content, quality_score=1.0)
+
+            mem_q = 1.0 if quality_score is None else max(0.0, min(1.0, float(quality_score) / 10.0))
+            await get_memory().remember(agent_type, prompt, resp.content, quality_score=mem_q)
         except Exception as e:
             logger.warning(f"Brain: auto-train failed: {e}")
 

@@ -594,19 +594,16 @@ class BaseAgent:
         # can learn from it over time.
         if used_fallback and complete_text:
             try:
-                import json
-                from pathlib import Path
-                training_dir = Path("training/cloud_teaching")
-                training_dir.mkdir(parents=True, exist_ok=True)
-                entry = {
-                    "agent": self.identifier,
-                    "prompt": prompt,
-                    "response": complete_text,
-                    "source": actual_driver,
-                }
-                log_path = training_dir / f"{self.identifier}.jsonl"
-                with open(log_path, "a") as f:
-                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                from app.services.learning.cloud_teaching_log import append_cloud_teaching_record
+
+                append_cloud_teaching_record(
+                    self.identifier,
+                    prompt,
+                    complete_text,
+                    source_driver=str(actual_driver or "unknown"),
+                    model=None,
+                    quality_score=None,
+                )
                 logger.info(
                     f"Cloud teaching: stored {len(complete_text)} chars "
                     f"from {actual_driver} for {self.identifier}"

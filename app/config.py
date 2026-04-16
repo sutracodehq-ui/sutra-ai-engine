@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     master_api_key: str = "sk_master_change_me_in_production"
 
     # ─── AI Driver (primary text completion) ────────
-    ai_driver: str = "ollama"
-    ai_fallback_driver: str = "groq"
+    ai_driver: str = "groq"
+    ai_fallback_driver: str = "ollama"
     # Comma-separated override for DriverRegistry chain (empty = use intelligence_config resilience.global_driver_chain)
     ai_driver_chain: str = ""
 
@@ -95,8 +95,9 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma4:e4b"
     ollama_max_tokens: int = 2048
     ollama_temperature: float = 0.7
-    ollama_timeout_connect: int = 5       # Fail fast if Ollama is down
-    ollama_timeout_read: int = 20         # Fast fallback to cloud if local hangs
+    ollama_timeout_connect: int = 5       # Fail fast if Ollama is down (YAML providers.ollama overrides)
+    # Default matches intelligence_config providers.ollama.timeout_read_s — cold CPU loads need minutes.
+    ollama_timeout_read: int = 300
 
     # ─── Fast Local (vLLM/TGI OpenAI-compatible) ───
     # Optional hot-path server for ultra-low-latency streaming.
@@ -165,7 +166,9 @@ class Settings(BaseSettings):
     ai_agent_memory_enabled: bool = False
 
     # ─── Hybrid Routing ──────────────────────────────
-    ai_hybrid_routing: bool = True
+    # False: use global driver chain order (Groq-first when ai_driver / YAML chain say so).
+    # True: Brain local-first (Ollama) + quality gate + cloud escalation.
+    ai_hybrid_routing: bool = False
     ai_hybrid_quality_threshold: int = 7
     ai_hybrid_fast_path_threshold: float = 8.0
     ai_hybrid_direct_cloud_threshold: float = 5.0
