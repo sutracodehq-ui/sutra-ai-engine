@@ -564,7 +564,7 @@ model_matrix:
     balanced_default:
       monthly_budget_usd: 100
       max_cost_per_request_usd: 0.05
-      global_driver_chain: [groq, nvidia, gemini, together, fireworks, ollama, openai, anthropic, sarvam]
+      global_driver_chain: [groq, nvidia, gemini, together, fireworks, ollama, bitnet, openai, anthropic, sarvam]
       driver_chains:
         english:
           simple: [bitnet, groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
@@ -1291,6 +1291,7 @@ resilience:
     - together
     - fireworks
     - ollama
+    - bitnet
     - openai
     - anthropic
     - sarvam
