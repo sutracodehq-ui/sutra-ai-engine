@@ -116,7 +116,9 @@ async def run_pipeline(
             prompt = f"{prompt}\n\n{context}"
 
     # ─── Pipeline options ───────────────────────────────
-    driver_chain = cfg.get("driver_chain", ["groq", "gemini", "anthropic", "ollama"])
+    from app.services.intelligence.config_loader import get_global_driver_chain
+
+    driver_chain = cfg.get("driver_chain") or list(get_global_driver_chain())
     temperature = cfg.get("temperature", 0.7)
     json_mode = cfg.get("json_mode", False)
     expected_fields = cfg.get("expected_fields", [])

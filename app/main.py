@@ -22,6 +22,18 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(f"🧠 SutraAI Engine starting (env={settings.app_env}, driver={settings.ai_driver})")
 
+    # Vector store: Qdrant only (no ChromaDB in this codebase or compose).
+    qurl = (settings.qdrant_url or "").strip()
+    if qurl:
+        from app.services.vector.qdrant_store import get_qdrant_client
+
+        if get_qdrant_client():
+            logger.info("Vector store: Qdrant OK at %s", qurl.rstrip("/"))
+        else:
+            logger.warning("Vector store: QDRANT_URL set but client init failed — check network/credentials")
+    else:
+        logger.warning("Vector store: QDRANT_URL unset — RAG / tenant vector features are disabled")
+
     # Pre-warm the agent hub (registers all agents)
     from app.services.agents.hub import get_agent_hub
     hub = get_agent_hub()

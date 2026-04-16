@@ -526,6 +526,21 @@ routing_policy:
   paid_providers: [openai, anthropic]
   free_providers: [ollama, fast_local, bitnet, groq, gemini, nvidia, sarvam]
 
+# ─── Routing (driver roles — order is resilience.global_driver_chain only) ───
+routing:
+  # On-box drivers: excluded from "cloud" loops and listed first for fast_local route hints
+  local_driver_ids:
+    - ollama
+    - bitnet
+    - fast_local
+  # Brain hybrid local-first attempt (must be a registered driver name, usually ollama)
+  hybrid_local_driver: ollama
+
+# ─── Live knowledge distillation (LLM for dataset generation) ───
+live_knowledge:
+  driver: groq
+  model: llama-3.3-70b-versatile
+
 # ─── Voice Models (NVIDIA Small-Model Tiers) ────────────────
 voice_models:
   nvidia:
@@ -1065,7 +1080,8 @@ smart_router:
     groq:
       simple: llama-3.1-8b-instant
       moderate: llama-3.1-8b-instant
-      complex: llama-3.3-70b-versatile
+      # Free-tier TPD is tight on 70B; use 8B for complex unless you are on Groq Dev/paid tier.
+      complex: llama-3.1-8b-instant
     ollama:
       simple: qwen3:1.7b
       moderate: qwen3:4b
@@ -1208,7 +1224,8 @@ resilience:
     default_rpm: 60
     default_rpd: 10000
   timeouts:
-    first_token_timeout_s: 10.0
+    # Ollama on CPU often needs >10s before first token when loading / under load.
+    first_token_timeout_s: 120.0
     stream_inactivity_timeout_s: 8.0
 
 # ─── Quality Configuration ─────────────────────────────────
@@ -1491,7 +1508,8 @@ budget:
 # ─── Fallback Models ───────────────────────────────────────
 fallback_models:
   local: "qwen2.5:3b"
-  meta_optimizer: llama-3.3-70b-versatile
+  meta_optimizer: llama-3.1-8b-instant
+  meta_optimizer_driver: groq
 
 # ─── Timeouts (seconds) ───────────────────────────────────
 timeouts:
@@ -1501,7 +1519,7 @@ timeouts:
   web_search_s: 10
   web_fetch_s: 3
   queue_acquire_s: 2
-  first_token_timeout_s: 10      # Fast failover: first token from primary driver or fall to chain
+  first_token_timeout_s: 120    # Must match cold Ollama; DriverRegistry reads this first
   stream_inactivity_s: 120       # Max silence between tokens during streaming
   stream_inactivity_timeout_s: 8 # Stall guard for provider stream generators (auto-hop on silence)
 

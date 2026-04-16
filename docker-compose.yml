@@ -214,7 +214,8 @@ services:
       - sutra-ai-network
     restart: unless-stopped
 
-  # ─── Qdrant (Vector DB for agent memory / RAG) ───────
+  # ─── Qdrant (sole vector DB — agent memory / RAG / brand collections) ───────
+  # This stack does not run or require ChromaDB; use QDRANT_URL in .env only.
   # Official image is Debian-based with bash; TCP check avoids needing curl/wget in slim images.
   sutra-ai-qdrant:
     image: qdrant/qdrant:latest

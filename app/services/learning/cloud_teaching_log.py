@@ -10,11 +10,9 @@ import json
 import logging
 from pathlib import Path
 
-from app.services.intelligence.config_loader import get_intelligence_config
+from app.services.intelligence.config_loader import get_intelligence_config, get_local_driver_ids
 
 logger = logging.getLogger(__name__)
-
-_LOCAL_DRIVERS = frozenset({"ollama", "bitnet", "fast_local"})
 
 
 def append_cloud_teaching_record(
@@ -35,7 +33,8 @@ def append_cloud_teaching_record(
     if not response or not str(response).strip():
         return
     drv = (source_driver or "").strip().lower()
-    if drv in _LOCAL_DRIVERS or drv in ("", "unknown"):
+    local_ids = get_local_driver_ids()
+    if drv in local_ids or drv in ("", "unknown"):
         return
 
     cfg = (get_intelligence_config().get("learning") or {}).get("cloud_teaching") or {}

@@ -1,6 +1,9 @@
 """
 Qdrant client singleton + Ollama embeddings.
 
+This engine uses Qdrant as its only vector database (RAG, agent memory, brand
+collections). There is no ChromaDB client path in this codebase.
+
 All engine collections use cosine distance and the same embedding model/dimension
 (see Settings.embedding_model / embedding_vector_size).
 """
@@ -23,7 +26,7 @@ _qdrant: QdrantClient | None = None
 
 
 def stable_point_id(id_str: str) -> int:
-    """Deterministic unsigned-ish int for Qdrant point id (Chroma used string ids)."""
+    """Deterministic unsigned-ish int for Qdrant point id (legacy migrations used string ids)."""
     h = hashlib.sha256(id_str.encode("utf-8")).digest()[:8]
     return int.from_bytes(h, "big", signed=False) % (2**63 - 1)
 

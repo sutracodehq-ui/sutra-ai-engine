@@ -108,13 +108,23 @@ class KnowledgeDistiller:
         try:
             prompt = f"Produce a training dataset from this context:\n\n{context_text}"
             
-            # Use a free cloud model for distillation (Groq = $0)
+            from app.services.intelligence.config_loader import (
+                first_non_local_driver_from_chain,
+                get_live_knowledge_llm_config,
+            )
+
+            lk = get_live_knowledge_llm_config()
+            drv = lk.get("driver") or first_non_local_driver_from_chain()
+            mdl = lk.get("model")
+            if not drv:
+                logger.warning("live_knowledge: no driver configured; skipping LLM step")
+                return []
             response = await self._llm.complete(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                driver="groq",
-                model="llama-3.3-70b-versatile",
-                temperature=0.4
+                driver=drv,
+                model=mdl,
+                temperature=float(lk.get("temperature", 0.4)),
             )
 
             # Robust JSON extraction

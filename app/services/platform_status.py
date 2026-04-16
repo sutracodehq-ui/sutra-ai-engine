@@ -19,7 +19,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.services.intelligence.config_loader import get_intelligence_config, get_provider_config
+from app.services.intelligence.config_loader import (
+    get_global_driver_chain,
+    get_intelligence_config,
+    get_provider_config,
+)
 from app.services.intelligence.driver import get_driver_registry
 
 logger = logging.getLogger(__name__)
@@ -82,7 +86,10 @@ def collect_driver_and_circuit_snapshot() -> dict[str, Any]:
     out: dict[str, Any] = {"drivers": {}, "circuit_breaker": {}, "brain_queue": {}}
     try:
         reg = get_driver_registry()
-        for name in ("ollama", "groq", "openai", "gemini", "anthropic", "nvidia", "sarvam", "bitnet", "fast_local"):
+        names = [n for n in get_global_driver_chain() if n]
+        if not names:
+            out["drivers"]["_note"] = "resilience.global_driver_chain is empty — no drivers enumerated"
+        for name in names:
             try:
                 out["drivers"][name] = {"configured": reg._driver_configured(name)}
             except Exception as e:
@@ -286,6 +293,19 @@ async def probe_gemini() -> dict[str, Any]:
     return {"status": "ok" if ok else "error", "http_status": code, "models_reported": n, "error": err if not ok else None}
 
 
+async def probe_llm_driver(name: str) -> dict[str, Any]:
+    """Dispatch health probe by driver name (order comes from resilience.global_driver_chain)."""
+    if name == "ollama":
+        return await probe_ollama_models()
+    if name == "gemini":
+        return await probe_gemini()
+    if name == "anthropic":
+        return await probe_anthropic()
+    if name in ("groq", "openai", "nvidia", "sarvam", "bitnet", "fast_local"):
+        return await probe_openai_compatible(name)
+    return {"status": "skipped", "reason": f"no probe for driver {name!r}"}
+
+
 async def probe_anthropic() -> dict[str, Any]:
     s = get_settings()
     if not s.anthropic_api_key:
@@ -355,32 +375,18 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
     db_r, mig_r, ten_r = await _run_db_probes_sequential(db)
     redis_r = await probe_redis(redis)
 
+    chain = [n for n in get_global_driver_chain() if n]
+    if not chain:
+        logger.warning("resilience.global_driver_chain empty — probing default LLM set for /health/full")
+        chain = ["ollama", "groq", "openai", "nvidia", "sarvam", "bitnet", "fast_local", "gemini", "anthropic"]
+
     remote_tasks = await asyncio.gather(
         probe_qdrant(),
-        probe_ollama_models(),
-        probe_openai_compatible("groq"),
-        probe_openai_compatible("openai"),
-        probe_openai_compatible("nvidia"),
-        probe_openai_compatible("sarvam"),
-        probe_openai_compatible("bitnet"),
-        probe_openai_compatible("fast_local"),
-        probe_gemini(),
-        probe_anthropic(),
+        *[probe_llm_driver(n) for n in chain],
         return_exceptions=True,
     )
 
-    names = (
-        "qdrant",
-        "ollama",
-        "groq",
-        "openai",
-        "nvidia",
-        "sarvam",
-        "bitnet",
-        "fast_local",
-        "gemini",
-        "anthropic",
-    )
+    names = ("qdrant",) + tuple(chain)
     models: dict[str, Any] = {}
     for i, name in enumerate(names):
         r = remote_tasks[i]

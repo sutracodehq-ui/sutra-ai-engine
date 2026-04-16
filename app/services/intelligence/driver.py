@@ -29,7 +29,12 @@ from typing import AsyncGenerator, Optional
 import httpx
 
 from app.config import get_settings
-from app.services.intelligence.config_loader import get_intelligence_config, get_provider_config
+from app.services.intelligence.config_loader import (
+    get_global_driver_chain,
+    get_intelligence_config,
+    get_local_driver_ids,
+    get_provider_config,
+)
 from app.services.drivers.base import LlmDriver, LlmResponse
 
 logger = logging.getLogger(__name__)
@@ -75,6 +80,17 @@ def provider_fallback_model_list(driver: str) -> list[str]:
 def _has_text_response(resp: LlmResponse | None) -> bool:
     """Treat empty/whitespace bodies as failed attempts for fallback progression."""
     return bool(resp and isinstance(resp.content, str) and resp.content.strip())
+
+
+def _is_provider_rate_limit(exc: BaseException) -> bool:
+    """True when we should try the next model on the same OpenAI-compat driver before hopping providers."""
+    from app.services.intelligence.guardian import _http_status_from_error
+
+    sc = _http_status_from_error(exc)
+    if sc == 429:
+        return True
+    msg = str(exc).lower()
+    return "rate limit" in msg or "rate_limit" in msg or "tokens per day" in msg
 
 
 # ─── OpenAI-Compatible Adapter (covers: openai, groq, nvidia, sarvam) ──
@@ -701,11 +717,8 @@ class DriverRegistry:
         if raw:
             chain = [x.strip() for x in raw.split(",") if x.strip()]
         else:
-            intel = get_intelligence_config()
-            g = (intel.get("resilience") or {}).get("global_driver_chain")
-            if isinstance(g, list) and g:
-                chain = [str(x).strip() for x in g if str(x).strip()]
-            else:
+            chain = list(get_global_driver_chain())
+            if not chain:
                 chain = [s.ai_driver]
                 if s.ai_fallback_driver and s.ai_fallback_driver != s.ai_driver:
                     chain.append(s.ai_fallback_driver)
@@ -874,8 +887,8 @@ class DriverRegistry:
 
     @contextlib.asynccontextmanager
     async def _admission_slot(self, driver_name: str):
-        local_drivers = {"ollama", "bitnet", "fast_local"}
-        if driver_name not in local_drivers:
+        local_drivers = get_local_driver_ids()
+        if not local_drivers or driver_name not in local_drivers:
             yield
             return
         self._ensure_local_stream_semaphore()
@@ -975,6 +988,12 @@ class DriverRegistry:
                             f"no first token in {first_token_timeout}s"
                         )
                     except Exception as e:
+                        if _is_provider_rate_limit(e) and hop < len(tiny_chain) - 1:
+                            logger.warning(
+                                f"Driver: {driver_override} stream hop {hop} ({label}) "
+                                f"rate-limited — trying next model"
+                            )
+                            continue
                         logger.warning(
                             f"Driver: {driver_override} stream hop {hop} ({label}) failed: {e}"
                         )
@@ -994,29 +1013,56 @@ class DriverRegistry:
             if not guardian.circuit_breaker.is_available(driver_name):
                 continue
             try:
-                self.driver(driver_name)
+                d0 = self.driver(driver_name)
             except ValueError as ve:
                 logger.warning(f"Driver: {driver_name} stream skip (not configured): {ve}")
                 continue
-            try:
-                seen_chunk = False
-                async with self._admission_slot(driver_name):
-                    async for chunk in self._stream_with_first_token_timeout(
-                        driver_name,
-                        messages,
-                        first_token_timeout,
-                        stream_inactivity_timeout,
-                        **chain_clean,
-                    ):
-                        seen_chunk = True
-                        yield chunk
-                if not seen_chunk:
-                    raise RuntimeError("empty stream")
-                guardian.circuit_breaker.record_success(driver_name)
-                return
-            except Exception as e:
+            primary_model = getattr(d0, "_model", None)
+            fb_models = provider_fallback_model_list(driver_name)
+            models_to_try: list[str | None] = [None]
+            for fb in fb_models:
+                if fb and fb != primary_model:
+                    models_to_try.append(fb)
+
+            driver_had_success = False
+            for hop, fb_model in enumerate(models_to_try):
+                stream_clean = chain_clean if fb_model is None else {**chain_clean, "model": fb_model}
+                label = "primary" if fb_model is None else fb_model
+                try:
+                    seen_chunk = False
+                    async with self._admission_slot(driver_name):
+                        async for chunk in self._stream_with_first_token_timeout(
+                            driver_name,
+                            messages,
+                            first_token_timeout,
+                            stream_inactivity_timeout,
+                            **stream_clean,
+                        ):
+                            seen_chunk = True
+                            yield chunk
+                    if not seen_chunk:
+                        raise RuntimeError("empty stream")
+                    guardian.circuit_breaker.record_success(driver_name)
+                    driver_had_success = True
+                    return
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        f"Driver: {driver_name} chain hop {hop} ({label}) "
+                        f"no first token in {first_token_timeout}s"
+                    )
+                except Exception as e:
+                    if _is_provider_rate_limit(e) and hop < len(models_to_try) - 1:
+                        logger.warning(
+                            f"Driver: {driver_name} chain hop {hop} ({label}) rate-limited — "
+                            f"trying next model"
+                        )
+                        continue
+                    logger.warning(
+                        f"Driver: {driver_name} chain hop {hop} ({label}) stream failed: {e}"
+                    )
+                    break
+            if not driver_had_success:
                 guardian.circuit_breaker.record_failure(driver_name)
-                logger.warning(f"Driver: {driver_name} stream failed: {e}")
         logger.error("DriverRegistry: all drivers failed for stream; emitting offline emergency text")
         async for chunk in EmergencyFallbackDriver().stream(messages, **chain_clean):
             yield chunk

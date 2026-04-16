@@ -37,7 +37,14 @@ from app.lib.response_normalizer import parse_json_like
 from app.models.agent_optimization import AgentOptimization
 from app.schemas.agent_result import AgentResult
 from app.services.drivers.base import LlmResponse
-from app.services.intelligence.config_loader import get_provider_config
+from app.services.intelligence.config_loader import (
+    first_non_local_driver_from_chain,
+    get_global_driver_chain,
+    get_hybrid_local_driver,
+    get_local_driver_ids,
+    get_provider_config,
+    order_chain_by_global_reference,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -273,17 +280,17 @@ class Brain:
             else:
                 reordered = ["fast_local"] + [d for d in reordered if d != "fast_local"]
         if strict_json:
-            # Prefer Groq for structured JSON when present; else local Ollama.
-            if "groq" in reordered:
-                reordered = ["groq"] + [d for d in reordered if d != "groq"]
-            elif "ollama" in reordered:
-                reordered = ["ollama"] + [d for d in reordered if d != "ollama"]
+            reordered = order_chain_by_global_reference(reordered)
         return reordered
 
     def _get_chain(self, complexity: str, language: str) -> list[str]:
         sr = _cfg("smart_router", default={})
         lang_key = "english" if language == "english" else "indic"
-        return sr.get("driver_chains", {}).get(lang_key, {}).get(complexity, ["groq", "ollama"])
+        row = (sr.get("driver_chains") or {}).get(lang_key, {}) or {}
+        ch = row.get(complexity)
+        if isinstance(ch, list) and ch:
+            return [str(x).strip() for x in ch if str(x).strip()]
+        return list(get_global_driver_chain())
 
     async def _assess_complexity(self, prompt: str, agent_type: str) -> dict:
         """Scout LLM (primary) → heuristic fallback."""
@@ -308,13 +315,13 @@ class Brain:
     @staticmethod
     def _order_chain_for_route_hint(chain: list[str], route_hint: str) -> list[str]:
         """Reorder driver chain using Redis quality routing hints (never blocks routing)."""
-        locals_first = frozenset({"ollama", "bitnet", "fast_local"})
+        local_ids = get_local_driver_ids()
         if not chain:
             return chain
         if route_hint == "fast_local":
-            return [d for d in chain if d in locals_first] + [d for d in chain if d not in locals_first]
+            return [d for d in chain if d in local_ids] + [d for d in chain if d not in local_ids]
         if route_hint == "direct_cloud":
-            return [d for d in chain if d not in locals_first] + [d for d in chain if d in locals_first]
+            return [d for d in chain if d not in local_ids] + [d for d in chain if d in local_ids]
         return list(chain)
 
     # ── Multi-Objective Router (MOR) ─────────────────────────
@@ -354,8 +361,8 @@ class Brain:
         if avg_lat is not None and avg_lat > 0:
             l_score = min(1.0, target_ms / avg_lat)
         else:
-            local_drivers = {"ollama", "bitnet", "fast_local"}
-            l_score = 0.6 if driver in local_drivers else 0.5
+            local_ids = get_local_driver_ids()
+            l_score = 0.6 if driver in local_ids else 0.5
 
         # Cost: from YAML lookup (lower cost → higher score)
         cost_map = mor_cfg.get("cost_penalty_per_1k_tokens", {})
@@ -381,7 +388,10 @@ class Brain:
                 get_llm_service().complete(
                     prompt=prompt[: cfg.get("max_prompt_chars", 300)],
                     system_prompt=cfg.get("system_prompt", "Classify task complexity 1-10 as JSON."),
-                    driver=cfg.get("driver", "ollama"),
+                    driver=cfg.get("driver")
+                    or get_hybrid_local_driver()
+                    or first_non_local_driver_from_chain()
+                    or get_settings().ai_driver,
                     model=cfg.get("model", "qwen3:1.7b"),
                     max_tokens=100,
                     temperature=0.0,
@@ -582,7 +592,7 @@ class Brain:
 
         if route_hint == "fast_local":
             local_score = guardian.score_response(local_resp, expected_fields)["total"]
-            await guardian.record_quality(agent_type, local_score, driver="ollama", latency_ms=latency)
+            await guardian.record_quality(agent_type, local_score, driver=get_hybrid_local_driver(), latency_ms=latency)
             local_resp = self._annotate_response(
                 local_resp,
                 route_hint=route_hint,
@@ -595,7 +605,7 @@ class Brain:
         score_result = guardian.score_response(local_resp, expected_fields)
         score = score_result["total"]
         if score_result["passed"]:
-            await guardian.record_quality(agent_type, score, driver="ollama", latency_ms=latency)
+            await guardian.record_quality(agent_type, score, driver=get_hybrid_local_driver(), latency_ms=latency)
             local_resp = self._annotate_response(
                 local_resp,
                 route_hint=route_hint,
@@ -630,7 +640,7 @@ class Brain:
             return await self._finalize_nonempty_response(prompt, system_prompt, cloud_resp, **options)
         chosen = cloud_resp if cloud_score > score else local_resp
         chosen_score = cloud_score if cloud_score > score else score
-        chosen_driver = cloud_resp.driver if cloud_score > score else "ollama"
+        chosen_driver = cloud_resp.driver if cloud_score > score else get_hybrid_local_driver()
         chosen_lat = esc_lat if cloud_score > score else latency
         await guardian.record_quality(agent_type, chosen_score, driver=chosen_driver, latency_ms=chosen_lat)
         # Cloud edged local but did not meet promotion threshold — still log for distillation if cloud won.
@@ -695,13 +705,17 @@ class Brain:
     async def _call_local(self, prompt: str, system_prompt: str, **opts) -> LlmResponse:
         from app.services.intelligence.guardian import get_guardian
         from app.services.llm_service import get_llm_service
-        if not get_guardian().circuit_breaker.is_available("ollama"):
-            return LlmResponse(content="", total_tokens=0, driver="ollama", model="n/a", metadata={"error": "circuit_open"})
+
+        drv = get_hybrid_local_driver()
+        if not drv:
+            return LlmResponse(content="", total_tokens=0, driver="n/a", model="n/a", metadata={"error": "hybrid_local_driver unset"})
+        if not get_guardian().circuit_breaker.is_available(drv):
+            return LlmResponse(content="", total_tokens=0, driver=drv, model="n/a", metadata={"error": "circuit_open"})
         try:
-            return await get_llm_service().complete(prompt=prompt, system_prompt=system_prompt, driver="ollama", **opts)
+            return await get_llm_service().complete(prompt=prompt, system_prompt=system_prompt, driver=drv, **opts)
         except Exception as e:
             logger.warning(f"Brain: local failed: {e}")
-            return LlmResponse(content="", total_tokens=0, driver="ollama", model="n/a", metadata={"error": str(e)})
+            return LlmResponse(content="", total_tokens=0, driver=drv, model="n/a", metadata={"error": str(e)})
 
     async def _call_cloud(self, prompt: str, system_prompt: str, **opts) -> LlmResponse:
         from app.services.llm_service import get_llm_service
@@ -710,7 +724,8 @@ class Brain:
         scout_score = opts.pop("scout_score", None)
         scout_confidence = opts.pop("scout_confidence", None)
         chain = self._get_chain("complex", "english")
-        cloud_drivers = [d for d in chain if d not in ("ollama", "bitnet")]
+        local_ids = get_local_driver_ids()
+        cloud_drivers = [d for d in chain if d not in local_ids]
         for driver in cloud_drivers:
             try:
                 model = self._pick_model(
@@ -779,7 +794,9 @@ class Brain:
                                   cfg: dict, **options) -> LlmResponse:
         from app.services.llm_service import get_llm_service
         svc = get_llm_service()
-        drivers = cfg.get("parallel_drivers", ["groq", "gemini"])
+        drivers = cfg.get("parallel_drivers")
+        if not isinstance(drivers, list) or not drivers:
+            drivers = [d for d in get_global_driver_chain() if d not in get_local_driver_ids()][:2]
 
         async def _call_one(drv):
             try:
@@ -800,13 +817,27 @@ class Brain:
             valid[0][1].metadata = {"consensus": "single_valid"}; return valid[0][1]
 
         # Judge
-        judge_driver, judge_model = cfg.get("judge_driver", "groq"), cfg.get("judge_model", "llama-3.1-8b-instant")
+        judge_driver = cfg.get("judge_driver") or (drivers[0] if drivers else first_non_local_driver_from_chain())
+        judge_model = cfg.get("judge_model") or (
+            self._pick_model(judge_driver, "complex") if judge_driver else None
+        )
+        if judge_driver and not judge_model:
+            s = get_settings()
+            judge_model = getattr(s, f"{judge_driver}_model", None)
         comparison = f"PROMPT: {prompt[:500]}\n\n"
         for i, (drv, resp) in enumerate(valid[:2]):
             comparison += f"RESPONSE {'AB'[i]} ({drv}):\n{resp.content[:2000]}\n\n"
         try:
-            judge_resp = await get_llm_service().complete(prompt=comparison, system_prompt=cfg.get("judge_prompt", "Compare two responses."),
-                                                          driver=judge_driver, model=judge_model, max_tokens=200, temperature=0.0)
+            if not judge_driver or not judge_model:
+                return valid[0][1]
+            judge_resp = await get_llm_service().complete(
+                prompt=comparison,
+                system_prompt=cfg.get("judge_prompt", "Compare two responses."),
+                driver=judge_driver,
+                model=judge_model,
+                max_tokens=200,
+                temperature=0.0,
+            )
             data = json.loads(judge_resp.content.strip().removeprefix("```json").removesuffix("```").strip())
             idx = 0 if data.get("winner", "A") == "A" else min(1, len(valid) - 1)
             winner = valid[idx][1]
@@ -1016,11 +1047,15 @@ class Brain:
 
     async def _meta_improve(self, agent_type: str, current) -> Optional[str]:
         from app.services.llm_service import get_llm_service
+        fm = _cfg("fallback_models", default={}) or {}
+        meta_drv = fm.get("meta_optimizer_driver") or first_non_local_driver_from_chain() or get_settings().ai_driver
         try:
             resp = await get_llm_service().complete(
                 prompt=f"AGENT: {agent_type}\nCURRENT PROMPT:\n{current.prompt_text}\nWIN RATE: {current.win_rate:.1f}%\nGenerate improved version. Output ONLY the new prompt.",
                 system_prompt="You are a Prompt Engineer. Improve this AI agent prompt.",
-                driver="groq", model=_cfg("fallback_models", "meta_optimizer", default="llama-3.1-8b-instant"))
+                driver=meta_drv,
+                model=fm.get("meta_optimizer", "llama-3.1-8b-instant"),
+            )
             return resp.content.strip() if resp.content else None
         except Exception: return None
 
@@ -1038,10 +1073,18 @@ class Brain:
         if not cfg.get("enabled", False):
             return await self.execute(prompt, system_prompt, agent_type, expected_fields=expected_fields, **options)
         try:
+            draft_drv = cfg.get("draft_driver") or first_non_local_driver_from_chain() or get_settings().ai_driver
             draft = await asyncio.wait_for(
-                self._call_driver(prompt, system_prompt, driver=cfg.get("draft_driver", "groq"),
-                                  model=cfg.get("draft_model"), max_tokens=cfg.get("draft_max_tokens", 1024), **options),
-                timeout=cfg.get("draft_timeout_s", 10))
+                self._call_driver(
+                    prompt,
+                    system_prompt,
+                    driver=draft_drv,
+                    model=cfg.get("draft_model"),
+                    max_tokens=cfg.get("draft_max_tokens", 1024),
+                    **options,
+                ),
+                timeout=cfg.get("draft_timeout_s", 10),
+            )
         except Exception:
             return await self.execute(prompt, system_prompt, agent_type, expected_fields=expected_fields, **options)
         score = get_guardian().score_response(draft, expected_fields)
@@ -1065,10 +1108,16 @@ class Brain:
         # Decompose
         from app.services.llm_service import get_llm_service
         try:
-            decompose_resp = await asyncio.wait_for(get_llm_service().complete(
-                prompt=f"Decompose into {cfg.get('max_subtasks', 6)} or fewer sub-tasks:\n{prompt}\nReturn JSON: [{{\"agent\":\"id\",\"prompt\":\"task\"}}]",
-                system_prompt="Task decomposition engine. JSON only.",
-                driver=cfg.get("decompose_driver", "groq"), max_tokens=512), timeout=cfg.get("decompose_timeout_s", 15))
+            dec_drv = cfg.get("decompose_driver") or first_non_local_driver_from_chain() or get_settings().ai_driver
+            decompose_resp = await asyncio.wait_for(
+                get_llm_service().complete(
+                    prompt=f"Decompose into {cfg.get('max_subtasks', 6)} or fewer sub-tasks:\n{prompt}\nReturn JSON: [{{\"agent\":\"id\",\"prompt\":\"task\"}}]",
+                    system_prompt="Task decomposition engine. JSON only.",
+                    driver=dec_drv,
+                    max_tokens=512,
+                ),
+                timeout=cfg.get("decompose_timeout_s", 15),
+            )
             subtasks = json.loads(decompose_resp.content.strip().removeprefix("```json").removesuffix("```").strip())
             if not isinstance(subtasks, list) or len(subtasks) < 2: raise ValueError("too few")
         except Exception:
@@ -1094,10 +1143,13 @@ class Brain:
         ctx = "\n\n---\n\n".join(f"[{r['agent']}]:\n{r['content'][:2000]}" for r in valid)
         lang_hint = f" Respond in {language}." if language not in ("english", "hinglish") else ""
         try:
+            syn_drv = cfg.get("synthesize_driver") or first_non_local_driver_from_chain() or get_settings().ai_driver
             resp = await get_llm_service().complete(
                 prompt=f"Synthesize for: \"{prompt}\"\n\nAGENT OUTPUTS:\n{ctx}\n\nMerge into one coherent response.{lang_hint}",
-                system_prompt="Synthesis engine.", driver=cfg.get("synthesize_driver", "groq"),
-                max_tokens=cfg.get("subtask_max_tokens", 2048))
+                system_prompt="Synthesis engine.",
+                driver=syn_drv,
+                max_tokens=cfg.get("subtask_max_tokens", 2048),
+            )
             resp.metadata = {"swarm": True, "sub_agents": [r["agent"] for r in valid]}
             resp.total_tokens += sum(r.get("tokens", 0) for r in valid); return resp
         except Exception:
