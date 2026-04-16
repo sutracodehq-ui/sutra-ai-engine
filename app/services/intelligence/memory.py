@@ -595,13 +595,44 @@ class Memory:
             "by_agent": {f.stem: 1 for f in files}
         }
 
-    def get_quality(self, agent_type: str) -> dict:
-        """Get quality metrics for an agent."""
-        return {"agent_type": agent_type, "score": 0.85, "satisfied_users": 92}
+    async def get_quality(self, agent_type: str) -> dict:
+        """Get rolling quality metrics from Redis-backed Guardian scores."""
+        try:
+            from app.services.connectivity.webhooks import get_redis
+            redis = get_redis()
+            key = f"sutra:quality:{agent_type}"
+            vals = await redis.lrange(key, 0, -1)
+            scores = [float(v) for v in vals if str(v).strip()]
+            if not scores:
+                return {"agent_type": agent_type, "status": "no_data", "samples": 0}
+            avg = sum(scores) / len(scores)
+            return {
+                "agent_type": agent_type,
+                "status": "ok",
+                "samples": len(scores),
+                "avg_score": round(avg, 2),
+                "min_score": round(min(scores), 2),
+                "max_score": round(max(scores), 2),
+                "last_score": round(scores[0], 2),
+            }
+        except Exception as e:
+            logger.warning(f"Memory.get_quality: {e}")
+            return {"agent_type": agent_type, "status": "unavailable", "samples": 0}
 
-    def get_all_quality(self) -> list[dict]:
-        """Get quality metrics for all agents."""
-        return [{"agent_type": "support", "score": 0.9}, {"agent_type": "sales", "score": 0.82}]
+    async def get_all_quality(self) -> list[dict]:
+        """Get rolling quality metrics for all agents from Redis keys."""
+        try:
+            from app.services.connectivity.webhooks import get_redis
+            redis = get_redis()
+            keys = await redis.keys("sutra:quality:*")
+            agents = sorted({k.split(":")[-1] for k in keys if ":" in k})
+            out = []
+            for aid in agents:
+                out.append(await self.get_quality(aid))
+            return out
+        except Exception as e:
+            logger.warning(f"Memory.get_all_quality: {e}")
+            return []
 
     async def close(self):
         await self._http.aclose()

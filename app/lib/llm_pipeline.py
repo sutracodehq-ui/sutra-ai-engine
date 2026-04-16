@@ -27,7 +27,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from app.lib.json_repair import extract_json
+from app.lib.response_normalizer import field_present, parse_json_like, split_expected_fields
 from app.services.intelligence.config_loader import get_intelligence_config
 
 logger = logging.getLogger(__name__)
@@ -147,20 +147,26 @@ async def run_pipeline(
 
             # ─── Parse output ───────────────────────────
             if json_mode:
-                data = extract_json(response.content)
+                data = parse_json_like(response.content)
                 if data is None:
                     logger.warning(f"LLMPipeline[{name}]: {driver_name} returned invalid JSON")
                     continue
 
                 # Validate expected fields
                 if expected_fields and isinstance(data, dict):
-                    missing = [f for f in expected_fields if f not in data]
-                    if missing:
+                    req, opt = split_expected_fields(expected_fields)
+                    required_missing = [f for f in req if not field_present(data, f)]
+                    optional_missing = [f for f in opt if not field_present(data, f)]
+                    if required_missing or optional_missing:
                         logger.warning(
-                            f"LLMPipeline[{name}]: {driver_name} missing fields: {missing}"
+                            f"LLMPipeline[{name}]: {driver_name} missing fields: "
+                            f"required={required_missing}, optional={optional_missing}"
                         )
-                        # Still return if we got at least some fields
-                        if len(missing) > len(expected_fields) / 2:
+                        # Required fields are strict; optional fields are advisory.
+                        if req and required_missing:
+                            continue
+                        total_expected = max(1, len(req) + len(opt))
+                        if (len(required_missing) + len(optional_missing)) > (total_expected / 2):
                             continue  # Too many missing — try next driver
 
                 logger.info(

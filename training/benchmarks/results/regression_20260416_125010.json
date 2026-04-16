@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-16T12:50:10.510202",
+  "model": null,
+  "summary": {
+    "total_agents": 0,
+    "total_tests": 0,
+    "overall_passed": 0,
+    "overall_pass_rate": 0
+  },
+  "agents": {}
+}

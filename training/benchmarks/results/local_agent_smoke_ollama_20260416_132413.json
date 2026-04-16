@@ -1,0 +1,1571 @@
+{
+  "timestamp": "2026-04-16T13:24:13.955380",
+  "total_agents": 195,
+  "ok": 195,
+  "empty": 0,
+  "error": 0,
+  "avg_latency_ms": 4.06,
+  "timeout_s": 8,
+  "results": [
+    {
+      "agent": "ab_test_advisor",
+      "status": "ok",
+      "latency_ms": 302.12,
+      "chars": 300,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "ad_creative",
+      "status": "ok",
+      "latency_ms": 51.5,
+      "chars": 522,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "ai_trend_tracker",
+      "status": "ok",
+      "latency_ms": 45.13,
+      "chars": 255,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "anomaly_alerter",
+      "status": "ok",
+      "latency_ms": 31.07,
+      "chars": 300,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "area_comparator",
+      "status": "ok",
+      "latency_ms": 2.34,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "attribution_analyst",
+      "status": "ok",
+      "latency_ms": 1.44,
+      "chars": 248,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "audience_growth_strategist",
+      "status": "ok",
+      "latency_ms": 1.46,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "audience_segmenter",
+      "status": "ok",
+      "latency_ms": 1.87,
+      "chars": 248,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "audio_dubber",
+      "status": "ok",
+      "latency_ms": 1.87,
+      "chars": 303,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "auto_publisher",
+      "status": "ok",
+      "latency_ms": 1.66,
+      "chars": 282,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "auto_scheduler",
+      "status": "ok",
+      "latency_ms": 1.51,
+      "chars": 241,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "ayurveda_advisor",
+      "status": "ok",
+      "latency_ms": 1.81,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "battery_health",
+      "status": "ok",
+      "latency_ms": 1.94,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "brand_advisor",
+      "status": "ok",
+      "latency_ms": 3.02,
+      "chars": 549,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "brand_auditor",
+      "status": "ok",
+      "latency_ms": 2.3,
+      "chars": 213,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "budget_optimizer",
+      "status": "ok",
+      "latency_ms": 2.34,
+      "chars": 280,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "call_sentiment_analyzer",
+      "status": "ok",
+      "latency_ms": 2.61,
+      "chars": 278,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "call_summarizer",
+      "status": "ok",
+      "latency_ms": 2.2,
+      "chars": 293,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "campaign_strategist",
+      "status": "ok",
+      "latency_ms": 2.52,
+      "chars": 307,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "cap_table_manager",
+      "status": "ok",
+      "latency_ms": 2.24,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "caption_generator",
+      "status": "ok",
+      "latency_ms": 2.23,
+      "chars": 236,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "carbon_footprint",
+      "status": "ok",
+      "latency_ms": 1.97,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "caregiver_guide",
+      "status": "ok",
+      "latency_ms": 2.06,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "catalog_enricher",
+      "status": "ok",
+      "latency_ms": 2.12,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "charging_station_planner",
+      "status": "ok",
+      "latency_ms": 2.18,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "chatbot_trainer",
+      "status": "ok",
+      "latency_ms": 2.25,
+      "chars": 491,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "child_milestone_tracker",
+      "status": "ok",
+      "latency_ms": 1.87,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "child_nutrition",
+      "status": "ok",
+      "latency_ms": 1.6,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "churn_predictor",
+      "status": "ok",
+      "latency_ms": 2.03,
+      "chars": 257,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "churn_reversal",
+      "status": "ok",
+      "latency_ms": 1.84,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "click_shield",
+      "status": "ok",
+      "latency_ms": 2.18,
+      "chars": 284,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "cold_call_scripter",
+      "status": "ok",
+      "latency_ms": 2.58,
+      "chars": 247,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "competitor_analyst",
+      "status": "ok",
+      "latency_ms": 1.63,
+      "chars": 334,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "complaint_drafter",
+      "status": "ok",
+      "latency_ms": 1.44,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "compliance_checker",
+      "status": "ok",
+      "latency_ms": 1.38,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "construction_estimator",
+      "status": "ok",
+      "latency_ms": 1.31,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "content_grader",
+      "status": "ok",
+      "latency_ms": 1.45,
+      "chars": 258,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "content_monetizer",
+      "status": "ok",
+      "latency_ms": 1.21,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "content_repurpose",
+      "status": "ok",
+      "latency_ms": 1.83,
+      "chars": 260,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "contract_analyzer",
+      "status": "ok",
+      "latency_ms": 1.77,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "contractor_checker",
+      "status": "ok",
+      "latency_ms": 1.54,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "copywriter",
+      "status": "ok",
+      "latency_ms": 1.58,
+      "chars": 522,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "cricket_analyst",
+      "status": "ok",
+      "latency_ms": 1.8,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "crop_advisor",
+      "status": "ok",
+      "latency_ms": 2.42,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "crypto_analyzer",
+      "status": "ok",
+      "latency_ms": 3.02,
+      "chars": 284,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "daily_briefing",
+      "status": "ok",
+      "latency_ms": 1.74,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "data_curator",
+      "status": "ok",
+      "latency_ms": 2.14,
+      "chars": 313,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "dataset_optimizer",
+      "status": "ok",
+      "latency_ms": 2.08,
+      "chars": 315,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "diet_planner",
+      "status": "ok",
+      "latency_ms": 2.36,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "document_ocr_extractor",
+      "status": "ok",
+      "latency_ms": 2.1,
+      "chars": 222,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "document_translator",
+      "status": "ok",
+      "latency_ms": 2.59,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "dynamic_pricing",
+      "status": "ok",
+      "latency_ms": 1.48,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "edtech",
+      "status": "ok",
+      "latency_ms": 1.41,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "education_guru",
+      "status": "ok",
+      "latency_ms": 2.0,
+      "chars": 582,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "elder_health_monitor",
+      "status": "ok",
+      "latency_ms": 1.65,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "email_campaign",
+      "status": "ok",
+      "latency_ms": 1.95,
+      "chars": 231,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "email_summarizer",
+      "status": "ok",
+      "latency_ms": 1.6,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "esg_report_writer",
+      "status": "ok",
+      "latency_ms": 1.77,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "esports_analyst",
+      "status": "ok",
+      "latency_ms": 1.56,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "ev_comparator",
+      "status": "ok",
+      "latency_ms": 1.8,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "event_timeline",
+      "status": "ok",
+      "latency_ms": 1.9,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "expense_tracker",
+      "status": "ok",
+      "latency_ms": 1.42,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "fake_news_detector",
+      "status": "ok",
+      "latency_ms": 1.35,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "fantasy_team_builder",
+      "status": "ok",
+      "latency_ms": 2.07,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "feedback_synthesizer",
+      "status": "ok",
+      "latency_ms": 3.98,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "fitness_coach",
+      "status": "ok",
+      "latency_ms": 2.72,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "flashcard_creator",
+      "status": "ok",
+      "latency_ms": 2.45,
+      "chars": 256,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "food_cost_optimizer",
+      "status": "ok",
+      "latency_ms": 3.16,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "form_filler",
+      "status": "ok",
+      "latency_ms": 1.96,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "funding_tracker",
+      "status": "ok",
+      "latency_ms": 2.92,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "funnel_analyzer",
+      "status": "ok",
+      "latency_ms": 7.76,
+      "chars": 244,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "game_strategy",
+      "status": "ok",
+      "latency_ms": 1.96,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "gaming_pc_builder",
+      "status": "ok",
+      "latency_ms": 1.89,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "google_ads_optimizer",
+      "status": "ok",
+      "latency_ms": 12.89,
+      "chars": 271,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "green_certification",
+      "status": "ok",
+      "latency_ms": 6.89,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "gst_compliance",
+      "status": "ok",
+      "latency_ms": 1.65,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "guest_list_manager",
+      "status": "ok",
+      "latency_ms": 3.24,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "image_generator",
+      "status": "ok",
+      "latency_ms": 3.0,
+      "chars": 265,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "incident_reporter",
+      "status": "ok",
+      "latency_ms": 1.1,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "influencer_matcher",
+      "status": "ok",
+      "latency_ms": 1.3,
+      "chars": 250,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "infrastructure_auditor",
+      "status": "ok",
+      "latency_ms": 3.94,
+      "chars": 287,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "insurance_advisor",
+      "status": "ok",
+      "latency_ms": 2.19,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "interior_designer",
+      "status": "ok",
+      "latency_ms": 5.45,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "interview_q_generator",
+      "status": "ok",
+      "latency_ms": 1.66,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "invitation_writer",
+      "status": "ok",
+      "latency_ms": 6.45,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "invoice_generator",
+      "status": "ok",
+      "latency_ms": 1.38,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "itinerary_generator",
+      "status": "ok",
+      "latency_ms": 2.02,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "ivr_designer",
+      "status": "ok",
+      "latency_ms": 1.5,
+      "chars": 259,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "jd_writer",
+      "status": "ok",
+      "latency_ms": 1.49,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "journey_mapper",
+      "status": "ok",
+      "latency_ms": 1.72,
+      "chars": 241,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "key_points_extractor",
+      "status": "ok",
+      "latency_ms": 1.39,
+      "chars": 304,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "kitchen_inventory",
+      "status": "ok",
+      "latency_ms": 1.16,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "kundli_analyzer",
+      "status": "ok",
+      "latency_ms": 1.19,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "lab_report_interpreter",
+      "status": "ok",
+      "latency_ms": 1.04,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "landing_page_builder",
+      "status": "ok",
+      "latency_ms": 2.87,
+      "chars": 324,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "last_mile_optimizer",
+      "status": "ok",
+      "latency_ms": 4.26,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "lead_scorer",
+      "status": "ok",
+      "latency_ms": 2.22,
+      "chars": 284,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "lecture_planner",
+      "status": "ok",
+      "latency_ms": 2.11,
+      "chars": 252,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "legal_document_writer",
+      "status": "ok",
+      "latency_ms": 1.41,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "linkedin_growth",
+      "status": "ok",
+      "latency_ms": 1.18,
+      "chars": 254,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "loan_comparator",
+      "status": "ok",
+      "latency_ms": 1.3,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "mantra_guide",
+      "status": "ok",
+      "latency_ms": 1.55,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "market_sizing",
+      "status": "ok",
+      "latency_ms": 1.36,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "market_trend_analyzer",
+      "status": "ok",
+      "latency_ms": 1.56,
+      "chars": 278,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "material_calculator",
+      "status": "ok",
+      "latency_ms": 1.49,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "media_monitor",
+      "status": "ok",
+      "latency_ms": 1.91,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "medicine_info",
+      "status": "ok",
+      "latency_ms": 1.91,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "meeting_notes",
+      "status": "ok",
+      "latency_ms": 1.98,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "mental_health_companion",
+      "status": "ok",
+      "latency_ms": 1.31,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "menu_designer",
+      "status": "ok",
+      "latency_ms": 1.91,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "meta_ads_optimizer",
+      "status": "ok",
+      "latency_ms": 1.62,
+      "chars": 257,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "ml_pipeline",
+      "status": "ok",
+      "latency_ms": 1.42,
+      "chars": 296,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "msp_tracker",
+      "status": "ok",
+      "latency_ms": 1.31,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "muhurat_finder",
+      "status": "ok",
+      "latency_ms": 1.23,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "news_summarizer",
+      "status": "ok",
+      "latency_ms": 1.24,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "note_generator",
+      "status": "ok",
+      "latency_ms": 1.41,
+      "chars": 303,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "nps_analyzer",
+      "status": "ok",
+      "latency_ms": 2.47,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "onboarding_guide",
+      "status": "ok",
+      "latency_ms": 2.0,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "panchang_reader",
+      "status": "ok",
+      "latency_ms": 1.82,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "password_auditor",
+      "status": "ok",
+      "latency_ms": 2.26,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "patient_followup",
+      "status": "ok",
+      "latency_ms": 1.64,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "pension_advisor",
+      "status": "ok",
+      "latency_ms": 1.46,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "performance_reporter",
+      "status": "ok",
+      "latency_ms": 1.4,
+      "chars": 587,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "persona_builder",
+      "status": "ok",
+      "latency_ms": 1.02,
+      "chars": 330,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "personal_assistant",
+      "status": "ok",
+      "latency_ms": 1.61,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "pet_health",
+      "status": "ok",
+      "latency_ms": 1.06,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "pet_nutrition",
+      "status": "ok",
+      "latency_ms": 1.0,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "pet_trainer",
+      "status": "ok",
+      "latency_ms": 1.09,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "phishing_detector",
+      "status": "ok",
+      "latency_ms": 1.06,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "pitch_deck_analyzer",
+      "status": "ok",
+      "latency_ms": 1.11,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "press_release_writer",
+      "status": "ok",
+      "latency_ms": 1.09,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "pricing_strategist",
+      "status": "ok",
+      "latency_ms": 1.33,
+      "chars": 259,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "product_description_writer",
+      "status": "ok",
+      "latency_ms": 1.03,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "property_valuator",
+      "status": "ok",
+      "latency_ms": 1.09,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "quiz_generator",
+      "status": "ok",
+      "latency_ms": 1.27,
+      "chars": 253,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "recipe_generator",
+      "status": "ok",
+      "latency_ms": 1.02,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "reel_script_writer",
+      "status": "ok",
+      "latency_ms": 1.05,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "reminder_agent",
+      "status": "ok",
+      "latency_ms": 0.96,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "rental_yield_calculator",
+      "status": "ok",
+      "latency_ms": 1.03,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "rera_compliance",
+      "status": "ok",
+      "latency_ms": 2.14,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "resume_screener",
+      "status": "ok",
+      "latency_ms": 2.76,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "retention_strategist",
+      "status": "ok",
+      "latency_ms": 1.86,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "retirement_planner",
+      "status": "ok",
+      "latency_ms": 2.68,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "returns_predictor",
+      "status": "ok",
+      "latency_ms": 3.01,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "review_analyzer",
+      "status": "ok",
+      "latency_ms": 2.48,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "review_reputation",
+      "status": "ok",
+      "latency_ms": 2.5,
+      "chars": 253,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "roi_calculator",
+      "status": "ok",
+      "latency_ms": 2.42,
+      "chars": 253,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "route_optimizer",
+      "status": "ok",
+      "latency_ms": 1.67,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "rti_drafter",
+      "status": "ok",
+      "latency_ms": 1.14,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "salary_benchmarker",
+      "status": "ok",
+      "latency_ms": 1.3,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "scheme_eligibility",
+      "status": "ok",
+      "latency_ms": 1.43,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "school_selector",
+      "status": "ok",
+      "latency_ms": 1.49,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "seo",
+      "status": "ok",
+      "latency_ms": 1.44,
+      "chars": 207,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "shipment_tracker",
+      "status": "ok",
+      "latency_ms": 1.1,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "sms",
+      "status": "ok",
+      "latency_ms": 0.93,
+      "chars": 230,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "social_clip_maker",
+      "status": "ok",
+      "latency_ms": 0.95,
+      "chars": 257,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "social_media",
+      "status": "ok",
+      "latency_ms": 1.18,
+      "chars": 248,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "soil_report_interpreter",
+      "status": "ok",
+      "latency_ms": 2.42,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "solar_planner",
+      "status": "ok",
+      "latency_ms": 2.48,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "solar_roi_calculator",
+      "status": "ok",
+      "latency_ms": 3.04,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "sponsorship_matcher",
+      "status": "ok",
+      "latency_ms": 2.67,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "sports_nutrition",
+      "status": "ok",
+      "latency_ms": 2.93,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "startup_valuation",
+      "status": "ok",
+      "latency_ms": 1.77,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "stock_analyzer",
+      "status": "ok",
+      "latency_ms": 2.65,
+      "chars": 305,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "stock_predictor",
+      "status": "ok",
+      "latency_ms": 1.74,
+      "chars": 302,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "stream_optimizer",
+      "status": "ok",
+      "latency_ms": 1.12,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "student_data_validator",
+      "status": "ok",
+      "latency_ms": 1.0,
+      "chars": 241,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "subsidy_finder",
+      "status": "ok",
+      "latency_ms": 0.99,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "symptom_triage",
+      "status": "ok",
+      "latency_ms": 1.3,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "tax_planner",
+      "status": "ok",
+      "latency_ms": 1.01,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "threat_briefing",
+      "status": "ok",
+      "latency_ms": 0.93,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "travel_budget_optimizer",
+      "status": "ok",
+      "latency_ms": 1.05,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "trend_spotter",
+      "status": "ok",
+      "latency_ms": 1.2,
+      "chars": 249,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "trip_planner",
+      "status": "ok",
+      "latency_ms": 0.98,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "udise_compliance_advisor",
+      "status": "ok",
+      "latency_ms": 0.99,
+      "chars": 578,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "udise_report_generator",
+      "status": "ok",
+      "latency_ms": 1.07,
+      "chars": 883,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "upsell_advisor",
+      "status": "ok",
+      "latency_ms": 1.32,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "url_analyzer",
+      "status": "ok",
+      "latency_ms": 1.2,
+      "chars": 303,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "vaccination_scheduler",
+      "status": "ok",
+      "latency_ms": 0.97,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "vastu_advisor",
+      "status": "ok",
+      "latency_ms": 0.97,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "vendor_matcher",
+      "status": "ok",
+      "latency_ms": 1.29,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "video_generator",
+      "status": "ok",
+      "latency_ms": 1.67,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "video_scriptwriter",
+      "status": "ok",
+      "latency_ms": 1.38,
+      "chars": 302,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "video_summarizer",
+      "status": "ok",
+      "latency_ms": 1.57,
+      "chars": 255,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "visa_guide",
+      "status": "ok",
+      "latency_ms": 1.33,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "visual_designer",
+      "status": "ok",
+      "latency_ms": 0.98,
+      "chars": 298,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "warehouse_planner",
+      "status": "ok",
+      "latency_ms": 1.04,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "weather_planting",
+      "status": "ok",
+      "latency_ms": 1.01,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "wedding_budget_planner",
+      "status": "ok",
+      "latency_ms": 0.99,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "whatsapp",
+      "status": "ok",
+      "latency_ms": 0.94,
+      "chars": 247,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "whatsapp_bot_builder",
+      "status": "ok",
+      "latency_ms": 1.13,
+      "chars": 263,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "will_drafter",
+      "status": "ok",
+      "latency_ms": 1.11,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "youtube_analyzer",
+      "status": "ok",
+      "latency_ms": 1.0,
+      "chars": 288,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "youtube_revenue_optimizer",
+      "status": "ok",
+      "latency_ms": 1.03,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    },
+    {
+      "agent": "zomato_listing_optimizer",
+      "status": "ok",
+      "latency_ms": 1.0,
+      "chars": 126,
+      "driver": "offline",
+      "model": "offline-emergency"
+    }
+  ]
+}

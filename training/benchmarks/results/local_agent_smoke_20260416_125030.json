@@ -1,0 +1,1538 @@
+{
+  "timestamp": "2026-04-16T12:59:28.079878",
+  "total_agents": 195,
+  "ok": 179,
+  "empty": 0,
+  "error": 16,
+  "avg_latency_ms": 4034.33,
+  "results": [
+    {
+      "agent": "ab_test_advisor",
+      "status": "ok",
+      "latency_ms": 4455.87,
+      "chars": 288,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "ad_creative",
+      "status": "ok",
+      "latency_ms": 3566.57,
+      "chars": 159,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "ai_trend_tracker",
+      "status": "ok",
+      "latency_ms": 3108.19,
+      "chars": 69,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "anomaly_alerter",
+      "status": "ok",
+      "latency_ms": 3431.7,
+      "chars": 47,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "area_comparator",
+      "status": "ok",
+      "latency_ms": 14437.47,
+      "chars": 89,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "attribution_analyst",
+      "status": "ok",
+      "latency_ms": 14659.97,
+      "chars": 319,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "audience_growth_strategist",
+      "status": "ok",
+      "latency_ms": 463.35,
+      "chars": 36,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "audience_segmenter",
+      "status": "ok",
+      "latency_ms": 6554.63,
+      "chars": 155,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "audio_dubber",
+      "status": "error",
+      "latency_ms": 22001.19,
+      "error": ""
+    },
+    {
+      "agent": "auto_publisher",
+      "status": "ok",
+      "latency_ms": 4554.67,
+      "chars": 194,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "auto_scheduler",
+      "status": "ok",
+      "latency_ms": 5461.54,
+      "chars": 83,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "ayurveda_advisor",
+      "status": "ok",
+      "latency_ms": 11910.91,
+      "chars": 89,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "battery_health",
+      "status": "ok",
+      "latency_ms": 546.25,
+      "chars": 97,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "brand_advisor",
+      "status": "error",
+      "latency_ms": 22001.13,
+      "error": ""
+    },
+    {
+      "agent": "brand_auditor",
+      "status": "ok",
+      "latency_ms": 4572.04,
+      "chars": 113,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "budget_optimizer",
+      "status": "ok",
+      "latency_ms": 4874.85,
+      "chars": 34,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "call_sentiment_analyzer",
+      "status": "ok",
+      "latency_ms": 5493.35,
+      "chars": 74,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "call_summarizer",
+      "status": "ok",
+      "latency_ms": 17088.21,
+      "chars": 91,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "campaign_strategist",
+      "status": "ok",
+      "latency_ms": 4597.17,
+      "chars": 322,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "cap_table_manager",
+      "status": "ok",
+      "latency_ms": 4614.0,
+      "chars": 54,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "caption_generator",
+      "status": "error",
+      "latency_ms": 22000.39,
+      "error": ""
+    },
+    {
+      "agent": "carbon_footprint",
+      "status": "ok",
+      "latency_ms": 5891.22,
+      "chars": 90,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "caregiver_guide",
+      "status": "ok",
+      "latency_ms": 5044.04,
+      "chars": 82,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "catalog_enricher",
+      "status": "ok",
+      "latency_ms": 15510.64,
+      "chars": 31,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "charging_station_planner",
+      "status": "ok",
+      "latency_ms": 881.44,
+      "chars": 88,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "chatbot_trainer",
+      "status": "error",
+      "latency_ms": 22000.37,
+      "error": ""
+    },
+    {
+      "agent": "child_milestone_tracker",
+      "status": "ok",
+      "latency_ms": 1032.53,
+      "chars": 92,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "child_nutrition",
+      "status": "ok",
+      "latency_ms": 4750.0,
+      "chars": 145,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "churn_predictor",
+      "status": "ok",
+      "latency_ms": 5684.05,
+      "chars": 164,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "churn_reversal",
+      "status": "ok",
+      "latency_ms": 4755.74,
+      "chars": 34,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "click_shield",
+      "status": "ok",
+      "latency_ms": 9444.19,
+      "chars": 231,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "cold_call_scripter",
+      "status": "error",
+      "latency_ms": 22001.11,
+      "error": ""
+    },
+    {
+      "agent": "competitor_analyst",
+      "status": "ok",
+      "latency_ms": 5052.65,
+      "chars": 59,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "complaint_drafter",
+      "status": "ok",
+      "latency_ms": 5457.09,
+      "chars": 81,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "compliance_checker",
+      "status": "ok",
+      "latency_ms": 5683.11,
+      "chars": 33,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "construction_estimator",
+      "status": "error",
+      "latency_ms": 22001.16,
+      "error": ""
+    },
+    {
+      "agent": "content_grader",
+      "status": "error",
+      "latency_ms": 22001.15,
+      "error": ""
+    },
+    {
+      "agent": "content_monetizer",
+      "status": "error",
+      "latency_ms": 22001.2,
+      "error": ""
+    },
+    {
+      "agent": "content_repurpose",
+      "status": "ok",
+      "latency_ms": 2433.65,
+      "chars": 45,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "contract_analyzer",
+      "status": "error",
+      "latency_ms": 22000.58,
+      "error": ""
+    },
+    {
+      "agent": "contractor_checker",
+      "status": "ok",
+      "latency_ms": 2590.04,
+      "chars": 89,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "copywriter",
+      "status": "ok",
+      "latency_ms": 5607.36,
+      "chars": 170,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "cricket_analyst",
+      "status": "ok",
+      "latency_ms": 21608.37,
+      "chars": 32,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "crop_advisor",
+      "status": "error",
+      "latency_ms": 22001.34,
+      "error": ""
+    },
+    {
+      "agent": "crypto_analyzer",
+      "status": "error",
+      "latency_ms": 22001.19,
+      "error": ""
+    },
+    {
+      "agent": "daily_briefing",
+      "status": "ok",
+      "latency_ms": 15699.65,
+      "chars": 74,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "data_curator",
+      "status": "error",
+      "latency_ms": 22000.87,
+      "error": ""
+    },
+    {
+      "agent": "dataset_optimizer",
+      "status": "ok",
+      "latency_ms": 21245.63,
+      "chars": 58,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "diet_planner",
+      "status": "error",
+      "latency_ms": 22001.33,
+      "error": ""
+    },
+    {
+      "agent": "document_ocr_extractor",
+      "status": "ok",
+      "latency_ms": 6553.05,
+      "chars": 79,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "document_translator",
+      "status": "ok",
+      "latency_ms": 5583.09,
+      "chars": 60,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "dynamic_pricing",
+      "status": "ok",
+      "latency_ms": 5910.07,
+      "chars": 77,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "edtech",
+      "status": "ok",
+      "latency_ms": 5494.42,
+      "chars": 43,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "education_guru",
+      "status": "error",
+      "latency_ms": 22000.44,
+      "error": ""
+    },
+    {
+      "agent": "elder_health_monitor",
+      "status": "ok",
+      "latency_ms": 5799.91,
+      "chars": 32,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "email_campaign",
+      "status": "error",
+      "latency_ms": 22001.73,
+      "error": ""
+    },
+    {
+      "agent": "email_summarizer",
+      "status": "ok",
+      "latency_ms": 476.06,
+      "chars": 44,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "esg_report_writer",
+      "status": "ok",
+      "latency_ms": 21591.76,
+      "chars": 75,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "esports_analyst",
+      "status": "ok",
+      "latency_ms": 14815.88,
+      "chars": 33,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "ev_comparator",
+      "status": "error",
+      "latency_ms": 22001.22,
+      "error": ""
+    },
+    {
+      "agent": "event_timeline",
+      "status": "ok",
+      "latency_ms": 3044.25,
+      "chars": 93,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "expense_tracker",
+      "status": "ok",
+      "latency_ms": 12785.62,
+      "chars": 44,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "fake_news_detector",
+      "status": "ok",
+      "latency_ms": 5025.58,
+      "chars": 62,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "fantasy_team_builder",
+      "status": "ok",
+      "latency_ms": 12640.95,
+      "chars": 42,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "feedback_synthesizer",
+      "status": "ok",
+      "latency_ms": 3540.45,
+      "chars": 44,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "fitness_coach",
+      "status": "ok",
+      "latency_ms": 19179.09,
+      "chars": 92,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "flashcard_creator",
+      "status": "ok",
+      "latency_ms": 16877.54,
+      "chars": 91,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "food_cost_optimizer",
+      "status": "ok",
+      "latency_ms": 17156.46,
+      "chars": 74,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "form_filler",
+      "status": "ok",
+      "latency_ms": 5459.01,
+      "chars": 43,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "funding_tracker",
+      "status": "ok",
+      "latency_ms": 12642.03,
+      "chars": 89,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "funnel_analyzer",
+      "status": "ok",
+      "latency_ms": 10105.95,
+      "chars": 74,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "game_strategy",
+      "status": "ok",
+      "latency_ms": 16852.1,
+      "chars": 33,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "gaming_pc_builder",
+      "status": "ok",
+      "latency_ms": 5863.58,
+      "chars": 43,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "google_ads_optimizer",
+      "status": "ok",
+      "latency_ms": 18928.09,
+      "chars": 69,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "green_certification",
+      "status": "ok",
+      "latency_ms": 5857.21,
+      "chars": 33,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "gst_compliance",
+      "status": "ok",
+      "latency_ms": 20129.81,
+      "chars": 75,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "guest_list_manager",
+      "status": "ok",
+      "latency_ms": 3519.43,
+      "chars": 69,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "image_generator",
+      "status": "ok",
+      "latency_ms": 5745.55,
+      "chars": 63,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "incident_reporter",
+      "status": "ok",
+      "latency_ms": 11067.67,
+      "chars": 36,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "influencer_matcher",
+      "status": "ok",
+      "latency_ms": 10696.74,
+      "chars": 162,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "infrastructure_auditor",
+      "status": "ok",
+      "latency_ms": 6134.75,
+      "chars": 29,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "insurance_advisor",
+      "status": "ok",
+      "latency_ms": 7208.58,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "interior_designer",
+      "status": "ok",
+      "latency_ms": 5930.72,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "interview_q_generator",
+      "status": "ok",
+      "latency_ms": 9303.52,
+      "chars": 55,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "invitation_writer",
+      "status": "ok",
+      "latency_ms": 7929.69,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "invoice_generator",
+      "status": "ok",
+      "latency_ms": 1394.29,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "itinerary_generator",
+      "status": "ok",
+      "latency_ms": 935.54,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "ivr_designer",
+      "status": "ok",
+      "latency_ms": 1338.8,
+      "chars": 139,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "jd_writer",
+      "status": "ok",
+      "latency_ms": 1090.25,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "journey_mapper",
+      "status": "ok",
+      "latency_ms": 1244.88,
+      "chars": 163,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "key_points_extractor",
+      "status": "ok",
+      "latency_ms": 1133.8,
+      "chars": 34,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "kitchen_inventory",
+      "status": "ok",
+      "latency_ms": 1454.42,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "kundli_analyzer",
+      "status": "ok",
+      "latency_ms": 1086.29,
+      "chars": 55,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "lab_report_interpreter",
+      "status": "ok",
+      "latency_ms": 1028.34,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "landing_page_builder",
+      "status": "ok",
+      "latency_ms": 2267.2,
+      "chars": 248,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "last_mile_optimizer",
+      "status": "ok",
+      "latency_ms": 1454.6,
+      "chars": 47,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "lead_scorer",
+      "status": "ok",
+      "latency_ms": 2285.43,
+      "chars": 214,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "lecture_planner",
+      "status": "ok",
+      "latency_ms": 1014.78,
+      "chars": 21,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "legal_document_writer",
+      "status": "ok",
+      "latency_ms": 1059.59,
+      "chars": 46,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "linkedin_growth",
+      "status": "ok",
+      "latency_ms": 1320.63,
+      "chars": 147,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "loan_comparator",
+      "status": "ok",
+      "latency_ms": 790.39,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "mantra_guide",
+      "status": "ok",
+      "latency_ms": 1819.61,
+      "chars": 52,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "market_sizing",
+      "status": "ok",
+      "latency_ms": 973.07,
+      "chars": 47,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "market_trend_analyzer",
+      "status": "ok",
+      "latency_ms": 800.75,
+      "chars": 33,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "material_calculator",
+      "status": "ok",
+      "latency_ms": 1416.36,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "media_monitor",
+      "status": "ok",
+      "latency_ms": 1258.69,
+      "chars": 41,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "medicine_info",
+      "status": "ok",
+      "latency_ms": 946.63,
+      "chars": 46,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "meeting_notes",
+      "status": "ok",
+      "latency_ms": 1046.4,
+      "chars": 26,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "mental_health_companion",
+      "status": "ok",
+      "latency_ms": 1664.77,
+      "chars": 52,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "menu_designer",
+      "status": "ok",
+      "latency_ms": 1271.91,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "meta_ads_optimizer",
+      "status": "ok",
+      "latency_ms": 1493.73,
+      "chars": 162,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "ml_pipeline",
+      "status": "ok",
+      "latency_ms": 958.19,
+      "chars": 32,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "msp_tracker",
+      "status": "ok",
+      "latency_ms": 1188.78,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "muhurat_finder",
+      "status": "ok",
+      "latency_ms": 983.61,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "news_summarizer",
+      "status": "ok",
+      "latency_ms": 897.5,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "note_generator",
+      "status": "ok",
+      "latency_ms": 950.35,
+      "chars": 32,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "nps_analyzer",
+      "status": "ok",
+      "latency_ms": 949.31,
+      "chars": 41,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "onboarding_guide",
+      "status": "ok",
+      "latency_ms": 872.74,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "panchang_reader",
+      "status": "ok",
+      "latency_ms": 906.26,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "password_auditor",
+      "status": "ok",
+      "latency_ms": 818.69,
+      "chars": 55,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "patient_followup",
+      "status": "ok",
+      "latency_ms": 904.91,
+      "chars": 45,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "pension_advisor",
+      "status": "ok",
+      "latency_ms": 859.37,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "performance_reporter",
+      "status": "ok",
+      "latency_ms": 1716.21,
+      "chars": 147,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "persona_builder",
+      "status": "ok",
+      "latency_ms": 3282.47,
+      "chars": 397,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "personal_assistant",
+      "status": "ok",
+      "latency_ms": 1000.51,
+      "chars": 69,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "pet_health",
+      "status": "ok",
+      "latency_ms": 898.25,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "pet_nutrition",
+      "status": "ok",
+      "latency_ms": 706.97,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "pet_trainer",
+      "status": "ok",
+      "latency_ms": 766.08,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "phishing_detector",
+      "status": "ok",
+      "latency_ms": 928.46,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "pitch_deck_analyzer",
+      "status": "ok",
+      "latency_ms": 979.01,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "press_release_writer",
+      "status": "ok",
+      "latency_ms": 1109.41,
+      "chars": 46,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "pricing_strategist",
+      "status": "ok",
+      "latency_ms": 2198.98,
+      "chars": 26,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "product_description_writer",
+      "status": "ok",
+      "latency_ms": 913.28,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "property_valuator",
+      "status": "ok",
+      "latency_ms": 1342.14,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "quiz_generator",
+      "status": "ok",
+      "latency_ms": 990.27,
+      "chars": 37,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "recipe_generator",
+      "status": "ok",
+      "latency_ms": 926.45,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "reel_script_writer",
+      "status": "ok",
+      "latency_ms": 1085.74,
+      "chars": 51,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "reminder_agent",
+      "status": "ok",
+      "latency_ms": 829.44,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "rental_yield_calculator",
+      "status": "ok",
+      "latency_ms": 891.23,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "rera_compliance",
+      "status": "ok",
+      "latency_ms": 1143.88,
+      "chars": 40,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "resume_screener",
+      "status": "ok",
+      "latency_ms": 1473.29,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "retention_strategist",
+      "status": "ok",
+      "latency_ms": 1071.03,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "retirement_planner",
+      "status": "ok",
+      "latency_ms": 1788.34,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "returns_predictor",
+      "status": "ok",
+      "latency_ms": 697.91,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "review_analyzer",
+      "status": "ok",
+      "latency_ms": 903.69,
+      "chars": 46,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "review_reputation",
+      "status": "ok",
+      "latency_ms": 1809.32,
+      "chars": 158,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "roi_calculator",
+      "status": "ok",
+      "latency_ms": 924.88,
+      "chars": 32,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "route_optimizer",
+      "status": "ok",
+      "latency_ms": 1721.59,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "rti_drafter",
+      "status": "ok",
+      "latency_ms": 1359.49,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "salary_benchmarker",
+      "status": "ok",
+      "latency_ms": 1114.17,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "scheme_eligibility",
+      "status": "ok",
+      "latency_ms": 972.26,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "school_selector",
+      "status": "ok",
+      "latency_ms": 1307.83,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "seo",
+      "status": "ok",
+      "latency_ms": 1843.85,
+      "chars": 204,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "shipment_tracker",
+      "status": "ok",
+      "latency_ms": 1185.19,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "sms",
+      "status": "ok",
+      "latency_ms": 1294.8,
+      "chars": 139,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "social_clip_maker",
+      "status": "ok",
+      "latency_ms": 996.98,
+      "chars": 32,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "social_media",
+      "status": "ok",
+      "latency_ms": 1428.88,
+      "chars": 147,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "soil_report_interpreter",
+      "status": "ok",
+      "latency_ms": 1024.34,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "solar_planner",
+      "status": "ok",
+      "latency_ms": 864.79,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "solar_roi_calculator",
+      "status": "ok",
+      "latency_ms": 1084.71,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "sponsorship_matcher",
+      "status": "ok",
+      "latency_ms": 931.54,
+      "chars": 46,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "sports_nutrition",
+      "status": "ok",
+      "latency_ms": 750.32,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "startup_valuation",
+      "status": "ok",
+      "latency_ms": 998.88,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "stock_analyzer",
+      "status": "ok",
+      "latency_ms": 915.63,
+      "chars": 33,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "stock_predictor",
+      "status": "ok",
+      "latency_ms": 754.89,
+      "chars": 26,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "stream_optimizer",
+      "status": "ok",
+      "latency_ms": 1095.07,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "student_data_validator",
+      "status": "ok",
+      "latency_ms": 1268.11,
+      "chars": 122,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "subsidy_finder",
+      "status": "ok",
+      "latency_ms": 1268.23,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "symptom_triage",
+      "status": "ok",
+      "latency_ms": 930.56,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "tax_planner",
+      "status": "ok",
+      "latency_ms": 1352.58,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "threat_briefing",
+      "status": "ok",
+      "latency_ms": 836.37,
+      "chars": 41,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "travel_budget_optimizer",
+      "status": "ok",
+      "latency_ms": 934.75,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "trend_spotter",
+      "status": "ok",
+      "latency_ms": 3458.82,
+      "chars": 512,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "trip_planner",
+      "status": "ok",
+      "latency_ms": 950.09,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "udise_compliance_advisor",
+      "status": "ok",
+      "latency_ms": 1898.96,
+      "chars": 203,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "udise_report_generator",
+      "status": "ok",
+      "latency_ms": 4057.46,
+      "chars": 189,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "upsell_advisor",
+      "status": "ok",
+      "latency_ms": 3684.17,
+      "chars": 46,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "url_analyzer",
+      "status": "ok",
+      "latency_ms": 5849.86,
+      "chars": 217,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "vaccination_scheduler",
+      "status": "ok",
+      "latency_ms": 4925.45,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "vastu_advisor",
+      "status": "ok",
+      "latency_ms": 1371.42,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "vendor_matcher",
+      "status": "ok",
+      "latency_ms": 3746.48,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "video_generator",
+      "status": "ok",
+      "latency_ms": 979.56,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "video_scriptwriter",
+      "status": "ok",
+      "latency_ms": 1546.75,
+      "chars": 240,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "video_summarizer",
+      "status": "ok",
+      "latency_ms": 2000.43,
+      "chars": 247,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "visa_guide",
+      "status": "ok",
+      "latency_ms": 1404.99,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "visual_designer",
+      "status": "ok",
+      "latency_ms": 1706.11,
+      "chars": 227,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "warehouse_planner",
+      "status": "ok",
+      "latency_ms": 964.76,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "weather_planting",
+      "status": "ok",
+      "latency_ms": 934.51,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "wedding_budget_planner",
+      "status": "ok",
+      "latency_ms": 1076.51,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "whatsapp",
+      "status": "ok",
+      "latency_ms": 1330.21,
+      "chars": 158,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "whatsapp_bot_builder",
+      "status": "ok",
+      "latency_ms": 964.46,
+      "chars": 32,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "will_drafter",
+      "status": "ok",
+      "latency_ms": 1042.93,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "youtube_analyzer",
+      "status": "ok",
+      "latency_ms": 1194.49,
+      "chars": 163,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "youtube_revenue_optimizer",
+      "status": "ok",
+      "latency_ms": 1095.92,
+      "chars": 31,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    },
+    {
+      "agent": "zomato_listing_optimizer",
+      "status": "ok",
+      "latency_ms": 855.91,
+      "chars": 46,
+      "driver": "openai",
+      "model": "gpt-4o-mini-2024-07-18"
+    }
+  ]
+}

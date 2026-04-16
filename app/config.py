@@ -98,6 +98,13 @@ class Settings(BaseSettings):
     ollama_timeout_connect: int = 5       # Fail fast if Ollama is down
     ollama_timeout_read: int = 20         # Fast fallback to cloud if local hangs
 
+    # ─── Fast Local (vLLM/TGI OpenAI-compatible) ───
+    # Optional hot-path server for ultra-low-latency streaming.
+    fast_local_api_key: str = "local"
+    fast_local_model: str = "qwen2.5:3b"
+    fast_local_max_tokens: int = 1024
+    fast_local_temperature: float = 0.3
+
     # ─── LLM Queue ──────────────────────────────────
     llm_max_parallel: int = 10  # concurrent inference slots (cloud APIs handle unlimited)
 

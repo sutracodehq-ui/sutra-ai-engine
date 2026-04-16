@@ -17,6 +17,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.lib.stream_normalizer import detect_stream_mode, normalize_stream
 from app.services.llm_service import get_llm_service, LlmResponse
 from app.services.intelligence.config_loader import get_intelligence_config
 from app.config import get_settings
@@ -503,7 +504,12 @@ class BaseAgent:
                 from app.services.intelligence.brain import get_brain
                 brain = get_brain()
                 # Use Registry's own circuit breaker (consistent across app)
-                decision = await brain.route(prompt, self.identifier, circuit_breaker=registry.circuit_breaker)
+                decision = await brain.route(
+                    prompt,
+                    self.identifier,
+                    circuit_breaker=registry.circuit_breaker,
+                    stream=True,
+                )
                 driver_override = decision["driver"]
                 model_override = decision.get("model")
                 fallback_chain = decision.get("chain")
@@ -513,6 +519,7 @@ class BaseAgent:
 
         # Stream via Registry — with resilient two-stage fallback
         full_response = []
+        mode = detect_stream_mode(messages[0].get("content") if messages else None)
         clean_opts = {k: v for k, v in options.items() if k not in {"messages", "driver_override", "model_override", "driver", "model_name"}}
         used_fallback = False
         actual_driver = driver_override
@@ -525,7 +532,7 @@ class BaseAgent:
                 model_override=model_override,
                 **clean_opts,
             )
-            async for token in strip_cot(raw_stream):
+            async for token in normalize_stream(strip_cot(raw_stream), mode=mode):
                 full_response.append(token)
                 yield token
         except Exception as primary_err:
@@ -553,7 +560,7 @@ class BaseAgent:
                         model_override=None,
                         **clean_opts,
                     )
-                async for token in strip_cot(fallback_stream):
+                async for token in normalize_stream(strip_cot(fallback_stream), mode=mode):
                     full_response.append(token)
                     yield token
                 used_fallback = True
@@ -562,7 +569,14 @@ class BaseAgent:
                 logger.error(
                     f"Agent stream: all drivers failed for {self.identifier}: {fallback_err}"
                 )
-                yield f"\n[Error: {str(fallback_err)}]"
+                # Keep user-facing stream alive with deterministic emergency content.
+                from app.services.intelligence.driver import EmergencyFallbackDriver
+                async for token in normalize_stream(
+                    EmergencyFallbackDriver().stream(messages, **clean_opts),
+                    mode=mode,
+                ):
+                    full_response.append(token)
+                    yield token
                 return
 
         # Post-stream: store in memory for self-learning

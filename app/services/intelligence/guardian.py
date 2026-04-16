@@ -22,6 +22,7 @@ import httpx
 import yaml
 
 from app.config import get_settings
+from app.lib.response_normalizer import field_present, parse_json_like, split_expected_fields
 from app.services.drivers.base import LlmResponse
 
 logger = logging.getLogger(__name__)
@@ -186,7 +187,7 @@ class Guardian:
 
     # ─── Quality Scoring (absorbs quality_engine scoring) ────
 
-    def score_response(self, response: LlmResponse, expected_fields: list[str] | None = None) -> dict:
+    def score_response(self, response: LlmResponse, expected_fields: Any = None) -> dict:
         """Multi-dimensional quality scoring (single split, reused word count)."""
         if not self._quality_enabled:
             return {"total": 10, "passed": True, "threshold": self._quality_threshold, "dimensions": {}}
@@ -201,12 +202,18 @@ class Guardian:
 
         # Format check
         if expected_fields:
-            try:
-                import json
-                data = json.loads(content.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip())
-                present = sum(1 for f in expected_fields if f in data)
-                dims["format"] = round(10 * present / len(expected_fields), 1)
-            except Exception:
+            data = parse_json_like(content)
+            req, opt = split_expected_fields(expected_fields)
+            expected = req + opt
+            if isinstance(data, (dict, list)) and expected:
+                req_present = sum(1 for f in req if field_present(data, f))
+                opt_present = sum(1 for f in opt if field_present(data, f))
+                req_ratio = (req_present / len(req)) if req else 1.0
+                opt_ratio = (opt_present / len(opt)) if opt else 1.0
+                dims["format"] = round((req_ratio * 8.0) + (opt_ratio * 2.0), 1)
+            elif isinstance(data, (dict, list)):
+                dims["format"] = 8.0
+            else:
                 dims["format"] = 2.0
         else:
             dims["format"] = 8.0 if len(content) > 20 else 3.0

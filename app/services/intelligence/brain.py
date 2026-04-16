@@ -31,9 +31,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from app.config import get_settings
+from app.lib.response_normalizer import parse_json_like
 from app.models.agent_optimization import AgentOptimization
 from app.schemas.agent_result import AgentResult
 from app.services.drivers.base import LlmResponse
+from app.services.intelligence.config_loader import get_provider_config
 
 logger = logging.getLogger(__name__)
 
@@ -100,30 +102,8 @@ class _ResponseFilter:
         return AgentResult(data=parsed, suggestions=suggestions, raw=raw, parsed=True)
 
     def _try_json(self, raw: str) -> tuple[Any, bool]:
-        import re
-        for text in [raw.strip(), re.sub(r"```(?:json)?\s*\n?(.*?)\n?\s*```", r"\1", raw.strip(), flags=re.DOTALL).strip()]:
-            try:
-                return json.loads(text), True
-            except json.JSONDecodeError:
-                pass
-        # Extract first JSON object
-        start = raw.find("{")
-        if start == -1:
-            return None, False
-        depth, in_str, esc = 0, False, False
-        for i in range(start, len(raw)):
-            ch = raw[i]
-            if esc: esc = False; continue
-            if ch == "\\": esc = True; continue
-            if ch == '"': in_str = not in_str; continue
-            if in_str: continue
-            if ch == "{": depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    try: return json.loads(raw[start:i+1]), True
-                    except json.JSONDecodeError: return None, False
-        return None, False
+        data = parse_json_like(raw)
+        return (data, True) if data is not None else (None, False)
 
 
 # ─── LLM Queue ────────────────────────────────────────────────
@@ -200,7 +180,14 @@ class Brain:
 
     # ── Routing ───────────────────────────────────────────────
 
-    async def route(self, prompt: str, agent_type: str, circuit_breaker=None) -> dict:
+    async def route(
+        self,
+        prompt: str,
+        agent_type: str,
+        circuit_breaker=None,
+        stream: bool = False,
+        strict_json: bool = False,
+    ) -> dict:
         """O(1) routing: language → scout → driver → model."""
         s = get_settings()
         if not s.ai_smart_router_enabled:
@@ -215,9 +202,13 @@ class Brain:
         from app.services.intelligence.guardian import get_guardian
         route_hint = await get_guardian().get_route_hint(agent_type)
         chain = self._order_chain_for_route_hint(chain, route_hint)
+        chain = self._prioritize_stream_chain(chain, prompt, stream=stream, strict_json=strict_json)
         driver = self._pick_driver(complexity, language, circuit_breaker, chain_override=chain)
         scout_score = scout.get("scout_score")
-        model = self._pick_model(driver, complexity, scout_score=scout_score)
+        scout_confidence = scout.get("scout_confidence")
+        model = self._pick_model(
+            driver, complexity, scout_score=scout_score, scout_confidence=scout_confidence
+        )
 
         parts = []
         if language != "english": parts.append(f"{language}")
@@ -230,6 +221,27 @@ class Brain:
         return {"driver": driver, "model": model, "complexity": complexity,
                 "language": language, "reason": reason, "chain": chain,
                 "intent": intent, "needs_web": needs_web}
+
+    @staticmethod
+    def _prioritize_stream_chain(
+        chain: list[str], prompt: str, *, stream: bool, strict_json: bool
+    ) -> list[str]:
+        if not stream or not chain:
+            return list(chain)
+        reordered = list(chain)
+        short_prompt = (len(prompt or "") <= 220) and (len((prompt or "").split()) <= 40)
+        has_fast_local = "fast_local" in reordered
+        fast_local_configured = bool((get_provider_config("fast_local") or {}).get("base_url"))
+        if short_prompt and fast_local_configured:
+            if not has_fast_local:
+                reordered.insert(0, "fast_local")
+            else:
+                reordered = ["fast_local"] + [d for d in reordered if d != "fast_local"]
+        if strict_json:
+            # Deterministic local path first for strict structured output.
+            if "ollama" in reordered:
+                reordered = ["ollama"] + [d for d in reordered if d != "ollama"]
+        return reordered
 
     def _get_chain(self, complexity: str, language: str) -> list[str]:
         sr = _cfg("smart_router", default={})
@@ -252,12 +264,13 @@ class Brain:
             "intent": "general",
             "needs_web": False,
             "scout_score": None,
+            "scout_confidence": None,
         }
 
     @staticmethod
     def _order_chain_for_route_hint(chain: list[str], route_hint: str) -> list[str]:
         """Reorder driver chain using Redis quality routing hints (never blocks routing)."""
-        locals_first = frozenset({"ollama", "bitnet"})
+        locals_first = frozenset({"ollama", "bitnet", "fast_local"})
         if not chain:
             return chain
         if route_hint == "fast_local":
@@ -307,11 +320,18 @@ class Brain:
         if not isinstance(intent, str):
             intent = "general"
         needs_web = bool(data.get("needs_web", False))
+        try:
+            confidence = float(data.get("confidence")) if data.get("confidence") is not None else None
+        except (TypeError, ValueError):
+            confidence = None
+        if confidence is not None:
+            confidence = max(0.0, min(1.0, confidence))
         return {
             "complexity": tier,
             "intent": intent,
             "needs_web": needs_web,
             "scout_score": score,
+            "scout_confidence": confidence,
         }
 
     def _heuristic_complexity(self, prompt: str, agent_type: str) -> str:
@@ -345,6 +365,7 @@ class Brain:
             "nvidia": bool(s.nvidia_api_key),
             "bitnet": True,
             "ollama": True,
+            "fast_local": bool((get_provider_config("fast_local") or {}).get("base_url")),
         }
         for d in chain:
             if key_map.get(d, False) and (not cb or cb.is_available(d)):
@@ -355,12 +376,21 @@ class Brain:
         return s.ai_driver
 
     def _pick_model(
-        self, driver: str, complexity: str, scout_score: int | None = None
+        self,
+        driver: str,
+        complexity: str,
+        scout_score: int | None = None,
+        scout_confidence: float | None = None,
     ) -> Optional[str]:
-        """Pick model tier; nudge toward heavier tier when Scout numeric score disagrees with bucket."""
+        """Pick model tier; nudge when Scout score is confident and disagrees with bucket."""
         tiers = _cfg("smart_router", default={}).get("model_tiers", {})
         eff = complexity
-        if scout_score is not None:
+        scout_cfg = _cfg("smart_router", default={}).get("scout", {})
+        min_conf = float(scout_cfg.get("min_confidence_for_tier_nudge", 0.6))
+        can_nudge = scout_score is not None and (
+            scout_confidence is None or scout_confidence >= min_conf
+        )
+        if can_nudge:
             if scout_score >= 8 and complexity == "simple":
                 eff = "moderate"
             elif scout_score >= 8 and complexity == "moderate":
@@ -373,11 +403,18 @@ class Brain:
         if not model:
             s = get_settings()
             model = {"ollama": s.ollama_model, "sarvam": s.sarvam_model, "nvidia": s.nvidia_model}.get(driver)
+        if not model and driver == "fast_local":
+            model = s.fast_local_model
         return model
 
     async def select_model(self, prompt: str, agent_type: str, driver: str) -> Optional[str]:
         sc = await self._assess_complexity(prompt, agent_type)
-        return self._pick_model(driver, sc["complexity"], scout_score=sc.get("scout_score"))
+        return self._pick_model(
+            driver,
+            sc["complexity"],
+            scout_score=sc.get("scout_score"),
+            scout_confidence=sc.get("scout_confidence"),
+        )
 
     # ── Execution ─────────────────────────────────────────────
 
@@ -390,6 +427,7 @@ class Brain:
         complexity = scout["complexity"]
         needs_web = scout.get("needs_web", False)
         scout_score = scout.get("scout_score")
+        scout_confidence = scout.get("scout_confidence")
         system_prompt = self._inject_thinking(system_prompt, complexity, agent_type)
 
         # Web augmentation
@@ -419,9 +457,23 @@ class Brain:
 
         if route_hint == "direct_cloud":
             resp = await self._call_cloud(
-                prompt, system_prompt, agent_type=agent_type, scout_score=scout_score, **options
+                prompt,
+                system_prompt,
+                agent_type=agent_type,
+                scout_score=scout_score,
+                scout_confidence=scout_confidence,
+                **options,
             )
+            final_score = guardian.score_response(resp, expected_fields)["total"]
+            await guardian.record_quality(agent_type, final_score)
             await self._auto_train(agent_type, prompt, resp)
+            resp = self._annotate_response(
+                resp,
+                route_hint=route_hint,
+                agent_type=agent_type,
+                chosen_model=(resp.model or ""),
+                quality_score=final_score,
+            )
             return await self._finalize_nonempty_response(prompt, system_prompt, resp, **options)
 
         start = time.monotonic()
@@ -429,26 +481,79 @@ class Brain:
         latency = round((time.monotonic() - start) * 1000)
 
         if route_hint == "fast_local":
-            await guardian.record_quality(agent_type, 8.0)
+            local_score = guardian.score_response(local_resp, expected_fields)["total"]
+            await guardian.record_quality(agent_type, local_score)
+            local_resp = self._annotate_response(
+                local_resp,
+                route_hint=route_hint,
+                agent_type=agent_type,
+                chosen_model=(local_resp.model or ""),
+                quality_score=local_score,
+            )
             return await self._finalize_nonempty_response(prompt, system_prompt, local_resp, **options)
 
         score_result = guardian.score_response(local_resp, expected_fields)
         score = score_result["total"]
         if score_result["passed"]:
             await guardian.record_quality(agent_type, score)
+            local_resp = self._annotate_response(
+                local_resp,
+                route_hint=route_hint,
+                agent_type=agent_type,
+                chosen_model=(local_resp.model or ""),
+                quality_score=score,
+            )
             return await self._finalize_nonempty_response(prompt, system_prompt, local_resp, **options)
 
         logger.info(f"Brain: ESCALATING {agent_type} (score={score})")
         cloud_resp = await self._call_cloud(
-            prompt, system_prompt, agent_type=agent_type, scout_score=scout_score, **options
+            prompt,
+            system_prompt,
+            agent_type=agent_type,
+            scout_score=scout_score,
+            scout_confidence=scout_confidence,
+            **options,
         )
         cloud_score = guardian.score_response(cloud_resp, expected_fields)["total"]
-        await guardian.record_quality(agent_type, score)
         if cloud_score >= score_result["threshold"]:
+            await guardian.record_quality(agent_type, cloud_score)
             await self._auto_train(agent_type, prompt, cloud_resp)
+            cloud_resp = self._annotate_response(
+                cloud_resp,
+                route_hint=route_hint,
+                agent_type=agent_type,
+                chosen_model=(cloud_resp.model or ""),
+                quality_score=cloud_score,
+            )
             return await self._finalize_nonempty_response(prompt, system_prompt, cloud_resp, **options)
         chosen = cloud_resp if cloud_score > score else local_resp
+        chosen_score = cloud_score if cloud_score > score else score
+        await guardian.record_quality(agent_type, chosen_score)
+        chosen = self._annotate_response(
+            chosen,
+            route_hint=route_hint,
+            agent_type=agent_type,
+            chosen_model=(chosen.model or ""),
+            quality_score=chosen_score,
+        )
         return await self._finalize_nonempty_response(prompt, system_prompt, chosen, **options)
+
+    @staticmethod
+    def _annotate_response(
+        resp: LlmResponse,
+        *,
+        route_hint: str,
+        agent_type: str,
+        chosen_model: str,
+        quality_score: float,
+    ) -> LlmResponse:
+        resp.metadata = resp.metadata or {}
+        resp.metadata.setdefault("route_hint", route_hint)
+        resp.metadata.setdefault("agent_type", agent_type)
+        resp.metadata.setdefault("chosen_driver", resp.driver or "unknown")
+        resp.metadata.setdefault("chosen_model", chosen_model or "unknown")
+        resp.metadata.setdefault("quality_score", round(float(quality_score), 2))
+        return resp
 
     async def _finalize_nonempty_response(
         self, prompt: str, system_prompt: str, resp: LlmResponse, **opts
@@ -484,11 +589,17 @@ class Brain:
         svc = get_llm_service()
         opts.pop("agent_type", "unknown")
         scout_score = opts.pop("scout_score", None)
+        scout_confidence = opts.pop("scout_confidence", None)
         chain = self._get_chain("complex", "english")
         cloud_drivers = [d for d in chain if d not in ("ollama", "bitnet")]
         for driver in cloud_drivers:
             try:
-                model = self._pick_model(driver, "complex", scout_score=scout_score)
+                model = self._pick_model(
+                    driver,
+                    "complex",
+                    scout_score=scout_score,
+                    scout_confidence=scout_confidence,
+                )
                 resp = await svc.complete(
                     prompt=prompt, system_prompt=system_prompt, driver=driver, model=model, **opts
                 )

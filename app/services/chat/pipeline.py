@@ -10,12 +10,14 @@ from typing import Any, AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.lib.stream_normalizer import detect_stream_mode, normalize_stream
 from app.models.tenant import Tenant
 from app.services.chat.aggregator import ContextAggregator
 from app.services.chat.pruner import ContextPruner
 from app.services.intelligence.brain import get_brain
 from app.services.intelligence.guardian import get_guardian
 from app.services.intelligence.memory import get_memory
+from app.services.intelligence.config_loader import get_intelligence_config
 from app.services.llm_service import get_llm_service
 
 logger = logging.getLogger(__name__)
@@ -108,7 +110,13 @@ class ChatPipeline:
 
         # Step 4: Smart Routing (Brain)
         agent_type = context.get("agent_type", "general") if context else "general"
-        route = await brain.route(safe_prompt, agent_type=agent_type)
+        stream_mode = detect_stream_mode(system_prompt)
+        route = await brain.route(
+            safe_prompt,
+            agent_type=agent_type,
+            stream=stream,
+            strict_json=(stream_mode == "json"),
+        )
         driver = route["driver"]
         model = route["model"]
         fallback_chain = route.get("chain")  # full YAML driver chain for resilient fallback
@@ -116,15 +124,63 @@ class ChatPipeline:
         # Step 5: Execution
         service = get_llm_service()
         if stream:
-            return service.stream(
-                safe_prompt,
-                system_prompt=system_prompt,
-                messages=messages,
-                driver=driver,
-                model=model,
-                fallback_chain=fallback_chain,
-                **kwargs
-            )
+            async def _safe_stream() -> AsyncGenerator[str, None]:
+                had_chunk = False
+                intel = get_intelligence_config()
+                timeouts = intel.get("timeouts", {}) or {}
+                first_token_timeout = float(timeouts.get("first_token_timeout_s", 10))
+                inactivity_timeout = float(timeouts.get("stream_inactivity_timeout_s", 8))
+                mode = detect_stream_mode(system_prompt)
+
+                async def _guarded_chunks(raw: AsyncGenerator[str, None]) -> AsyncGenerator[str, None]:
+                    nonlocal had_chunk
+                    aiter = raw.__aiter__()
+                    try:
+                        first = await asyncio.wait_for(
+                            aiter.__anext__(), timeout=first_token_timeout
+                        )
+                    except StopAsyncIteration:
+                        return
+                    had_chunk = True
+                    yield first
+                    while True:
+                        try:
+                            nxt = await asyncio.wait_for(
+                                aiter.__anext__(), timeout=inactivity_timeout
+                            )
+                        except StopAsyncIteration:
+                            break
+                        had_chunk = True
+                        yield nxt
+
+                try:
+                    raw = service.stream(
+                        safe_prompt,
+                        system_prompt=system_prompt,
+                        messages=messages,
+                        driver=driver,
+                        model=model,
+                        fallback_chain=fallback_chain,
+                        **kwargs
+                    )
+                    async for chunk in normalize_stream(_guarded_chunks(raw), mode=mode):
+                        yield chunk
+                except Exception as e:
+                    logger.warning(f"ChatPipeline.stream failed, falling to emergency: {e}")
+                if not had_chunk:
+                    from app.services.intelligence.driver import EmergencyFallbackDriver
+                    emergency_messages = [
+                        {"role": "system", "content": system_prompt},
+                        *messages,
+                        {"role": "user", "content": safe_prompt},
+                    ]
+                    async for chunk in normalize_stream(
+                        EmergencyFallbackDriver().stream(emergency_messages),
+                        mode=mode,
+                    ):
+                        yield chunk
+
+            return _safe_stream()
         else:
             result = await service.complete(
                 safe_prompt,
@@ -133,6 +189,9 @@ class ChatPipeline:
                 driver=driver,
                 model=model,
                 **kwargs
+            )
+            result = await brain._finalize_nonempty_response(
+                safe_prompt, system_prompt, result, **kwargs
             )
             
             # Step 6: Output Safety & Brand Protection (Guardian)

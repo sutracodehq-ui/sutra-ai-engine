@@ -1,0 +1,1211 @@
+{
+  "timestamp": "2026-04-16T12:54:53.143192",
+  "total_agents": 195,
+  "ok": 15,
+  "empty": 0,
+  "error": 180,
+  "avg_latency_ms": 1424.21,
+  "timeout_s": 5,
+  "results": [
+    {
+      "agent": "ab_test_advisor",
+      "status": "error",
+      "latency_ms": 5001.17,
+      "error": ""
+    },
+    {
+      "agent": "ad_creative",
+      "status": "error",
+      "latency_ms": 5001.21,
+      "error": ""
+    },
+    {
+      "agent": "ai_trend_tracker",
+      "status": "error",
+      "latency_ms": 5000.32,
+      "error": ""
+    },
+    {
+      "agent": "anomaly_alerter",
+      "status": "error",
+      "latency_ms": 5001.18,
+      "error": ""
+    },
+    {
+      "agent": "area_comparator",
+      "status": "error",
+      "latency_ms": 5001.94,
+      "error": ""
+    },
+    {
+      "agent": "attribution_analyst",
+      "status": "error",
+      "latency_ms": 5001.14,
+      "error": ""
+    },
+    {
+      "agent": "audience_growth_strategist",
+      "status": "error",
+      "latency_ms": 5004.78,
+      "error": ""
+    },
+    {
+      "agent": "audience_segmenter",
+      "status": "error",
+      "latency_ms": 5002.72,
+      "error": ""
+    },
+    {
+      "agent": "audio_dubber",
+      "status": "error",
+      "latency_ms": 5000.64,
+      "error": ""
+    },
+    {
+      "agent": "auto_publisher",
+      "status": "error",
+      "latency_ms": 5001.21,
+      "error": ""
+    },
+    {
+      "agent": "auto_scheduler",
+      "status": "ok",
+      "latency_ms": 403.37,
+      "chars": 83,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "ayurveda_advisor",
+      "status": "error",
+      "latency_ms": 5001.13,
+      "error": ""
+    },
+    {
+      "agent": "battery_health",
+      "status": "error",
+      "latency_ms": 5001.71,
+      "error": ""
+    },
+    {
+      "agent": "brand_advisor",
+      "status": "error",
+      "latency_ms": 5001.13,
+      "error": ""
+    },
+    {
+      "agent": "brand_auditor",
+      "status": "error",
+      "latency_ms": 5000.14,
+      "error": ""
+    },
+    {
+      "agent": "budget_optimizer",
+      "status": "error",
+      "latency_ms": 5000.94,
+      "error": ""
+    },
+    {
+      "agent": "call_sentiment_analyzer",
+      "status": "error",
+      "latency_ms": 5000.89,
+      "error": ""
+    },
+    {
+      "agent": "call_summarizer",
+      "status": "error",
+      "latency_ms": 5001.35,
+      "error": ""
+    },
+    {
+      "agent": "campaign_strategist",
+      "status": "ok",
+      "latency_ms": 368.72,
+      "chars": 59,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "cap_table_manager",
+      "status": "error",
+      "latency_ms": 5001.07,
+      "error": ""
+    },
+    {
+      "agent": "caption_generator",
+      "status": "error",
+      "latency_ms": 5000.33,
+      "error": ""
+    },
+    {
+      "agent": "carbon_footprint",
+      "status": "error",
+      "latency_ms": 5000.26,
+      "error": ""
+    },
+    {
+      "agent": "caregiver_guide",
+      "status": "error",
+      "latency_ms": 5000.25,
+      "error": ""
+    },
+    {
+      "agent": "catalog_enricher",
+      "status": "error",
+      "latency_ms": 5000.09,
+      "error": ""
+    },
+    {
+      "agent": "charging_station_planner",
+      "status": "error",
+      "latency_ms": 5001.32,
+      "error": ""
+    },
+    {
+      "agent": "chatbot_trainer",
+      "status": "error",
+      "latency_ms": 5000.8,
+      "error": ""
+    },
+    {
+      "agent": "child_milestone_tracker",
+      "status": "error",
+      "latency_ms": 5000.28,
+      "error": ""
+    },
+    {
+      "agent": "child_nutrition",
+      "status": "error",
+      "latency_ms": 5001.13,
+      "error": ""
+    },
+    {
+      "agent": "churn_predictor",
+      "status": "error",
+      "latency_ms": 5000.62,
+      "error": ""
+    },
+    {
+      "agent": "churn_reversal",
+      "status": "error",
+      "latency_ms": 5001.14,
+      "error": ""
+    },
+    {
+      "agent": "click_shield",
+      "status": "ok",
+      "latency_ms": 388.15,
+      "chars": 43,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "cold_call_scripter",
+      "status": "error",
+      "latency_ms": 5000.65,
+      "error": ""
+    },
+    {
+      "agent": "competitor_analyst",
+      "status": "error",
+      "latency_ms": 5001.19,
+      "error": ""
+    },
+    {
+      "agent": "complaint_drafter",
+      "status": "error",
+      "latency_ms": 5001.14,
+      "error": ""
+    },
+    {
+      "agent": "compliance_checker",
+      "status": "error",
+      "latency_ms": 5001.15,
+      "error": ""
+    },
+    {
+      "agent": "construction_estimator",
+      "status": "error",
+      "latency_ms": 5001.15,
+      "error": ""
+    },
+    {
+      "agent": "content_grader",
+      "status": "error",
+      "latency_ms": 5000.53,
+      "error": ""
+    },
+    {
+      "agent": "content_monetizer",
+      "status": "error",
+      "latency_ms": 5000.42,
+      "error": ""
+    },
+    {
+      "agent": "content_repurpose",
+      "status": "ok",
+      "latency_ms": 887.45,
+      "chars": 162,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "contract_analyzer",
+      "status": "error",
+      "latency_ms": 5001.13,
+      "error": ""
+    },
+    {
+      "agent": "contractor_checker",
+      "status": "error",
+      "latency_ms": 5001.13,
+      "error": ""
+    },
+    {
+      "agent": "copywriter",
+      "status": "error",
+      "latency_ms": 5000.65,
+      "error": ""
+    },
+    {
+      "agent": "cricket_analyst",
+      "status": "error",
+      "latency_ms": 5000.86,
+      "error": ""
+    },
+    {
+      "agent": "crop_advisor",
+      "status": "error",
+      "latency_ms": 5001.14,
+      "error": ""
+    },
+    {
+      "agent": "crypto_analyzer",
+      "status": "error",
+      "latency_ms": 5001.16,
+      "error": ""
+    },
+    {
+      "agent": "daily_briefing",
+      "status": "error",
+      "latency_ms": 5000.39,
+      "error": ""
+    },
+    {
+      "agent": "data_curator",
+      "status": "error",
+      "latency_ms": 5000.65,
+      "error": ""
+    },
+    {
+      "agent": "dataset_optimizer",
+      "status": "error",
+      "latency_ms": 5000.97,
+      "error": ""
+    },
+    {
+      "agent": "diet_planner",
+      "status": "error",
+      "latency_ms": 5001.12,
+      "error": ""
+    },
+    {
+      "agent": "document_ocr_extractor",
+      "status": "error",
+      "latency_ms": 5001.18,
+      "error": ""
+    },
+    {
+      "agent": "document_translator",
+      "status": "error",
+      "latency_ms": 5000.54,
+      "error": ""
+    },
+    {
+      "agent": "dynamic_pricing",
+      "status": "error",
+      "latency_ms": 5000.66,
+      "error": ""
+    },
+    {
+      "agent": "edtech",
+      "status": "error",
+      "latency_ms": 5003.03,
+      "error": ""
+    },
+    {
+      "agent": "education_guru",
+      "status": "error",
+      "latency_ms": 5001.81,
+      "error": ""
+    },
+    {
+      "agent": "elder_health_monitor",
+      "status": "error",
+      "latency_ms": 5007.25,
+      "error": ""
+    },
+    {
+      "agent": "email_campaign",
+      "status": "ok",
+      "latency_ms": 644.14,
+      "chars": 230,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "email_summarizer",
+      "status": "error",
+      "latency_ms": 5001.35,
+      "error": ""
+    },
+    {
+      "agent": "esg_report_writer",
+      "status": "error",
+      "latency_ms": 5001.25,
+      "error": ""
+    },
+    {
+      "agent": "esports_analyst",
+      "status": "error",
+      "latency_ms": 5001.26,
+      "error": ""
+    },
+    {
+      "agent": "ev_comparator",
+      "status": "error",
+      "latency_ms": 5001.32,
+      "error": ""
+    },
+    {
+      "agent": "event_timeline",
+      "status": "error",
+      "latency_ms": 5001.32,
+      "error": ""
+    },
+    {
+      "agent": "expense_tracker",
+      "status": "error",
+      "latency_ms": 5000.63,
+      "error": ""
+    },
+    {
+      "agent": "fake_news_detector",
+      "status": "error",
+      "latency_ms": 5000.26,
+      "error": ""
+    },
+    {
+      "agent": "fantasy_team_builder",
+      "status": "error",
+      "latency_ms": 5000.75,
+      "error": ""
+    },
+    {
+      "agent": "feedback_synthesizer",
+      "status": "ok",
+      "latency_ms": 451.16,
+      "chars": 90,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "fitness_coach",
+      "status": "error",
+      "latency_ms": 5000.67,
+      "error": ""
+    },
+    {
+      "agent": "flashcard_creator",
+      "status": "error",
+      "latency_ms": 5000.52,
+      "error": ""
+    },
+    {
+      "agent": "food_cost_optimizer",
+      "status": "error",
+      "latency_ms": 5001.15,
+      "error": ""
+    },
+    {
+      "agent": "form_filler",
+      "status": "error",
+      "latency_ms": 5001.16,
+      "error": ""
+    },
+    {
+      "agent": "funding_tracker",
+      "status": "error",
+      "latency_ms": 5000.47,
+      "error": ""
+    },
+    {
+      "agent": "funnel_analyzer",
+      "status": "error",
+      "latency_ms": 5000.24,
+      "error": ""
+    },
+    {
+      "agent": "game_strategy",
+      "status": "error",
+      "latency_ms": 5001.15,
+      "error": ""
+    },
+    {
+      "agent": "gaming_pc_builder",
+      "status": "error",
+      "latency_ms": 5000.24,
+      "error": ""
+    },
+    {
+      "agent": "google_ads_optimizer",
+      "status": "error",
+      "latency_ms": 5000.38,
+      "error": ""
+    },
+    {
+      "agent": "green_certification",
+      "status": "error",
+      "latency_ms": 5001.13,
+      "error": ""
+    },
+    {
+      "agent": "gst_compliance",
+      "status": "ok",
+      "latency_ms": 1405.67,
+      "chars": 42,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "guest_list_manager",
+      "status": "error",
+      "latency_ms": 5000.61,
+      "error": ""
+    },
+    {
+      "agent": "image_generator",
+      "status": "error",
+      "latency_ms": 5001.15,
+      "error": ""
+    },
+    {
+      "agent": "incident_reporter",
+      "status": "error",
+      "latency_ms": 5001.21,
+      "error": ""
+    },
+    {
+      "agent": "influencer_matcher",
+      "status": "error",
+      "latency_ms": 5003.32,
+      "error": ""
+    },
+    {
+      "agent": "infrastructure_auditor",
+      "status": "error",
+      "latency_ms": 5001.16,
+      "error": ""
+    },
+    {
+      "agent": "insurance_advisor",
+      "status": "error",
+      "latency_ms": 5001.16,
+      "error": ""
+    },
+    {
+      "agent": "interior_designer",
+      "status": "error",
+      "latency_ms": 5000.37,
+      "error": ""
+    },
+    {
+      "agent": "interview_q_generator",
+      "status": "error",
+      "latency_ms": 5000.72,
+      "error": ""
+    },
+    {
+      "agent": "invitation_writer",
+      "status": "error",
+      "latency_ms": 5001.26,
+      "error": ""
+    },
+    {
+      "agent": "invoice_generator",
+      "status": "error",
+      "latency_ms": 5001.21,
+      "error": ""
+    },
+    {
+      "agent": "itinerary_generator",
+      "status": "error",
+      "latency_ms": 5000.96,
+      "error": ""
+    },
+    {
+      "agent": "ivr_designer",
+      "status": "error",
+      "latency_ms": 5001.15,
+      "error": ""
+    },
+    {
+      "agent": "jd_writer",
+      "status": "error",
+      "latency_ms": 5001.28,
+      "error": ""
+    },
+    {
+      "agent": "journey_mapper",
+      "status": "error",
+      "latency_ms": 5000.37,
+      "error": ""
+    },
+    {
+      "agent": "key_points_extractor",
+      "status": "error",
+      "latency_ms": 5001.18,
+      "error": ""
+    },
+    {
+      "agent": "kitchen_inventory",
+      "status": "error",
+      "latency_ms": 5000.47,
+      "error": ""
+    },
+    {
+      "agent": "kundli_analyzer",
+      "status": "error",
+      "latency_ms": 5000.29,
+      "error": ""
+    },
+    {
+      "agent": "lab_report_interpreter",
+      "status": "error",
+      "latency_ms": 5001.12,
+      "error": ""
+    },
+    {
+      "agent": "landing_page_builder",
+      "status": "error",
+      "latency_ms": 5001.19,
+      "error": ""
+    },
+    {
+      "agent": "last_mile_optimizer",
+      "status": "error",
+      "latency_ms": 5001.32,
+      "error": ""
+    },
+    {
+      "agent": "lead_scorer",
+      "status": "error",
+      "latency_ms": 5001.19,
+      "error": ""
+    },
+    {
+      "agent": "lecture_planner",
+      "status": "error",
+      "latency_ms": 5088.91,
+      "error": ""
+    },
+    {
+      "agent": "legal_document_writer",
+      "status": "error",
+      "latency_ms": 5001.26,
+      "error": ""
+    },
+    {
+      "agent": "linkedin_growth",
+      "status": "error",
+      "latency_ms": 5000.85,
+      "error": ""
+    },
+    {
+      "agent": "loan_comparator",
+      "status": "error",
+      "latency_ms": 5001.26,
+      "error": ""
+    },
+    {
+      "agent": "mantra_guide",
+      "status": "error",
+      "latency_ms": 5000.89,
+      "error": ""
+    },
+    {
+      "agent": "market_sizing",
+      "status": "ok",
+      "latency_ms": 452.12,
+      "chars": 46,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "market_trend_analyzer",
+      "status": "error",
+      "latency_ms": 5000.27,
+      "error": ""
+    },
+    {
+      "agent": "material_calculator",
+      "status": "error",
+      "latency_ms": 5001.26,
+      "error": ""
+    },
+    {
+      "agent": "media_monitor",
+      "status": "error",
+      "latency_ms": 5000.99,
+      "error": ""
+    },
+    {
+      "agent": "medicine_info",
+      "status": "error",
+      "latency_ms": 5000.97,
+      "error": ""
+    },
+    {
+      "agent": "meeting_notes",
+      "status": "error",
+      "latency_ms": 5000.54,
+      "error": ""
+    },
+    {
+      "agent": "mental_health_companion",
+      "status": "ok",
+      "latency_ms": 4134.93,
+      "chars": 95,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "menu_designer",
+      "status": "error",
+      "latency_ms": 5001.2,
+      "error": ""
+    },
+    {
+      "agent": "meta_ads_optimizer",
+      "status": "error",
+      "latency_ms": 5001.29,
+      "error": ""
+    },
+    {
+      "agent": "ml_pipeline",
+      "status": "error",
+      "latency_ms": 5001.32,
+      "error": ""
+    },
+    {
+      "agent": "msp_tracker",
+      "status": "error",
+      "latency_ms": 5001.24,
+      "error": ""
+    },
+    {
+      "agent": "muhurat_finder",
+      "status": "error",
+      "latency_ms": 5001.76,
+      "error": ""
+    },
+    {
+      "agent": "news_summarizer",
+      "status": "error",
+      "latency_ms": 5001.35,
+      "error": ""
+    },
+    {
+      "agent": "note_generator",
+      "status": "error",
+      "latency_ms": 5001.28,
+      "error": ""
+    },
+    {
+      "agent": "nps_analyzer",
+      "status": "error",
+      "latency_ms": 5001.19,
+      "error": ""
+    },
+    {
+      "agent": "onboarding_guide",
+      "status": "error",
+      "latency_ms": 5001.12,
+      "error": ""
+    },
+    {
+      "agent": "panchang_reader",
+      "status": "error",
+      "latency_ms": 5000.23,
+      "error": ""
+    },
+    {
+      "agent": "password_auditor",
+      "status": "error",
+      "latency_ms": 5001.39,
+      "error": ""
+    },
+    {
+      "agent": "patient_followup",
+      "status": "error",
+      "latency_ms": 5001.75,
+      "error": ""
+    },
+    {
+      "agent": "pension_advisor",
+      "status": "error",
+      "latency_ms": 5001.28,
+      "error": ""
+    },
+    {
+      "agent": "performance_reporter",
+      "status": "error",
+      "latency_ms": 5001.23,
+      "error": ""
+    },
+    {
+      "agent": "persona_builder",
+      "status": "ok",
+      "latency_ms": 4850.8,
+      "chars": 59,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "personal_assistant",
+      "status": "error",
+      "latency_ms": 5001.23,
+      "error": ""
+    },
+    {
+      "agent": "pet_health",
+      "status": "error",
+      "latency_ms": 5000.72,
+      "error": ""
+    },
+    {
+      "agent": "pet_nutrition",
+      "status": "error",
+      "latency_ms": 5001.24,
+      "error": ""
+    },
+    {
+      "agent": "pet_trainer",
+      "status": "error",
+      "latency_ms": 5000.39,
+      "error": ""
+    },
+    {
+      "agent": "phishing_detector",
+      "status": "error",
+      "latency_ms": 5001.29,
+      "error": ""
+    },
+    {
+      "agent": "pitch_deck_analyzer",
+      "status": "error",
+      "latency_ms": 5000.82,
+      "error": ""
+    },
+    {
+      "agent": "press_release_writer",
+      "status": "error",
+      "latency_ms": 5000.21,
+      "error": ""
+    },
+    {
+      "agent": "pricing_strategist",
+      "status": "error",
+      "latency_ms": 5000.64,
+      "error": ""
+    },
+    {
+      "agent": "product_description_writer",
+      "status": "error",
+      "latency_ms": 5001.19,
+      "error": ""
+    },
+    {
+      "agent": "property_valuator",
+      "status": "error",
+      "latency_ms": 5001.18,
+      "error": ""
+    },
+    {
+      "agent": "quiz_generator",
+      "status": "error",
+      "latency_ms": 5001.12,
+      "error": ""
+    },
+    {
+      "agent": "recipe_generator",
+      "status": "error",
+      "latency_ms": 5001.16,
+      "error": ""
+    },
+    {
+      "agent": "reel_script_writer",
+      "status": "error",
+      "latency_ms": 5001.18,
+      "error": ""
+    },
+    {
+      "agent": "reminder_agent",
+      "status": "error",
+      "latency_ms": 5001.21,
+      "error": ""
+    },
+    {
+      "agent": "rental_yield_calculator",
+      "status": "error",
+      "latency_ms": 5001.19,
+      "error": ""
+    },
+    {
+      "agent": "rera_compliance",
+      "status": "ok",
+      "latency_ms": 916.53,
+      "chars": 78,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "resume_screener",
+      "status": "error",
+      "latency_ms": 5001.12,
+      "error": ""
+    },
+    {
+      "agent": "retention_strategist",
+      "status": "error",
+      "latency_ms": 5000.49,
+      "error": ""
+    },
+    {
+      "agent": "retirement_planner",
+      "status": "error",
+      "latency_ms": 5000.87,
+      "error": ""
+    },
+    {
+      "agent": "returns_predictor",
+      "status": "error",
+      "latency_ms": 5000.26,
+      "error": ""
+    },
+    {
+      "agent": "review_analyzer",
+      "status": "error",
+      "latency_ms": 5001.32,
+      "error": ""
+    },
+    {
+      "agent": "review_reputation",
+      "status": "error",
+      "latency_ms": 5001.07,
+      "error": ""
+    },
+    {
+      "agent": "roi_calculator",
+      "status": "error",
+      "latency_ms": 5000.84,
+      "error": ""
+    },
+    {
+      "agent": "route_optimizer",
+      "status": "ok",
+      "latency_ms": 341.92,
+      "chars": 42,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "rti_drafter",
+      "status": "error",
+      "latency_ms": 5000.84,
+      "error": ""
+    },
+    {
+      "agent": "salary_benchmarker",
+      "status": "error",
+      "latency_ms": 5001.34,
+      "error": ""
+    },
+    {
+      "agent": "scheme_eligibility",
+      "status": "error",
+      "latency_ms": 5001.44,
+      "error": ""
+    },
+    {
+      "agent": "school_selector",
+      "status": "error",
+      "latency_ms": 5000.81,
+      "error": ""
+    },
+    {
+      "agent": "seo",
+      "status": "error",
+      "latency_ms": 5002.74,
+      "error": ""
+    },
+    {
+      "agent": "shipment_tracker",
+      "status": "error",
+      "latency_ms": 5001.25,
+      "error": ""
+    },
+    {
+      "agent": "sms",
+      "status": "error",
+      "latency_ms": 5000.7,
+      "error": ""
+    },
+    {
+      "agent": "social_clip_maker",
+      "status": "error",
+      "latency_ms": 5000.54,
+      "error": ""
+    },
+    {
+      "agent": "social_media",
+      "status": "error",
+      "latency_ms": 5001.25,
+      "error": ""
+    },
+    {
+      "agent": "soil_report_interpreter",
+      "status": "error",
+      "latency_ms": 5000.95,
+      "error": ""
+    },
+    {
+      "agent": "solar_planner",
+      "status": "error",
+      "latency_ms": 5001.31,
+      "error": ""
+    },
+    {
+      "agent": "solar_roi_calculator",
+      "status": "error",
+      "latency_ms": 5000.25,
+      "error": ""
+    },
+    {
+      "agent": "sponsorship_matcher",
+      "status": "error",
+      "latency_ms": 5000.18,
+      "error": ""
+    },
+    {
+      "agent": "sports_nutrition",
+      "status": "ok",
+      "latency_ms": 3838.39,
+      "chars": 99,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "startup_valuation",
+      "status": "error",
+      "latency_ms": 5001.44,
+      "error": ""
+    },
+    {
+      "agent": "stock_analyzer",
+      "status": "error",
+      "latency_ms": 5001.38,
+      "error": ""
+    },
+    {
+      "agent": "stock_predictor",
+      "status": "error",
+      "latency_ms": 5000.51,
+      "error": ""
+    },
+    {
+      "agent": "stream_optimizer",
+      "status": "error",
+      "latency_ms": 5000.57,
+      "error": ""
+    },
+    {
+      "agent": "student_data_validator",
+      "status": "error",
+      "latency_ms": 5001.27,
+      "error": ""
+    },
+    {
+      "agent": "subsidy_finder",
+      "status": "error",
+      "latency_ms": 5000.74,
+      "error": ""
+    },
+    {
+      "agent": "symptom_triage",
+      "status": "error",
+      "latency_ms": 5000.68,
+      "error": ""
+    },
+    {
+      "agent": "tax_planner",
+      "status": "error",
+      "latency_ms": 5001.29,
+      "error": ""
+    },
+    {
+      "agent": "threat_briefing",
+      "status": "error",
+      "latency_ms": 5001.28,
+      "error": ""
+    },
+    {
+      "agent": "travel_budget_optimizer",
+      "status": "error",
+      "latency_ms": 5001.07,
+      "error": ""
+    },
+    {
+      "agent": "trend_spotter",
+      "status": "error",
+      "latency_ms": 5001.11,
+      "error": ""
+    },
+    {
+      "agent": "trip_planner",
+      "status": "error",
+      "latency_ms": 5001.21,
+      "error": ""
+    },
+    {
+      "agent": "udise_compliance_advisor",
+      "status": "error",
+      "latency_ms": 5002.12,
+      "error": ""
+    },
+    {
+      "agent": "udise_report_generator",
+      "status": "error",
+      "latency_ms": 5001.31,
+      "error": ""
+    },
+    {
+      "agent": "upsell_advisor",
+      "status": "ok",
+      "latency_ms": 540.32,
+      "chars": 96,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "url_analyzer",
+      "status": "error",
+      "latency_ms": 5001.27,
+      "error": ""
+    },
+    {
+      "agent": "vaccination_scheduler",
+      "status": "error",
+      "latency_ms": 5001.33,
+      "error": ""
+    },
+    {
+      "agent": "vastu_advisor",
+      "status": "error",
+      "latency_ms": 5000.59,
+      "error": ""
+    },
+    {
+      "agent": "vendor_matcher",
+      "status": "error",
+      "latency_ms": 5000.66,
+      "error": ""
+    },
+    {
+      "agent": "video_generator",
+      "status": "error",
+      "latency_ms": 5000.7,
+      "error": ""
+    },
+    {
+      "agent": "video_scriptwriter",
+      "status": "ok",
+      "latency_ms": 1739.47,
+      "chars": 284,
+      "driver": "groq",
+      "model": "llama-3.3-70b-versatile"
+    },
+    {
+      "agent": "video_summarizer",
+      "status": "error",
+      "latency_ms": 5001.18,
+      "error": ""
+    },
+    {
+      "agent": "visa_guide",
+      "status": "error",
+      "latency_ms": 5000.72,
+      "error": ""
+    },
+    {
+      "agent": "visual_designer",
+      "status": "error",
+      "latency_ms": 5001.29,
+      "error": ""
+    },
+    {
+      "agent": "warehouse_planner",
+      "status": "error",
+      "latency_ms": 5001.17,
+      "error": ""
+    },
+    {
+      "agent": "weather_planting",
+      "status": "error",
+      "latency_ms": 5001.18,
+      "error": ""
+    },
+    {
+      "agent": "wedding_budget_planner",
+      "status": "error",
+      "latency_ms": 5001.21,
+      "error": ""
+    },
+    {
+      "agent": "whatsapp",
+      "status": "error",
+      "latency_ms": 5000.23,
+      "error": ""
+    },
+    {
+      "agent": "whatsapp_bot_builder",
+      "status": "error",
+      "latency_ms": 5001.28,
+      "error": ""
+    },
+    {
+      "agent": "will_drafter",
+      "status": "error",
+      "latency_ms": 5001.15,
+      "error": ""
+    },
+    {
+      "agent": "youtube_analyzer",
+      "status": "error",
+      "latency_ms": 5001.16,
+      "error": ""
+    },
+    {
+      "agent": "youtube_revenue_optimizer",
+      "status": "error",
+      "latency_ms": 5001.27,
+      "error": ""
+    },
+    {
+      "agent": "zomato_listing_optimizer",
+      "status": "error",
+      "latency_ms": 5001.19,
+      "error": ""
+    }
+  ]
+}

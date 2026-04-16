@@ -206,16 +206,21 @@ async def get_quality(agent_id: str = Query(default="")):
     from app.services.intelligence.memory import get_memory
     mem = get_memory()
     if agent_id:
-        return mem.get_quality(agent_id)
-    return {"agents": mem.get_all_quality()}
+        return await mem.get_quality(agent_id)
+    return {"agents": await mem.get_all_quality()}
 
 
 @router.get("/quality/alerts")
 async def get_quality_alerts():
-    """Agent quality alerts (stubbed via Memory)."""
+    """Agent quality alerts based on rolling Guardian scores."""
     from app.services.intelligence.memory import get_memory
     mem = get_memory()
-    return {"degrading_agents": []}
+    agents = await mem.get_all_quality()
+    degrading = [
+        a for a in agents
+        if a.get("status") == "ok" and float(a.get("avg_score", 0)) < 5.0
+    ]
+    return {"degrading_agents": degrading}
 
 
 # ─── Audit + Stats ──────────────────────────────────────────

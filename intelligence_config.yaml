@@ -13,6 +13,7 @@ load_balancer:
     gemini: 20         # Cloud API
     nvidia: 10         # Cloud API
     bitnet: 5          # Local 1-bit service
+    fast_local: 6     # vLLM/TGI hot path
 
 # ─── Provider Metadata (Base URLs & Timeouts) ──────────────
 # Single source of truth for driver connection params.
@@ -51,6 +52,14 @@ providers:
     timeout_read_s: 60
     fallback_models:
       - bitnet-2b
+  fast_local:
+    # OpenAI-compatible fast local server (vLLM/TGI)
+    base_url: "http://sutra-ai-fastlocal:8000/v1"
+    timeout_connect_s: 3
+    timeout_read_s: 90
+    fallback_models:
+      - qwen2.5:3b
+      - qwen2.5:1.5b
   ollama:
     base_url: "http://sutra-ai-ollama:11434"
     timeout_connect_s: 10
@@ -62,6 +71,17 @@ providers:
       - qwen2.5:1.5b
       - phi4-mini
       - smollm2:360m
+    profiles:
+      low_latency:
+        num_predict: 320
+        temperature: 0.2
+        top_k: 30
+        top_p: 0.9
+      quality:
+        num_predict: 1024
+        temperature: 0.5
+        top_k: 45
+        top_p: 0.95
   gemini:
     timeout_connect_s: 10
     timeout_read_s: 120
@@ -430,6 +450,16 @@ knowledge_graph:
 auto_benchmark:
   min_quality_for_benchmark: 7.0
   max_benchmarks_per_run: 10
+
+# ─── Software Factory Rollout Gates ─────────────────────────
+factory_rollout_gates:
+  streaming:
+    p50_first_token_ms: 700
+    p95_first_token_ms: 1800
+    min_tokens_per_sec: 8.0
+    max_stream_interrupt_rate: 0.02
+    max_emergency_fallback_rate: 0.05
+    min_format_integrity_rate: 0.98
 
 # ─── VoIP Engine (Self-Hosted) ─────────────────────────────
 voip:
@@ -1054,6 +1084,7 @@ resilience:
   # Ordered driver fallback when Settings.ai_driver_chain is empty.
   # Filtered at runtime to drivers with valid keys + provider metadata.
   global_driver_chain:
+    - fast_local
     - ollama
     - bitnet
     - groq
@@ -1063,6 +1094,9 @@ resilience:
     - sarvam
     - nvidia
   max_fallback_models_per_driver: 6
+  admission_control:
+    max_local_streams: 2
+    max_queue_wait_s: 0.35
   circuit_breaker:
     threshold: 3
     cooldown_seconds: 60
@@ -1075,7 +1109,8 @@ resilience:
     default_rpm: 60
     default_rpd: 10000
   timeouts:
-    stream_first_token_s: 20.0
+    first_token_timeout_s: 10.0
+    stream_inactivity_timeout_s: 8.0
 
 # ─── Quality Configuration ─────────────────────────────────
 quality:
@@ -1369,6 +1404,7 @@ timeouts:
   queue_acquire_s: 2
   first_token_timeout_s: 10      # Fast failover: first token from primary driver or fall to chain
   stream_inactivity_s: 120       # Max silence between tokens during streaming
+  stream_inactivity_timeout_s: 8 # Stall guard for provider stream generators (auto-hop on silence)
 
 # ─── Sentiment Analysis ───────────────────────────────────
 sentiment:
@@ -1612,6 +1648,15 @@ intelligence_pipelines:
     temperature: 0.1
     json_mode: true
     max_content_chars: 8000
+    fallback_response:
+      brand_identity: { name: "Not detected", tagline: "Not detected", mission: "Temporarily unavailable", vision: "Temporarily unavailable", brand_story: "Temporarily unavailable", founding_context: "Not detected" }
+      voice_and_tone: { writing_style: "Not detected", formality_level: "Not detected", personality_traits: [], emotional_appeal: "Not detected", language_complexity: "Not detected" }
+      target_audience: { primary_audience: "Not detected", secondary_audiences: [], demographics: "Not detected", psychographics: "Not detected", pain_points_addressed: [] }
+      products_and_services: { primary_offerings: [], value_proposition: "Temporarily unavailable", pricing_model: "Not visible", pricing_signals: "Not detected", key_features: [] }
+      industry_and_positioning: { industry: "Not detected", sub_sector: "Not detected", market_position: "Not clear", competitive_advantages: [], differentiators: "Temporarily unavailable" }
+      digital_presence: { website_purpose: "Not clear", content_types_detected: [], cta_patterns: [], seo_signals: "Temporarily unavailable", social_channels_mentioned: [] }
+      core_values: []
+      overall_brand_score: { clarity: 0, consistency: 0, differentiation: 0, digital_maturity: 0, content_quality: 0, overall: 0.0, summary: "Fallback response: live analysis temporarily unavailable." }
 
   sentiment:
     system_prompt: >
@@ -1662,22 +1707,37 @@ intelligence_pipelines:
     timeout_seconds: 20
     temperature: 0.3
     json_mode: false
+    fallback_response: "Translation service is temporarily unavailable. Please retry shortly."
 
   hashtag_suggest:
     driver_chain: [groq, gemini, anthropic]
     timeout_seconds: 20
     json_mode: true
+    fallback_response:
+      hashtags: []
+      reasoning: "Fallback response: hashtag suggestion is temporarily unavailable."
 
   seo_audit:
     crawl_timeout_seconds: 30
     llm_timeout_seconds: 20
+    fallback_response:
+      summary: "SEO audit is temporarily unavailable. Please retry shortly."
+      findings: []
+      recommendations: []
 
   competitor_analyze:
     crawl_timeout_seconds: 30
     llm_timeout_seconds: 20
+    fallback_response:
+      summary: "Competitor analysis is temporarily unavailable. Please retry shortly."
+      competitors: []
+      opportunities: []
 
   url_analyze:
     crawl_timeout_seconds: 45
+    fallback_response:
+      summary: "URL analysis is temporarily unavailable. Please retry shortly."
+      insights: []
 
 # ─── Image Generation Configuration ────────────────────────
 # Config-driven multi-provider image generation.

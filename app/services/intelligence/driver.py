@@ -18,6 +18,7 @@ Architecture:
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
@@ -35,7 +36,13 @@ logger = logging.getLogger(__name__)
 
 # Strip YAML-only keys before passing provider dict into OpenAICompatDriver(...)
 _PROVIDER_CFG_STRIP = frozenset(
-    {"fallback_model", "fallback_models", "timeout_connect_s", "timeout_read_s"}
+    {
+        "fallback_model",
+        "fallback_models",
+        "timeout_connect_s",
+        "timeout_read_s",
+        "profiles",
+    }
 )
 
 
@@ -63,6 +70,11 @@ def provider_fallback_model_list(driver: str) -> list[str]:
             seen.add(m)
             uniq.append(m)
     return uniq[:max_n]
+
+
+def _has_text_response(resp: LlmResponse | None) -> bool:
+    """Treat empty/whitespace bodies as failed attempts for fallback progression."""
+    return bool(resp and isinstance(resp.content, str) and resp.content.strip())
 
 
 # ─── OpenAI-Compatible Adapter (covers: openai, groq, nvidia, sarvam) ──
@@ -128,6 +140,7 @@ class OllamaAdapter(LlmDriver):
             connect=float(timeout_connect), read=float(timeout_read),
             write=10.0, pool=10.0,
         )
+        self._cfg = get_intelligence_config()
 
     def name(self) -> str:
         return "ollama"
@@ -144,9 +157,11 @@ class OllamaAdapter(LlmDriver):
 
     async def chat(self, messages: list[dict], **opts) -> LlmResponse:
         model = opts.get("model", self._model)
+        profile_opts = self._profile_options(stream=False, opts=opts)
         payload = {"model": model, "messages": messages, "stream": False,
                    "options": {"num_predict": opts.get("max_tokens", self._max_tokens),
-                               "temperature": opts.get("temperature", self._temperature)}}
+                               "temperature": opts.get("temperature", self._temperature),
+                               **profile_opts}}
 
         # Enforce structured JSON output when the prompt expects it.
         if opts.get("format") == "json" or self._expects_json(messages):
@@ -166,9 +181,11 @@ class OllamaAdapter(LlmDriver):
 
     async def stream(self, messages: list[dict], **opts) -> AsyncGenerator[str, None]:
         model = opts.get("model", self._model)
+        profile_opts = self._profile_options(stream=True, opts=opts)
         payload = {"model": model, "messages": messages, "stream": True,
                    "options": {"num_predict": opts.get("max_tokens", self._max_tokens),
-                               "temperature": opts.get("temperature", self._temperature)}}
+                               "temperature": opts.get("temperature", self._temperature),
+                               **profile_opts}}
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
                 resp.raise_for_status()
@@ -178,6 +195,23 @@ class OllamaAdapter(LlmDriver):
                         content = data.get("message", {}).get("content", "")
                         if content:
                             yield content
+
+    def _profile_options(self, *, stream: bool, opts: dict) -> dict:
+        """Apply Ollama profile tuning from YAML (low_latency for stream, quality otherwise)."""
+        prov = (self._cfg.get("providers") or {}).get("ollama", {}) or {}
+        profiles = prov.get("profiles", {}) if isinstance(prov.get("profiles"), dict) else {}
+        default_profile = "low_latency" if stream else "quality"
+        profile_name = str(opts.get("profile", default_profile))
+        selected = profiles.get(profile_name, {})
+        if not isinstance(selected, dict):
+            return {}
+        # Avoid overriding explicit caller params in payload.
+        merged = dict(selected)
+        if "max_tokens" in opts or "num_predict" in opts:
+            merged.pop("num_predict", None)
+        if "temperature" in opts:
+            merged.pop("temperature", None)
+        return merged
 
 
 # ─── Gemini Adapter (Google GenAI SDK) ────────────────────────
@@ -544,6 +578,8 @@ class DriverRegistry:
 
     def __init__(self):
         self._instances: dict[str, LlmDriver] = {}
+        self._local_stream_sem: asyncio.Semaphore | None = None
+        self._local_stream_slots: int = 0
 
     def _create_driver(self, name: str) -> LlmDriver:
         """Create a driver instance using a polymorphic hashmap pattern."""
@@ -572,6 +608,14 @@ class DriverRegistry:
                 max_tokens=s.anthropic_max_tokens, 
                 temperature=s.anthropic_temperature,
             ),
+            "fast_local": lambda: OpenAICompatDriver(
+                "fast_local",
+                api_key=s.fast_local_api_key or "local",
+                base_url=(get_provider_config("fast_local") or {}).get("base_url", "http://localhost:8000/v1"),
+                model=s.fast_local_model,
+                max_tokens=s.fast_local_max_tokens,
+                temperature=s.fast_local_temperature,
+            ),
         }
 
         if name in adapters:
@@ -584,6 +628,7 @@ class DriverRegistry:
             "nvidia": s.nvidia_api_key,
             "sarvam": s.sarvam_api_key,
             "bitnet": "local",
+            "fast_local": s.fast_local_api_key or "local",
         }
 
         api_key = auth_keys.get(name)
@@ -628,12 +673,16 @@ class DriverRegistry:
             return bool(s.gemini_api_key and get_provider_config("gemini"))
         if name == "anthropic":
             return bool(s.anthropic_api_key and get_provider_config("anthropic"))
+        if name == "fast_local":
+            meta = get_provider_config("fast_local")
+            return bool((meta or {}).get("base_url"))
         auth_keys = {
             "openai": s.openai_api_key,
             "groq": s.groq_api_key,
             "nvidia": s.nvidia_api_key,
             "sarvam": s.sarvam_api_key,
             "bitnet": "local",
+            "fast_local": s.fast_local_api_key or "local",
         }
         api_key = auth_keys.get(name)
         meta = get_provider_config(name)
@@ -680,8 +729,15 @@ class DriverRegistry:
         d = self.driver(driver_override)
         try:
             result = await guardian.with_retry(callback, d, **clean)
-            guardian.circuit_breaker.record_success(driver_override)
-            return result
+            if _has_text_response(result):
+                guardian.circuit_breaker.record_success(driver_override)
+                result.metadata = result.metadata or {}
+                result.metadata.setdefault("fallback_hop", 0)
+                result.metadata.setdefault("fallback_driver", driver_override)
+                return result
+            logger.warning(
+                f"Driver: {driver_override} {operation} returned empty content; trying tiny-model chain"
+            )
         except Exception as e:
             logger.warning(f"Driver: {driver_override} {operation} failed ({e})")
 
@@ -696,8 +752,16 @@ class DriverRegistry:
             try:
                 light_clean = {**clean, "model": fb_model}
                 result = await guardian.with_retry(callback, d, **light_clean)
-                guardian.circuit_breaker.record_success(driver_override)
-                return result
+                if _has_text_response(result):
+                    guardian.circuit_breaker.record_success(driver_override)
+                    result.metadata = result.metadata or {}
+                    result.metadata["fallback_hop"] = hop + 1
+                    result.metadata["fallback_driver"] = driver_override
+                    result.metadata["fallback_model"] = fb_model
+                    return result
+                logger.warning(
+                    f"Driver: {driver_override} model {fb_model} returned empty content; continuing"
+                )
             except Exception as e2:
                 logger.warning(f"Driver: {driver_override} model {fb_model} failed ({e2})")
 
@@ -747,7 +811,12 @@ class DriverRegistry:
         return await self._with_fallback(lambda d: d.chat(messages, **chain_clean), "chat")
 
     async def _stream_with_first_token_timeout(
-        self, driver_name: str, messages: list[dict], first_token_timeout: float, **clean
+        self,
+        driver_name: str,
+        messages: list[dict],
+        first_token_timeout: float,
+        stream_inactivity_timeout: float | None = None,
+        **clean,
     ) -> AsyncGenerator[str, None]:
         """
         Stream with a first-token deadline.
@@ -765,8 +834,45 @@ class DriverRegistry:
         yield first_chunk
 
         # First token arrived — stream remainder without extra timeout wrapper
-        async for chunk in aiter:
+        while True:
+            try:
+                if stream_inactivity_timeout:
+                    chunk = await asyncio.wait_for(
+                        aiter.__anext__(), timeout=stream_inactivity_timeout
+                    )
+                else:
+                    chunk = await aiter.__anext__()
+            except StopAsyncIteration:
+                break
             yield chunk
+
+    def _ensure_local_stream_semaphore(self):
+        cfg = (get_intelligence_config().get("resilience") or {}).get("admission_control", {})
+        slots = max(1, int(cfg.get("max_local_streams", 2)))
+        if self._local_stream_sem is None or self._local_stream_slots != slots:
+            self._local_stream_slots = slots
+            self._local_stream_sem = asyncio.Semaphore(slots)
+
+    @contextlib.asynccontextmanager
+    async def _admission_slot(self, driver_name: str):
+        local_drivers = {"ollama", "bitnet", "fast_local"}
+        if driver_name not in local_drivers:
+            yield
+            return
+        self._ensure_local_stream_semaphore()
+        cfg = (get_intelligence_config().get("resilience") or {}).get("admission_control", {})
+        wait_s = float(cfg.get("max_queue_wait_s", 0.35))
+        assert self._local_stream_sem is not None
+        try:
+            await asyncio.wait_for(self._local_stream_sem.acquire(), timeout=wait_s)
+        except asyncio.TimeoutError as e:
+            raise asyncio.TimeoutError(
+                f"admission timeout for {driver_name} after {wait_s}s"
+            ) from e
+        try:
+            yield
+        finally:
+            self._local_stream_sem.release()
 
     async def stream(self, system_prompt: str | None = None, user_prompt: str | None = None,
                      messages: list[dict] | None = None, driver_override: str | None = None,
@@ -792,8 +898,23 @@ class DriverRegistry:
 
         # Read config (cached, O(1) amortized)
         intel_cfg = get_intelligence_config()
-        timeouts_cfg = intel_cfg.get("timeouts", {})
-        first_token_timeout = float(timeouts_cfg.get("first_token_timeout_s", 60))
+        timeouts_cfg = intel_cfg.get("timeouts", {}) or {}
+        resilience_timeouts = (intel_cfg.get("resilience") or {}).get("timeouts", {}) or {}
+        first_token_timeout = float(
+            timeouts_cfg.get(
+                "first_token_timeout_s",
+                resilience_timeouts.get(
+                    "first_token_timeout_s",
+                    resilience_timeouts.get("stream_first_token_s", 60),
+                ),
+            )
+        )
+        stream_inactivity_timeout = float(
+            timeouts_cfg.get(
+                "stream_inactivity_timeout_s",
+                resilience_timeouts.get("stream_inactivity_timeout_s", 8),
+            )
+        )
 
         if driver_override:
             if not guardian.circuit_breaker.is_available(driver_override):
@@ -807,10 +928,19 @@ class DriverRegistry:
                         continue
                     label = "primary" if fb_model is None else fb_model
                     try:
-                        async for chunk in self._stream_with_first_token_timeout(
-                            driver_override, messages, first_token_timeout, **stream_clean
-                        ):
-                            yield chunk
+                        seen_chunk = False
+                        async with self._admission_slot(driver_override):
+                            async for chunk in self._stream_with_first_token_timeout(
+                                driver_override,
+                                messages,
+                                first_token_timeout,
+                                stream_inactivity_timeout,
+                                **stream_clean,
+                            ):
+                                seen_chunk = True
+                                yield chunk
+                        if not seen_chunk:
+                            raise RuntimeError("empty stream")
                         guardian.circuit_breaker.record_success(driver_override)
                         return
                     except asyncio.TimeoutError:
@@ -838,13 +968,24 @@ class DriverRegistry:
             if not guardian.circuit_breaker.is_available(driver_name):
                 continue
             try:
-                d = self.driver(driver_name)
+                self.driver(driver_name)
             except ValueError as ve:
                 logger.warning(f"Driver: {driver_name} stream skip (not configured): {ve}")
                 continue
             try:
-                async for chunk in d.stream(messages, **chain_clean):
-                    yield chunk
+                seen_chunk = False
+                async with self._admission_slot(driver_name):
+                    async for chunk in self._stream_with_first_token_timeout(
+                        driver_name,
+                        messages,
+                        first_token_timeout,
+                        stream_inactivity_timeout,
+                        **chain_clean,
+                    ):
+                        seen_chunk = True
+                        yield chunk
+                if not seen_chunk:
+                    raise RuntimeError("empty stream")
                 guardian.circuit_breaker.record_success(driver_name)
                 return
             except Exception as e:
@@ -869,8 +1010,15 @@ class DriverRegistry:
                 continue
             try:
                 result = await guardian.with_retry(callback, d)
-                guardian.circuit_breaker.record_success(driver_name)
-                return result
+                if _has_text_response(result):
+                    guardian.circuit_breaker.record_success(driver_name)
+                    result.metadata = result.metadata or {}
+                    result.metadata.setdefault("fallback_driver", driver_name)
+                    result.metadata.setdefault("fallback_hop", 0)
+                    return result
+                logger.warning(
+                    f"Driver: {driver_name} returned empty content for {operation}; trying next driver"
+                )
             except Exception as e:
                 guardian.circuit_breaker.record_failure(driver_name)
                 last_err = e
@@ -879,7 +1027,11 @@ class DriverRegistry:
             "DriverRegistry: all drivers failed for %s; returning offline emergency response",
             operation,
         )
-        return await callback(EmergencyFallbackDriver())
+        emergency = await callback(EmergencyFallbackDriver())
+        if isinstance(emergency, LlmResponse):
+            emergency.metadata = emergency.metadata or {}
+            emergency.metadata["emergency_activations"] = 1
+        return emergency
 
 
 # ─── Singleton ──────────────────────────────────────────────────
