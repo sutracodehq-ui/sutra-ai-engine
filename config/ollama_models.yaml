@@ -1,26 +1,32 @@
 # ─── Required Ollama Models ────────────────────────────────────
-# Single source of truth for all models the AI Engine needs locally.
-# The ollama-init container reads this file and auto-pulls any missing model.
+# Pulled by sutra-ai-ollama-init (scripts/ollama_init.sh) on every deploy.
 #
-# Software Factory: add a model here → it's auto-downloaded on next deploy.
-# No code changes needed. No docker-compose edits.
+# Keep this list aligned with:
+#   - intelligence_config.yaml → providers.ollama.fallback_models + fallback_model
+#   - intelligence_config.yaml → smart_router.model_tiers.ollama (simple/moderate/complex)
+#   - .env → OLLAMA_MODEL (also merged at init if set; see docker-compose)
+#
+# Software Factory: add a model here → ollama-init pulls it before the API starts.
 
-# ─── Core Models (always required) ─────────────────────────────
-# These are the primary and fallback models the engine uses for inference.
+# ─── Core inference (must match engine routing / fallbacks) ───
 core:
-  - gemma4:e4b                 # Primary inference — Gemma 4 dense (multimodal, Apache 2.0)
-  - qwen3:4b                  # Fallback inference model
-  - qwen3:1.7b                # Router / lightweight tasks
-  - smollm2:1.7b              # Ultra-fast simple queries
+  - gemma4:e4b
+  - qwen3:4b
+  - qwen3:1.7b
+  - smollm2:1.7b
+  - smollm2:360m
+  - qwen2.5:3b
+  - qwen2.5:1.5b
+  - phi4-mini
+  # Common 8B Llama tags (set OLLAMA_MODEL to one of these in .env)
+  - llama3:8b
+  - llama3.1:8b
 
-# ─── Domain Base Models (for cluster fine-tuning) ──────────────
-# Base models used by model_clusters.yaml for distillation/LoRA.
-# Only pulled if you plan to do local fine-tuning.
+# ─── Domain / tuning bases (uncomment if you run local LoRA / clusters) ───
 domain:
-  # - qwen2.5:3b              # Marketing, Finance, EdTech, Health, Legal, E-com
-  # - qwen2.5-coder:3b        # Coding cluster
-  # - phi4-mini:latest         # General/catch-all cluster
+  # - qwen2.5-coder:3b
+  # - phi4-mini:latest-sutra-tuned
 
-# ─── Embedding Models ─────────────────────────────────────────
+# ─── Embeddings (RAG / Qdrant via Ollama) ─────────────────────
 embeddings:
-  - nomic-embed-text           # Qdrant / engine vector embeddings (Ollama)
+  - nomic-embed-text

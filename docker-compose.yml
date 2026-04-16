@@ -30,6 +30,10 @@ services:
         condition: service_healthy
       sutra-ai-qdrant:
         condition: service_healthy
+      sutra-ai-ollama:
+        condition: service_healthy
+      sutra-ai-ollama-init:
+        condition: service_completed_successfully
     networks:
       - sutra-ai-network
     restart: unless-stopped
@@ -61,6 +65,10 @@ services:
         condition: service_healthy
       sutra-ai-qdrant:
         condition: service_healthy
+      sutra-ai-ollama:
+        condition: service_healthy
+      sutra-ai-ollama-init:
+        condition: service_completed_successfully
     networks:
       - sutra-ai-network
     restart: unless-stopped
@@ -154,6 +162,8 @@ services:
     environment:
       - OLLAMA_HOST=http://sutra-ai-ollama:11434
       - CONFIG_FILE=/app/config/ollama_models.yaml
+      # Same as API: merged into pull list so .env OLLAMA_MODEL is always pulled
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-}
     volumes:
       - ./scripts/ollama_init.sh:/app/scripts/ollama_init.sh:ro
       - ./config/ollama_models.yaml:/app/config/ollama_models.yaml:ro
