@@ -853,6 +853,21 @@ class DriverRegistry:
             self._local_stream_slots = slots
             self._local_stream_sem = asyncio.Semaphore(slots)
 
+    def _resolve_vps_profile(self) -> dict:
+        """Select the active VPS load profile based on current stream count."""
+        vps_cfg = get_intelligence_config().get("vps_admission", {})
+        if not vps_cfg.get("enabled", False):
+            return {}
+        profiles = vps_cfg.get("profiles", {})
+        active = self._local_stream_slots - (self._local_stream_sem._value if self._local_stream_sem else self._local_stream_slots)
+        for level in ("critical", "high_load"):
+            profile = profiles.get(level, {})
+            trigger = profile.get("trigger_active_streams")
+            if trigger is not None and active >= int(trigger):
+                logger.debug(f"VPS admission: {level} profile (active={active})")
+                return profile
+        return profiles.get("normal", {})
+
     @contextlib.asynccontextmanager
     async def _admission_slot(self, driver_name: str):
         local_drivers = {"ollama", "bitnet", "fast_local"}
@@ -860,8 +875,15 @@ class DriverRegistry:
             yield
             return
         self._ensure_local_stream_semaphore()
-        cfg = (get_intelligence_config().get("resilience") or {}).get("admission_control", {})
-        wait_s = float(cfg.get("max_queue_wait_s", 0.35))
+        profile = self._resolve_vps_profile()
+        if profile:
+            max_streams = profile.get("max_local_streams")
+            if max_streams is not None and int(max_streams) == 0:
+                raise asyncio.TimeoutError(
+                    f"VPS critical: local streams disabled for {driver_name}"
+                )
+        fallback_cfg = (get_intelligence_config().get("resilience") or {}).get("admission_control", {})
+        wait_s = float(profile.get("max_queue_wait_s", fallback_cfg.get("max_queue_wait_s", 0.35)))
         assert self._local_stream_sem is not None
         try:
             await asyncio.wait_for(self._local_stream_sem.acquire(), timeout=wait_s)

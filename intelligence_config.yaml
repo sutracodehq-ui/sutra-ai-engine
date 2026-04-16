@@ -39,6 +39,7 @@ providers:
     timeout_connect_s: 10
     timeout_read_s: 120
     fallback_models:
+      - nvidia/mistral-nemo-minitron-8b-base
       - meta/llama-3.1-8b-instruct
       - meta/llama-3.1-70b-instruct
   sarvam:
@@ -224,6 +225,9 @@ agent_chains:
 
 # ─── Prompt Engine ─────────────────────────────────────────
 prompt_engine:
+  bandit_algorithm: thompson_sampling   # thompson_sampling | ucb1 | epsilon_greedy
+  min_trials_before_bandit: 5           # Min trials per variant before bandit kicks in
+  success_threshold: 7.0                # Score >= this counts as "success" for Beta distribution
   min_trials_for_promotion: 10
   promotion_margin: 0.5
   min_win_rate: 60.0
@@ -451,6 +455,27 @@ auto_benchmark:
   min_quality_for_benchmark: 7.0
   max_benchmarks_per_run: 10
 
+# ─── VPS-Aware Admission (Dynamic Load Profiles) ────────────
+# Automatically degrades local model usage under VPS load.
+# Profiles activate based on active stream count thresholds.
+vps_admission:
+  enabled: true
+  profiles:
+    normal:
+      max_local_streams: 2
+      max_queue_wait_s: 0.5
+      prefer_chain: [ollama, groq, gemini]
+    high_load:
+      max_local_streams: 1
+      max_queue_wait_s: 0.3
+      prefer_chain: [groq, gemini, ollama]
+      trigger_active_streams: 2
+    critical:
+      max_local_streams: 0
+      max_queue_wait_s: 0.1
+      prefer_chain: [groq, gemini, openai]
+      trigger_active_streams: 3
+
 # ─── Software Factory Rollout Gates ─────────────────────────
 factory_rollout_gates:
   streaming:
@@ -460,6 +485,43 @@ factory_rollout_gates:
     max_stream_interrupt_rate: 0.02
     max_emergency_fallback_rate: 0.05
     min_format_integrity_rate: 0.98
+  text_quality:
+    min_avg_score: 6.5
+    max_empty_response_rate: 0.02
+    max_escalation_rate: 0.30
+  json_integrity:
+    min_field_coverage: 0.90
+    max_parse_failure_rate: 0.05
+  cost:
+    max_monthly_usd: 50
+    max_cost_per_request_usd: 0.05
+  latency:
+    p50_complete_ms: 2000
+    p95_complete_ms: 8000
+  image:
+    max_failure_rate: 0.10
+    max_avg_latency_ms: 5000
+  voice:
+    max_stt_error_rate: 0.15
+    max_tts_latency_ms: 2000
+
+# ─── Routing Policy (OSS-First) ─────────────────────────────
+# Enforces open-source-first model selection. Paid providers
+# are only used when free/local options fail quality gates.
+routing_policy:
+  oss_first: true
+  paid_escalation_only_on:
+    - quality_gate_fail
+    - circuit_breaker_open
+    - latency_budget_exceeded
+  paid_providers: [openai, anthropic]
+  free_providers: [ollama, fast_local, bitnet, groq, gemini, nvidia, sarvam]
+
+# ─── Voice Models (NVIDIA Small-Model Tiers) ────────────────
+voice_models:
+  nvidia:
+    stt: parakeet-tdt-0.6b-v2
+    tts: null  # Edge-TTS is free — no need for NVIDIA TTS
 
 # ─── VoIP Engine (Self-Hosted) ─────────────────────────────
 voip:
@@ -805,8 +867,33 @@ smart_router:
 
   hinglish_min_matches: 2    # need ≥ N hinglish words to classify
 
+  # ─── Multi-Objective Router (MOR) ────────────────────────
+  # Ranks driver candidates by quality/latency/cost/reliability.
+  # Requires Redis for historical averages; falls back to chain order.
+  multi_objective:
+    enabled: true
+    weights:
+      quality: 0.40
+      latency: 0.25
+      cost: 0.20
+      reliability: 0.15
+    latency_targets_ms:
+      simple: 800
+      moderate: 3000
+      complex: 15000
+    cost_penalty_per_1k_tokens:
+      ollama: 0.0
+      fast_local: 0.0
+      bitnet: 0.0
+      groq: 0.0
+      gemini: 0.001
+      sarvam: 0.002
+      nvidia: 0.003
+      openai: 0.01
+      anthropic: 0.015
+
   # ─── Scout LLM Scorer (replaces BitNet) ──────────────────
-  # Uses a small, fast LLM to classify task complexity + intent.
+  # Uses a small, fast LLM to classify task complexity + intent + modality.
   # Falls back to O(1) heuristic if Scout is unavailable.
   scout:
     enabled: true
@@ -816,12 +903,13 @@ smart_router:
     max_prompt_chars: 300                  # Cap prompt for speed
     system_prompt: |
       You are a task complexity classifier. Given a user prompt, respond with JSON only:
-      {"complexity": <1-10>, "intent": "<question|generation|analysis|creative|code>", "needs_web": <true|false>}
+      {"complexity": <1-10>, "intent": "<question|generation|analysis|creative|code>", "needs_web": <true|false>, "modality": "<text_chat|structured_json|image_gen|vision|voice_stt|voice_tts>"}
       Rules:
       - complexity 1-3: greetings, simple Q&A, short factual
       - complexity 4-6: moderate generation, standard writing
       - complexity 7-10: deep analysis, multi-step reasoning, research
       - needs_web: true if the task requires current/real-time information
+      - modality: text_chat (default), structured_json (when JSON output expected), image_gen (image/video creation), vision (image understanding), voice_stt/voice_tts (speech)
     complexity_tiers:
       simple: [1, 3]                       # Range: 1-3 = simple
       moderate: [4, 6]                     # Range: 4-6 = moderate
@@ -983,9 +1071,9 @@ smart_router:
       moderate: null
       complex: null
     nvidia:
-      simple: meta/llama-3.1-8b-instruct
-      moderate: meta/llama-3.1-70b-instruct
-      complex: null               # uses config nvidia_model
+      simple: nvidia/mistral-nemo-minitron-8b-base
+      moderate: meta/llama-3.1-8b-instruct
+      complex: meta/llama-3.1-70b-instruct
 
   # A/B Testing: Gradually rollout tuned models
   # DISABLED until tuned models are trained and loaded in Ollama.

@@ -246,19 +246,52 @@ class Guardian:
 
     # ─── Quality Tracking (absorbs quality_engine tracking) ──
 
-    async def record_quality(self, agent_type: str, score: float):
-        """Record quality score in Redis rolling window."""
+    async def record_quality(self, agent_type: str, score: float,
+                             driver: str | None = None, latency_ms: float | None = None):
+        """Record quality score and optional latency in Redis rolling windows."""
         try:
             from app.services.connectivity.webhooks import get_redis
             redis = get_redis()
             cfg = _sec("quality", {}).get("tracking", {})
-            key = f"sutra:quality:{agent_type}"
             window = cfg.get("window_size", 20)
+            ttl_s = cfg.get("ttl_days", 7) * 86400
+
+            key = f"sutra:quality:{agent_type}"
             await redis.lpush(key, str(score))
             await redis.ltrim(key, 0, window - 1)
-            await redis.expire(key, cfg.get("ttl_days", 7) * 86400)
+            await redis.expire(key, ttl_s)
+
+            if driver and latency_ms is not None:
+                lat_key = f"sutra:latency:{agent_type}:{driver}"
+                await redis.lpush(lat_key, str(round(latency_ms, 1)))
+                await redis.ltrim(lat_key, 0, window - 1)
+                await redis.expire(lat_key, ttl_s)
         except Exception as e:
             logger.debug(f"Guardian: quality tracking skipped: {e}")
+
+    async def get_avg_latency(self, agent_type: str, driver: str) -> float | None:
+        """Average latency (ms) for a driver from Redis rolling window."""
+        try:
+            from app.services.connectivity.webhooks import get_redis
+            redis = get_redis()
+            values = await redis.lrange(f"sutra:latency:{agent_type}:{driver}", 0, -1)
+            if not values or len(values) < 2:
+                return None
+            return sum(float(v) for v in values) / len(values)
+        except Exception:
+            return None
+
+    async def get_avg_quality(self, agent_type: str) -> float | None:
+        """Average quality score from Redis rolling window."""
+        try:
+            from app.services.connectivity.webhooks import get_redis
+            redis = get_redis()
+            scores = await redis.lrange(f"sutra:quality:{agent_type}", 0, -1)
+            if not scores or len(scores) < 2:
+                return None
+            return sum(float(s) for s in scores) / len(scores)
+        except Exception:
+            return None
 
     async def get_route_hint(self, agent_type: str) -> str:
         """Adaptive routing hint from quality history.

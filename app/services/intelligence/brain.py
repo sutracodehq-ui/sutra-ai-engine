@@ -5,12 +5,12 @@ Software Factory: Everything is config-driven via intelligence_config.yaml.
 Local-first → quality gate → cloud escalation.
 
 Core APIs:
-    route()              — O(1) driver + model selection
+    route()              — MOR-scored driver + model selection
     execute()            — local-first → quality gate → cloud
     execute_speculative  — draft-verify pattern
     execute_swarm        — multi-agent decomposition
     chain()              — agent review chains
-    select_prompt()      — OPRO champion/candidate selection
+    select_prompt()      — Thompson Sampling bandit selection
     filter_response()    — raw → AgentResult normalization
     queue                — semaphore-based concurrency
 """
@@ -19,6 +19,8 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
+import random as _random
 import threading
 import time
 from datetime import datetime, timezone
@@ -78,6 +80,31 @@ def _ensure_sets():
 
 
 from app.services.intelligence.multilingual import detect_language
+
+# ─── Modality Constants ────────────────────────────────────────
+
+_VALID_MODALITIES = frozenset({
+    "text_chat", "structured_json", "image_gen", "vision", "voice_stt", "voice_tts",
+})
+
+_IMAGE_AGENTS = frozenset({"image_generator", "video_generator", "social_clip_maker"})
+_VOICE_AGENTS = frozenset({
+    "voip_support", "voip_sales", "cold_call_scripter", "survey_agent",
+    "edtech_support",
+})
+
+
+def _detect_modality_heuristic(agent_type: str, system_prompt: str | None = None) -> str:
+    """O(1) heuristic modality detection when Scout is unavailable."""
+    if agent_type in _IMAGE_AGENTS:
+        return "image_gen"
+    if agent_type in _VOICE_AGENTS:
+        return "voice_stt"
+    if system_prompt:
+        lower = system_prompt.lower()
+        if any(k in lower for k in ("strict json", "json only", "response_schema", "required top-level keys:")):
+            return "structured_json"
+    return "text_chat"
 
 
 # ─── Response Filter ──────────────────────────────────────────
@@ -187,22 +214,29 @@ class Brain:
         circuit_breaker=None,
         stream: bool = False,
         strict_json: bool = False,
+        system_prompt: str | None = None,
     ) -> dict:
-        """O(1) routing: language → scout → driver → model."""
+        """MOR-scored routing: language → scout → modality → MOR rank → driver → model."""
         s = get_settings()
         if not s.ai_smart_router_enabled:
             return {"driver": s.ai_driver, "model": None, "complexity": "moderate",
                     "language": "english", "reason": "router off", "chain": None,
-                    "intent": "general", "needs_web": False}
+                    "intent": "general", "needs_web": False, "modality": "text_chat"}
 
         language = detect_language(prompt)
         scout = await self._assess_complexity(prompt, agent_type)
         complexity, intent, needs_web = scout["complexity"], scout.get("intent", "general"), scout.get("needs_web", False)
+        modality = scout.get("modality") or _detect_modality_heuristic(agent_type, system_prompt)
+
         chain = self._get_chain(complexity, language)
         from app.services.intelligence.guardian import get_guardian
-        route_hint = await get_guardian().get_route_hint(agent_type)
+        guardian = get_guardian()
+        route_hint = await guardian.get_route_hint(agent_type)
         chain = self._order_chain_for_route_hint(chain, route_hint)
         chain = self._prioritize_stream_chain(chain, prompt, stream=stream, strict_json=strict_json)
+
+        chain = await self._mor_rank_chain(chain, complexity, agent_type, guardian)
+
         driver = self._pick_driver(complexity, language, circuit_breaker, chain_override=chain)
         scout_score = scout.get("scout_score")
         scout_confidence = scout.get("scout_confidence")
@@ -215,12 +249,13 @@ class Brain:
         parts.append(f"{complexity}→{driver}")
         if model: parts.append(f"({model})")
         if needs_web: parts.append("[web]")
+        if modality != "text_chat": parts.append(f"[{modality}]")
         reason = " ".join(parts)
         logger.info(f"Brain.route: {reason} intent={intent}")
 
         return {"driver": driver, "model": model, "complexity": complexity,
                 "language": language, "reason": reason, "chain": chain,
-                "intent": intent, "needs_web": needs_web}
+                "intent": intent, "needs_web": needs_web, "modality": modality}
 
     @staticmethod
     def _prioritize_stream_chain(
@@ -255,7 +290,7 @@ class Brain:
             try:
                 result = await self._scout_score(prompt, scout_cfg)
                 if result:
-                    logger.info(f"Brain: Scout → {result['complexity']}, intent={result['intent']}, web={result['needs_web']}")
+                    logger.info(f"Brain: Scout → {result['complexity']}, intent={result['intent']}, web={result['needs_web']}, modality={result.get('modality')}")
                     return result
             except Exception as e:
                 logger.debug(f"Brain: Scout failed ({e}), heuristic")
@@ -265,6 +300,7 @@ class Brain:
             "needs_web": False,
             "scout_score": None,
             "scout_confidence": None,
+            "modality": _detect_modality_heuristic(agent_type),
         }
 
     @staticmethod
@@ -278,6 +314,61 @@ class Brain:
         if route_hint == "direct_cloud":
             return [d for d in chain if d not in locals_first] + [d for d in chain if d in locals_first]
         return list(chain)
+
+    # ── Multi-Objective Router (MOR) ─────────────────────────
+
+    async def _mor_rank_chain(
+        self, chain: list[str], complexity: str, agent_type: str, guardian
+    ) -> list[str]:
+        """Re-rank driver chain by multi-objective score (quality/latency/cost/reliability)."""
+        mor_cfg = _cfg("smart_router", default={}).get("multi_objective", {})
+        if not mor_cfg.get("enabled", False) or len(chain) < 2:
+            return list(chain)
+        scores = []
+        for driver in chain:
+            s = await self._mor_score(driver, complexity, agent_type, guardian, mor_cfg)
+            scores.append((driver, s))
+        scores.sort(key=lambda x: x[1], reverse=True)
+        return [d for d, _ in scores]
+
+    async def _mor_score(
+        self, driver: str, complexity: str, agent_type: str, guardian, mor_cfg: dict
+    ) -> float:
+        """Weighted multi-objective score for a single driver candidate."""
+        weights = mor_cfg.get("weights", {})
+        w_q = float(weights.get("quality", 0.40))
+        w_l = float(weights.get("latency", 0.25))
+        w_c = float(weights.get("cost", 0.20))
+        w_r = float(weights.get("reliability", 0.15))
+
+        # Quality: normalized 0-1 from avg quality (0-10 scale)
+        avg_q = await guardian.get_avg_quality(agent_type)
+        q_score = (avg_q / 10.0) if avg_q is not None else 0.5
+
+        # Latency: how close to target (lower is better → higher score)
+        targets = mor_cfg.get("latency_targets_ms", {})
+        target_ms = float(targets.get(complexity, 3000))
+        avg_lat = await guardian.get_avg_latency(agent_type, driver)
+        if avg_lat is not None and avg_lat > 0:
+            l_score = min(1.0, target_ms / avg_lat)
+        else:
+            local_drivers = {"ollama", "bitnet", "fast_local"}
+            l_score = 0.6 if driver in local_drivers else 0.5
+
+        # Cost: from YAML lookup (lower cost → higher score)
+        cost_map = mor_cfg.get("cost_penalty_per_1k_tokens", {})
+        cost = float(cost_map.get(driver, 0.005))
+        c_score = 1.0 / (1.0 + cost * 100)
+
+        # Reliability: circuit breaker state
+        cb = guardian.circuit_breaker
+        if cb.is_available(driver):
+            state = cb._state(driver)
+            r_score = 1.0 if state["state"] == "closed" else 0.5
+        else:
+            r_score = 0.0
+
+        return (w_q * q_score) + (w_l * l_score) + (w_c * c_score) + (w_r * r_score)
 
     async def _scout_score(self, prompt: str, cfg: dict) -> dict | None:
         """Scout LLM; any failure returns None so heuristic routing always applies."""
@@ -326,12 +417,16 @@ class Brain:
             confidence = None
         if confidence is not None:
             confidence = max(0.0, min(1.0, confidence))
+        modality = data.get("modality", "text_chat")
+        if modality not in _VALID_MODALITIES:
+            modality = "text_chat"
         return {
             "complexity": tier,
             "intent": intent,
             "needs_web": needs_web,
             "scout_score": score,
             "scout_confidence": confidence,
+            "modality": modality,
         }
 
     def _heuristic_complexity(self, prompt: str, agent_type: str) -> str:
@@ -420,7 +515,7 @@ class Brain:
 
     async def execute(self, prompt: str, system_prompt: str, agent_type: str,
                       expected_fields: list[str] | None = None, **options) -> LlmResponse:
-        """Local-first → quality gate → cloud escalation."""
+        """Local-first → quality gate → cloud escalation with MOR + modality."""
         from app.services.intelligence.guardian import get_guardian
 
         scout = await self._assess_complexity(prompt, agent_type)
@@ -428,6 +523,7 @@ class Brain:
         needs_web = scout.get("needs_web", False)
         scout_score = scout.get("scout_score")
         scout_confidence = scout.get("scout_confidence")
+        modality = scout.get("modality") or _detect_modality_heuristic(agent_type, system_prompt)
         system_prompt = self._inject_thinking(system_prompt, complexity, agent_type)
 
         # Web augmentation
@@ -456,6 +552,7 @@ class Brain:
         route_hint = await guardian.get_route_hint(agent_type)
 
         if route_hint == "direct_cloud":
+            cloud_start = time.monotonic()
             resp = await self._call_cloud(
                 prompt,
                 system_prompt,
@@ -464,8 +561,9 @@ class Brain:
                 scout_confidence=scout_confidence,
                 **options,
             )
+            cloud_lat = round((time.monotonic() - cloud_start) * 1000)
             final_score = guardian.score_response(resp, expected_fields)["total"]
-            await guardian.record_quality(agent_type, final_score)
+            await guardian.record_quality(agent_type, final_score, driver=resp.driver, latency_ms=cloud_lat)
             await self._auto_train(agent_type, prompt, resp)
             resp = self._annotate_response(
                 resp,
@@ -482,7 +580,7 @@ class Brain:
 
         if route_hint == "fast_local":
             local_score = guardian.score_response(local_resp, expected_fields)["total"]
-            await guardian.record_quality(agent_type, local_score)
+            await guardian.record_quality(agent_type, local_score, driver="ollama", latency_ms=latency)
             local_resp = self._annotate_response(
                 local_resp,
                 route_hint=route_hint,
@@ -495,7 +593,7 @@ class Brain:
         score_result = guardian.score_response(local_resp, expected_fields)
         score = score_result["total"]
         if score_result["passed"]:
-            await guardian.record_quality(agent_type, score)
+            await guardian.record_quality(agent_type, score, driver="ollama", latency_ms=latency)
             local_resp = self._annotate_response(
                 local_resp,
                 route_hint=route_hint,
@@ -506,6 +604,7 @@ class Brain:
             return await self._finalize_nonempty_response(prompt, system_prompt, local_resp, **options)
 
         logger.info(f"Brain: ESCALATING {agent_type} (score={score})")
+        esc_start = time.monotonic()
         cloud_resp = await self._call_cloud(
             prompt,
             system_prompt,
@@ -514,9 +613,10 @@ class Brain:
             scout_confidence=scout_confidence,
             **options,
         )
+        esc_lat = round((time.monotonic() - esc_start) * 1000)
         cloud_score = guardian.score_response(cloud_resp, expected_fields)["total"]
         if cloud_score >= score_result["threshold"]:
-            await guardian.record_quality(agent_type, cloud_score)
+            await guardian.record_quality(agent_type, cloud_score, driver=cloud_resp.driver, latency_ms=esc_lat)
             await self._auto_train(agent_type, prompt, cloud_resp)
             cloud_resp = self._annotate_response(
                 cloud_resp,
@@ -528,7 +628,9 @@ class Brain:
             return await self._finalize_nonempty_response(prompt, system_prompt, cloud_resp, **options)
         chosen = cloud_resp if cloud_score > score else local_resp
         chosen_score = cloud_score if cloud_score > score else score
-        await guardian.record_quality(agent_type, chosen_score)
+        chosen_driver = cloud_resp.driver if cloud_score > score else "ollama"
+        chosen_lat = esc_lat if cloud_score > score else latency
+        await guardian.record_quality(agent_type, chosen_score, driver=chosen_driver, latency_ms=chosen_lat)
         chosen = self._annotate_response(
             chosen,
             route_hint=route_hint,
@@ -745,17 +847,76 @@ class Brain:
             retry.metadata = {"review_score": score, "chain_retry": True}; return retry
         return await hub.run(agent_type, prompt, db=db, context=context, **opts)
 
-    # ── Prompt Optimization (OPRO) ────────────────────────────
+    # ── Prompt Optimization (Thompson Sampling Bandit) ──────────
 
     async def select_prompt(self, agent_type: str, db: AsyncSession) -> Tuple[str, Optional[int]]:
-        import random
-        if random.random() < get_settings().ai_explore_rate:
-            c = await self._get_prompt(db, agent_type, "candidate")
-            if c: return c.prompt_text, c.id
+        """Select prompt using Thompson Sampling bandit (Beta distribution)."""
+        pe = _cfg("prompt_engine", default={})
+        algorithm = pe.get("bandit_algorithm", "thompson_sampling")
+        min_trials = pe.get("min_trials_before_bandit", 5)
+        success_threshold = pe.get("success_threshold", 7.0)
+
         champ = await self._get_prompt(db, agent_type, "champion")
-        if champ: return champ.prompt_text, champ.id
-        active = await self._get_prompt(db, agent_type, None, is_active=True)
-        return (active.prompt_text, active.id) if active else (None, None)
+        candidate = await self._get_prompt(db, agent_type, "candidate")
+
+        variants = [v for v in [champ, candidate] if v is not None]
+        if not variants:
+            active = await self._get_prompt(db, agent_type, None, is_active=True)
+            return (active.prompt_text, active.id) if active else (None, None)
+        if len(variants) == 1:
+            return variants[0].prompt_text, variants[0].id
+
+        all_ready = all(v.trial_count >= min_trials for v in variants)
+        if not all_ready:
+            if _random.random() < get_settings().ai_explore_rate:
+                if candidate:
+                    return candidate.prompt_text, candidate.id
+            if champ:
+                return champ.prompt_text, champ.id
+            return variants[0].prompt_text, variants[0].id
+
+        if algorithm == "thompson_sampling":
+            winner = self._thompson_sample(variants, success_threshold)
+        elif algorithm == "ucb1":
+            winner = self._ucb1_select(variants)
+        else:
+            winner = self._thompson_sample(variants, success_threshold)
+
+        return winner.prompt_text, winner.id
+
+    @staticmethod
+    def _thompson_sample(variants: list, success_threshold: float) -> Any:
+        """Thompson Sampling: sample from Beta(alpha, beta) per variant, pick highest."""
+        best_sample = -1.0
+        best_variant = variants[0]
+        for v in variants:
+            tc = max(v.trial_count, 1)
+            avg = v.avg_score if v.avg_score is not None else 5.0
+            successes = int(tc * min(1.0, avg / 10.0))
+            failures = tc - successes
+            alpha = successes + 1
+            beta_param = failures + 1
+            sample = _random.betavariate(alpha, beta_param)
+            if sample > best_sample:
+                best_sample = sample
+                best_variant = v
+        return best_variant
+
+    @staticmethod
+    def _ucb1_select(variants: list) -> Any:
+        """UCB1: pick variant with highest upper confidence bound."""
+        total_trials = sum(v.trial_count for v in variants) or 1
+        best_ucb = -1.0
+        best_variant = variants[0]
+        for v in variants:
+            tc = max(v.trial_count, 1)
+            avg = (v.avg_score / 10.0) if v.avg_score is not None else 0.5
+            exploration = math.sqrt(2 * math.log(total_trials) / tc)
+            ucb = avg + exploration
+            if ucb > best_ucb:
+                best_ucb = ucb
+                best_variant = v
+        return best_variant
 
     async def _get_prompt(self, db, agent_type, status, is_active=False):
         conds = [AgentOptimization.agent_type == agent_type]
