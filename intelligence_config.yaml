@@ -14,7 +14,7 @@ load_balancer:
     anthropic: 10      # Cloud API
     gemini: 20         # Cloud API
     nvidia: 10         # Cloud API
-    bitnet: 5          # Local 1-bit service
+    bitnet: 2          # Local 1-bit service (conservative concurrency)
     fast_local: 6     # vLLM/TGI hot path
 
 # ─── Provider Metadata (Base URLs & Timeouts) ──────────────
@@ -565,6 +565,11 @@ model_matrix:
       monthly_budget_usd: 100
       max_cost_per_request_usd: 0.05
       global_driver_chain: [groq, nvidia, gemini, together, fireworks, ollama, openai, anthropic, sarvam]
+      driver_chains:
+        english:
+          simple: [bitnet, groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+        indic:
+          simple: [bitnet, groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
     quality_burst:
       monthly_budget_usd: 250
       max_cost_per_request_usd: 0.15
@@ -1121,11 +1126,11 @@ smart_router:
   # Balanced matrix default: free/low-cost cloud first, controlled local fallback, premium last.
   driver_chains:
     english:
-      simple: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+      simple: [bitnet, groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
       moderate: [groq, nvidia, gemini, together, fireworks, ollama, openai, sarvam, anthropic]
       complex: [groq, nvidia, gemini, together, fireworks, openai, anthropic, ollama, sarvam]
     indic:
-      simple: [groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
+      simple: [bitnet, groq, nvidia, gemini, together, ollama, fireworks, openai, sarvam, anthropic]
       moderate: [groq, nvidia, gemini, together, fireworks, ollama, openai, sarvam, anthropic]
       complex: [groq, nvidia, gemini, together, fireworks, openai, anthropic, ollama, sarvam]
 
