@@ -25,7 +25,7 @@ from pydantic import ValidationError
 logger = logging.getLogger(__name__)
 
 # Paths that should NOT be wrapped (infrastructure, docs, static)
-_SKIP_PATHS = frozenset({"/health", "/ready", "/docs", "/redoc", "/openapi.json"})
+_SKIP_PATHS = frozenset({"/health", "/ready", "/health/full", "/metrics", "/docs", "/redoc", "/openapi.json"})
 
 
 class ResponseEnvelopeMiddleware(BaseHTTPMiddleware):

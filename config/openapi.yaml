@@ -28,10 +28,12 @@ description: |
   - **Self-Learning Pipeline**: Every interaction makes the engine smarter via OPRO meta-prompts, A/B testing, and anomaly detection
 
   ### Authentication
-  All endpoints require an API key in the `Authorization` header:
+  Most endpoints require an API key in the `Authorization` header:
   ```
   Authorization: Bearer <your-api-key>
   ```
+
+  **Exceptions (no auth):** `GET /health`, `GET /ready`, `GET /health/full`, and `GET /metrics` — for probes and observability.
 
   **Admin endpoints** (tenant/key management) require the **Master API Key**.
   **All other endpoints** require a tenant API key (`sk_live_*` or `sk_test_*`).
@@ -55,8 +57,17 @@ description: |
 tags:
   # ─── 🔧 System ──────────────────────────────────────────
   - name: "health"
-    description: >
-      **System Health** — Liveness and readiness probes for monitoring and orchestration.
+    description: |
+      **System health & metrics** — Public endpoints (no `Authorization` header).
+
+      | Method | Path | Purpose |
+      |--------|------|---------|
+      | `GET` | `/health` | **Liveness** — process up; no DB/Redis I/O. Use for Kubernetes liveness. |
+      | `GET` | `/ready` | **Readiness** — PostgreSQL, Redis, Alembic, active tenants; Chroma + driver summary (informational). `503` if critical checks fail. |
+      | `GET` | `/health/full` | **Deep health** — all readiness checks plus LLM provider `/v1/models` (or equivalent), Ollama tags vs configured models, CPU/load/process memory, admission limits, circuit breakers, queue stats. `503` if DB/Redis/migrations fail. |
+      | `GET` | `/metrics` | **Metrics JSON** — same rich snapshot as deep health for dashboards/scrapers; always `200` with full body. |
+
+      Responses are **not** wrapped in the global `{ success, data }` envelope (same as `/health` and `/ready`).
 
   # ─── 🔐 Admin & Auth ────────────────────────────────────
   - name: "tenants"

@@ -22,7 +22,7 @@ from app.lib.access_engine import get_access_engine
 logger = logging.getLogger(__name__)
 
 # Paths that bypass scope checks (infra, docs, static assets)
-_BYPASS_PATHS = frozenset({"/health", "/ready", "/docs", "/redoc", "/openapi.json"})
+_BYPASS_PATHS = frozenset({"/health", "/ready", "/health/full", "/metrics", "/docs", "/redoc", "/openapi.json"})
 
 
 class ScopeMiddleware(BaseHTTPMiddleware):

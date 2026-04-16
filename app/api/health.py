@@ -1,77 +1,122 @@
-"""Health check endpoints — /health (liveness), /ready (readiness)."""
+"""Health check endpoints — /health (liveness), /ready (readiness), /health/full, /metrics."""
+
+import asyncio
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import text
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db, get_redis
 from app.schemas.common import HealthResponse
+from app.services.platform_status import (
+    build_full_status,
+    build_metrics_snapshot,
+    collect_driver_and_circuit_snapshot,
+    probe_chromadb,
+    probe_migrations,
+    probe_redis,
+    probe_tenants,
+)
+from app.services.platform_status import probe_database as probe_db
 
 router = APIRouter(tags=["health"])
 
+_HEALTH_RESPONSES = {
+    200: {"description": "OK — see response body."},
+    503: {"description": "Degraded — one or more readiness checks failed."},
+}
 
-@router.get("/health", response_model=HealthResponse)
+
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Liveness probe",
+    description=(
+        "Kubernetes-style **liveness**: confirms the API process is running. "
+        "Does not open database or Redis connections. **No authentication.**"
+    ),
+    responses={200: {"description": "`{ \"status\": \"ok\", \"service\": \"sutra-ai\" }`"}},
+)
 async def liveness():
-    """Kubernetes liveness probe — always returns 200."""
+    """Kubernetes liveness probe — process is up (no I/O)."""
     return HealthResponse()
 
 
-@router.get("/ready")
+@router.get(
+    "/ready",
+    summary="Readiness probe",
+    description=(
+        "Kubernetes-style **readiness**: PostgreSQL (`SELECT 1`), Redis `PING`, "
+        "Alembic version row, count of active tenants, ChromaDB heartbeat (informational only), "
+        "and a per-driver **configured** summary. "
+        "**503** if database, Redis, migrations fail, tenants table is missing, or there are zero active tenants. "
+        "ChromaDB being down does **not** fail readiness. **No authentication.**"
+    ),
+    responses=_HEALTH_RESPONSES,
+)
 async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     """
-    Kubernetes readiness probe — checks DB, Redis, migrations, and tenants.
+    Kubernetes readiness — DB, Redis, migrations, tenants, Chroma (informational).
 
-    Returns 200 if all checks pass, 503 if any critical check fails.
+    Returns 200 if critical dependencies pass, 503 otherwise.
+    ChromaDB failure does not fail readiness (optional for RAG-heavy installs).
     """
     checks = {
         "database": "connected",
         "redis": "connected",
         "migrations": "unknown",
         "tenants": 0,
+        "chromadb": "unknown",
+        "drivers_summary": {},
     }
     is_healthy = True
 
-    # ─── Database ────────────────────────────────────────
-    try:
-        await db.execute(text("SELECT 1"))
-    except Exception:
+    db_task = probe_db(db)
+    redis_task = probe_redis(redis)
+    mig_task = probe_migrations(db)
+    ten_task = probe_tenants(db)
+    chroma_task = probe_chromadb()
+
+    db_r, redis_r, mig_r, ten_r, chroma_r = await asyncio.gather(
+        db_task, redis_task, mig_task, ten_task, chroma_task
+    )
+
+    if db_r.get("status") != "ok":
         checks["database"] = "disconnected"
         is_healthy = False
-
-    # ─── Redis ───────────────────────────────────────────
-    try:
-        await redis.ping()
-    except Exception:
+    if redis_r.get("status") != "ok":
         checks["redis"] = "disconnected"
         is_healthy = False
 
-    # ─── Migrations ──────────────────────────────────────
-    try:
-        result = await db.execute(
-            text("SELECT version_num FROM alembic_version LIMIT 1")
-        )
-        row = result.scalar_one_or_none()
-        if row:
-            checks["migrations"] = f"current ({row})"
-        else:
-            checks["migrations"] = "no version found"
-            is_healthy = False
-    except Exception:
-        checks["migrations"] = "alembic_version table missing — run migrations"
+    if mig_r.get("status") == "ok":
+        checks["migrations"] = f"current ({mig_r.get('version')})"
+    else:
+        checks["migrations"] = mig_r.get("error", "unknown")
         is_healthy = False
 
-    # ─── Tenants ─────────────────────────────────────────
-    try:
-        result = await db.execute(
-            text("SELECT COUNT(*) FROM tenants WHERE is_active = true")
-        )
-        count = result.scalar_one()
-        checks["tenants"] = count
-        if count == 0:
+    if ten_r.get("status") == "ok":
+        checks["tenants"] = ten_r.get("active_tenants", 0)
+        if checks["tenants"] == 0:
             is_healthy = False
-    except Exception:
-        checks["tenants"] = "table missing"
+    else:
+        checks["tenants"] = ten_r.get("error", "error")
         is_healthy = False
+
+    if chroma_r.get("status") == "ok":
+        checks["chromadb"] = "ok"
+    elif chroma_r.get("status") == "skipped":
+        checks["chromadb"] = f"skipped ({chroma_r.get('reason', '')})"
+    else:
+        checks["chromadb"] = f"error: {chroma_r.get('error', chroma_r)}"
+
+    try:
+        checks["drivers_summary"] = {
+            k: v.get("configured")
+            for k, v in collect_driver_and_circuit_snapshot().get("drivers", {}).items()
+            if isinstance(v, dict) and "configured" in v
+        }
+    except Exception:
+        checks["drivers_summary"] = {}
 
     status_code = 200 if is_healthy else 503
     return {
@@ -79,3 +124,59 @@ async def readiness(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)
         **checks,
     } | ({"_http_status": status_code} if not is_healthy else {})
 
+
+@router.get(
+    "/health/full",
+    summary="Deep health (all components)",
+    description=(
+        "Full platform status in one JSON object: **components** (database, redis, migrations, "
+        "tenants, ChromaDB, Ollama tags vs configured models, each LLM vendor’s model catalog when a key exists), "
+        "**system** (CPU count, load average, process RSS), **limits** (admission, VPS profiles, rate limits, timeouts), "
+        "**drivers** / **circuit_breaker** / **brain_queue** / **local_stream_admission**, and **api_keys_present** "
+        "(booleans only — never secret values). "
+        "**503** only when PostgreSQL, Redis, or migrations are unhealthy. **No authentication.**"
+    ),
+    responses={
+        200: {"description": "JSON document; top-level `status` may be `ok`, `degraded`, or `unhealthy`."},
+        503: {"description": "Critical failure: database, Redis, or migrations."},
+    },
+)
+async def health_full(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
+    """
+    Deep health: database, Redis, migrations, tenants, every configured LLM endpoint,
+    Ollama model tags, Chroma, CPU/load/process memory, admission limits, circuit breakers.
+
+    503 only when critical path fails (database, redis, or migrations).
+    """
+    payload = await build_full_status(db, redis)
+    critical = (
+        payload.get("components", {}).get("database", {}).get("status") == "ok"
+        and payload.get("components", {}).get("redis", {}).get("status") == "ok"
+        and payload.get("components", {}).get("migrations", {}).get("status") == "ok"
+    )
+    code = 200 if critical else 503
+    if not critical:
+        payload["status"] = "unhealthy"
+    return JSONResponse(content=payload, status_code=code)
+
+
+@router.get(
+    "/metrics",
+    summary="Metrics snapshot (JSON)",
+    description=(
+        "Same rich snapshot shape as **`GET /health/full`** (see that operation), but always returns **HTTP 200** "
+        "with the full JSON body so scrapers and dashboards always receive data. "
+        "Use for Grafana/JSON exporters or internal SRE boards. **No authentication.**"
+    ),
+    responses={
+        200: {"description": "JSON metrics document (same schema as `/health/full` when healthy)."},
+    },
+)
+async def metrics_json(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
+    """
+    Full metrics snapshot (JSON) for dashboards or external Prometheus JSON exporters.
+
+    Does not return secret values — only booleans for which API keys are set.
+    """
+    payload = await build_metrics_snapshot(db, redis)
+    return JSONResponse(content=payload, status_code=200)
