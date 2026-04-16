@@ -1303,6 +1303,9 @@ resilience:
     max_delay: 30.0
     # If true, HTTP 429 does not retry the same driver — chain advances (e.g. Groq → Ollama) faster.
     fast_fallback_on_429: true
+    # If true, rate-limited drivers are force-opened in circuit breaker for cooldown window.
+    trip_circuit_on_429: true
+    circuit_open_on_429_cooldown_s: 180
   rate_limiter:
     default_rpm: 60
     default_rpd: 10000

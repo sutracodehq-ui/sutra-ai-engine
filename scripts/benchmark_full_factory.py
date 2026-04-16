@@ -39,6 +39,18 @@ from app.services.intelligence.config_loader import get_intelligence_config
 ALL_CATEGORIES = {"streaming", "text_quality", "json_integrity", "cost", "latency", "image", "voice"}
 
 
+def _llm_kwargs() -> dict:
+    """Optional benchmark overrides via env (set by CLI args)."""
+    out: dict = {}
+    force_driver = (os.environ.get("BENCHMARK_FORCE_DRIVER") or "").strip()
+    force_model = (os.environ.get("BENCHMARK_FORCE_MODEL") or "").strip()
+    if force_driver:
+        out["driver"] = force_driver
+    if force_model:
+        out["model"] = force_model
+    return out
+
+
 @dataclass
 class GateResult:
     category: str
@@ -103,6 +115,7 @@ async def _bench_streaming(gates: dict) -> list[GateResult]:
     total = 0
 
     svc = get_llm_service()
+    llm_opts = _llm_kwargs()
 
     for p in prompts:
         prompt = str(p.get("prompt", "")).strip()
@@ -115,7 +128,7 @@ async def _bench_streaming(gates: dict) -> list[GateResult]:
         text = ""
         interrupted = False
         try:
-            stream = svc.stream(prompt=prompt, system_prompt=system)
+            stream = svc.stream(prompt=prompt, system_prompt=system, **llm_opts)
             aiter = stream.__aiter__()
             first = await asyncio.wait_for(aiter.__anext__(), timeout=first_token_timeout)
             first_latencies.append((time.perf_counter() - start) * 1000.0)
@@ -172,6 +185,7 @@ async def _bench_text_quality(gates: dict) -> list[GateResult]:
     prompts = ((cfg.get("evolution_engine") or {}).get("benchmark_prompts") or [])[:6]
     svc = get_llm_service()
     guardian = get_guardian()
+    llm_opts = _llm_kwargs()
 
     scores = []
     empty = 0
@@ -184,7 +198,7 @@ async def _bench_text_quality(gates: dict) -> list[GateResult]:
         total += 1
         try:
             resp = await asyncio.wait_for(
-                svc.complete(prompt=prompt, system_prompt="You are a helpful assistant."),
+                svc.complete(prompt=prompt, system_prompt="You are a helpful assistant.", **llm_opts),
                 timeout=30,
             )
             if not (resp.content or "").strip():
@@ -215,6 +229,7 @@ async def _bench_json_integrity(gates: dict) -> list[GateResult]:
     cfg = get_intelligence_config()
     prompts = [p for p in ((cfg.get("evolution_engine") or {}).get("benchmark_prompts") or []) if p.get("format_check") == "json"][:4]
     svc = get_llm_service()
+    llm_opts = _llm_kwargs()
 
     parse_ok = 0
     total = 0
@@ -226,7 +241,11 @@ async def _bench_json_integrity(gates: dict) -> list[GateResult]:
         total += 1
         try:
             resp = await asyncio.wait_for(
-                svc.complete(prompt=prompt, system_prompt="You are a helpful assistant. Respond with strict JSON only."),
+                svc.complete(
+                    prompt=prompt,
+                    system_prompt="You are a helpful assistant. Respond with strict JSON only.",
+                    **llm_opts,
+                ),
                 timeout=30,
             )
             if parse_json_like(resp.content or "") is not None:
@@ -250,6 +269,7 @@ async def _bench_latency(gates: dict) -> list[GateResult]:
     cfg = get_intelligence_config()
     prompts = ((cfg.get("evolution_engine") or {}).get("benchmark_prompts") or [])[:4]
     svc = get_llm_service()
+    llm_opts = _llm_kwargs()
 
     latencies = []
     for p in prompts:
@@ -259,7 +279,7 @@ async def _bench_latency(gates: dict) -> list[GateResult]:
         start = time.perf_counter()
         try:
             await asyncio.wait_for(
-                svc.complete(prompt=prompt, system_prompt="You are a helpful assistant."),
+                svc.complete(prompt=prompt, system_prompt="You are a helpful assistant.", **llm_opts),
                 timeout=30,
             )
         except Exception:
@@ -288,6 +308,7 @@ async def _bench_cost(gates: dict) -> list[GateResult]:
     fallback_cost = budget.get("fallback_cost", {"input": 0.001, "output": 0.002}) or {}
     monthly_tokens = float(budget.get("default_monthly_tokens", 1_000_000))
     svc = get_llm_service()
+    llm_opts = _llm_kwargs()
 
     def _rates_for(model_name: str | None) -> tuple[float, float]:
         if model_name and model_name in model_costs:
@@ -305,7 +326,7 @@ async def _bench_cost(gates: dict) -> list[GateResult]:
             continue
         try:
             resp = await asyncio.wait_for(
-                svc.complete(prompt=prompt, system_prompt="You are a helpful assistant."),
+                svc.complete(prompt=prompt, system_prompt="You are a helpful assistant.", **llm_opts),
                 timeout=30,
             )
             in_rate, out_rate = _rates_for(getattr(resp, "model", None))
@@ -356,16 +377,29 @@ def _stub_gate(category: str, gates: dict) -> list[GateResult]:
     return results
 
 
+async def _stub_gate_async(category: str, gates: dict) -> list[GateResult]:
+    return _stub_gate(category, gates)
+
+
 async def main() -> int:
     parser = argparse.ArgumentParser(description="Full Software Factory Benchmark")
     parser.add_argument("--categories", default=None, help="Comma-separated categories or 'all'")
     parser.add_argument("--all", action="store_true", help="Run all categories")
     parser.add_argument("--matrix-profile", default=None, help="Override matrix profile for this run (sets AI_MATRIX_PROFILE)")
+    parser.add_argument("--driver-chain", default=None, help="Override AI_DRIVER_CHAIN for this run")
+    parser.add_argument("--force-driver", default=None, help="Force all benchmark calls through one driver")
+    parser.add_argument("--force-model", default=None, help="Force model for benchmark calls")
     parser.add_argument("--report-file", default=None, help="Write full JSON report to this file")
     args = parser.parse_args()
 
     if args.matrix_profile:
         os.environ["AI_MATRIX_PROFILE"] = str(args.matrix_profile)
+    if args.driver_chain:
+        os.environ["AI_DRIVER_CHAIN"] = str(args.driver_chain)
+    if args.force_driver:
+        os.environ["BENCHMARK_FORCE_DRIVER"] = str(args.force_driver)
+    if args.force_model:
+        os.environ["BENCHMARK_FORCE_MODEL"] = str(args.force_model)
 
     cfg = get_intelligence_config()
     all_gates = cfg.get("factory_rollout_gates", {})
@@ -384,8 +418,8 @@ async def main() -> int:
         "text_quality": lambda: _bench_text_quality(all_gates.get("text_quality", {})),
         "json_integrity": lambda: _bench_json_integrity(all_gates.get("json_integrity", {})),
         "latency": lambda: _bench_latency(all_gates.get("latency", {})),
-        "image": lambda: asyncio.coroutine(lambda: _stub_gate("image", all_gates.get("image", {})))(),
-        "voice": lambda: asyncio.coroutine(lambda: _stub_gate("voice", all_gates.get("voice", {})))(),
+        "image": lambda: _stub_gate_async("image", all_gates.get("image", {})),
+        "voice": lambda: _stub_gate_async("voice", all_gates.get("voice", {})),
         "cost": lambda: _bench_cost(all_gates.get("cost", {})),
     }
 

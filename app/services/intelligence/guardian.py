@@ -61,14 +61,25 @@ class _CircuitBreaker:
 
     def _state(self, d: str) -> dict:
         if d not in self._states:
-            self._states[d] = {"state": "closed", "fails": 0, "last_fail": 0, "last_ok": 0}
+            self._states[d] = {
+                "state": "closed",
+                "fails": 0,
+                "last_fail": 0,
+                "last_ok": 0,
+                "forced_until": 0,
+            }
         return self._states[d]
 
     def is_available(self, driver: str) -> bool:
         s = self._state(driver)
+        now = time.time()
+        if s.get("forced_until", 0) > now:
+            return False
+        if s.get("forced_until", 0) > 0 and s.get("forced_until", 0) <= now:
+            s["forced_until"] = 0
         if s["state"] == "closed":
             return True
-        if s["state"] == "open" and (time.time() - s["last_fail"]) >= self._cooldown:
+        if s["state"] == "open" and (now - s["last_fail"]) >= self._cooldown:
             s["state"] = "half_open"
             return True
         return s["state"] == "half_open"
@@ -91,10 +102,31 @@ class _CircuitBreaker:
             logger.warning(f"Guardian.circuit: {driver} → OPEN ({s['fails']} fails)")
 
     def status(self) -> dict[str, str]:
-        return {d: s["state"] for d, s in self._states.items()}
+        now = time.time()
+        out: dict[str, str] = {}
+        for d, s in self._states.items():
+            if s.get("forced_until", 0) > now:
+                out[d] = "open_forced"
+            else:
+                out[d] = s["state"]
+        return out
 
     def reset(self, driver: str):
         self._states.pop(driver, None)
+
+    def force_open(self, driver: str, *, cooldown_s: int | None = None):
+        """Immediately mark driver OPEN; optional forced cooldown window."""
+        s = self._state(driver)
+        s["state"] = "open"
+        s["fails"] = max(s.get("fails", 0), self._threshold)
+        s["last_fail"] = time.time()
+        if cooldown_s and int(cooldown_s) > 0:
+            s["forced_until"] = time.time() + int(cooldown_s)
+        logger.warning(
+            "Guardian.circuit: %s force-opened%s",
+            driver,
+            f" for {int(cooldown_s)}s" if cooldown_s and int(cooldown_s) > 0 else "",
+        )
 
 
 # ─── Retry Strategy (absorbs retry_strategy.py) ──────────────

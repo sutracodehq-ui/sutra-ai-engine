@@ -98,6 +98,21 @@ def _is_provider_rate_limit(exc: BaseException) -> bool:
     return "rate limit" in msg or "rate_limit" in msg or "tokens per day" in msg
 
 
+def _trip_circuit_on_429(guardian, driver_name: str, exc: BaseException) -> None:
+    """Force-open circuit for a driver on 429 so next calls auto-shift."""
+    if not _is_provider_rate_limit(exc):
+        return
+    retry_cfg = (get_intelligence_config().get("resilience") or {}).get("retry", {}) or {}
+    if not bool(retry_cfg.get("trip_circuit_on_429", True)):
+        return
+    cooldown_s = int(retry_cfg.get("circuit_open_on_429_cooldown_s", 180))
+    try:
+        guardian.circuit_breaker.force_open(driver_name, cooldown_s=cooldown_s)
+    except Exception:
+        # Safety: never block fallback progression because circuit updates failed.
+        pass
+
+
 # ─── OpenAI-Compatible Adapter (covers: openai, groq, nvidia, sarvam) ──
 
 class OpenAICompatDriver(LlmDriver):
@@ -765,6 +780,7 @@ class DriverRegistry:
                 f"Driver: {driver_override} {operation} returned empty content; trying tiny-model chain"
             )
         except Exception as e:
+            _trip_circuit_on_429(guardian, driver_override, e)
             logger.warning(f"Driver: {driver_override} {operation} failed ({e})")
 
         models = provider_fallback_model_list(driver_override)
@@ -789,6 +805,7 @@ class DriverRegistry:
                     f"Driver: {driver_override} model {fb_model} returned empty content; continuing"
                 )
             except Exception as e2:
+                _trip_circuit_on_429(guardian, driver_override, e2)
                 logger.warning(f"Driver: {driver_override} model {fb_model} failed ({e2})")
 
         guardian.circuit_breaker.record_failure(driver_override)
@@ -997,6 +1014,7 @@ class DriverRegistry:
                             f"no first token in {first_token_timeout}s"
                         )
                     except Exception as e:
+                        _trip_circuit_on_429(guardian, driver_override, e)
                         if _is_provider_rate_limit(e) and hop < len(tiny_chain) - 1:
                             logger.warning(
                                 f"Driver: {driver_override} stream hop {hop} ({label}) "
@@ -1060,6 +1078,7 @@ class DriverRegistry:
                         f"no first token in {first_token_timeout}s"
                     )
                 except Exception as e:
+                    _trip_circuit_on_429(guardian, driver_name, e)
                     if _is_provider_rate_limit(e) and hop < len(models_to_try) - 1:
                         logger.warning(
                             f"Driver: {driver_name} chain hop {hop} ({label}) rate-limited — "
@@ -1101,6 +1120,7 @@ class DriverRegistry:
                     f"Driver: {driver_name} returned empty content for {operation}; trying next driver"
                 )
             except Exception as e:
+                _trip_circuit_on_429(guardian, driver_name, e)
                 guardian.circuit_breaker.record_failure(driver_name)
                 last_err = e
                 logger.warning(f"Driver: {driver_name} failed for {operation}: {e}")
