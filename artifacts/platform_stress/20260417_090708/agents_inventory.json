@@ -1,0 +1,402 @@
+{
+  "count": 24,
+  "agents": [
+    {
+      "identifier": "ab_test_advisor",
+      "name": "Ab Test Advisor",
+      "domain": "A/B testing strategy, headline variations, CTA optimization, experiment design, statistical analysis",
+      "description": "",
+      "capabilities": [
+        "Generate A/B test hypotheses for headlines, CTAs, and layouts",
+        "Create multiple copy/design variants for split testing",
+        "Recommend sample sizes and test durations for statistical significance",
+        "Analyze test results and provide winner recommendations",
+        "Suggest iterative tests based on previous results"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "ad_creative",
+      "name": "Ad Creative",
+      "domain": "advertising creative, ad copy, scroll-stopping hooks, CTAs, platform ad specs",
+      "description": "",
+      "capabilities": [
+        "Generate ad copy for Meta, Google, LinkedIn, and TikTok ads",
+        "Create scroll-stopping hooks and headlines",
+        "Write conversion-focused CTAs",
+        "Generate A/B creative variants",
+        "Adapt copy to platform-specific character limits and specs"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "ai_trend_tracker",
+      "name": "AI Trend Tracker",
+      "domain": "technology",
+      "description": "Tracks and analyzes the latest AI industry trends, breakthrough research, new models, and market developments.",
+      "capabilities": [
+        "Track new AI model releases and capabilities",
+        "Analyze research paper breakthroughs",
+        "Monitor AI funding and acquisition activity",
+        "Assess regulatory developments",
+        "Identify emerging application patterns"
+      ],
+      "response_schema": [
+        "top_trends",
+        "new_models",
+        "research_breakthroughs",
+        "industry_news",
+        "predictions",
+        "recommendations"
+      ]
+    },
+    {
+      "identifier": "anomaly_alerter",
+      "name": "Anomaly Alerter",
+      "domain": "anomaly detection in marketing metrics, alert generation, sudden traffic changes, spend spike detection",
+      "description": "",
+      "capabilities": [
+        "Detect sudden drops or spikes in marketing KPIs",
+        "Identify unusual traffic patterns and bot activity",
+        "Monitor spend anomalies and budget overruns",
+        "Generate prioritized alerts with root cause analysis",
+        "Recommend immediate actions for critical anomalies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "area_comparator",
+      "name": "Area Comparator",
+      "domain": "real_estate",
+      "description": "Compares localities and areas for property investment: infrastructure, connectivity, safety, appreciation potential.",
+      "capabilities": [
+        "locality_comparison",
+        "price_trends",
+        "infrastructure_scoring",
+        "appreciation_prediction"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "attribution_analyst",
+      "name": "Multi-Channel Attribution",
+      "domain": "marketing_attribution",
+      "description": "Determines which marketing channels actually drive conversions using multiple attribution models. Identifies the true impact of each touchpoint in the customer journey.",
+      "capabilities": [
+        "Apply multiple attribution models",
+        "Calculate true channel conversion value",
+        "Identify assisted conversion paths",
+        "Compare models for decision-making",
+        "Recommend optimal channel mix"
+      ],
+      "response_schema": [
+        "attribution_models",
+        "channel_value",
+        "assisted_conversions",
+        "recommendations",
+        "model_comparison"
+      ]
+    },
+    {
+      "identifier": "audience_growth_strategist",
+      "name": "Audience Growth Strategist",
+      "domain": "creator_economy",
+      "description": "Data-driven strategies to grow social media followers, engagement, and community.",
+      "capabilities": [
+        "growth_strategy",
+        "content_pillars",
+        "engagement_tactics",
+        "cross_platform",
+        "community_building"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "audience_segmenter",
+      "name": "Audience Segmenter",
+      "domain": "audience_analysis",
+      "description": "Analyzes customer data to create micro-segments. Generates personalized messaging, targeting strategies, and lookalike audience definitions for each segment.",
+      "capabilities": [
+        "Create data-driven audience micro-segments",
+        "Generate segment-specific messaging",
+        "Define lookalike audience parameters",
+        "Suggest targeting strategies per platform",
+        "Prioritize segments by revenue potential"
+      ],
+      "response_schema": [
+        "segments",
+        "messaging_per_segment",
+        "targeting_strategy",
+        "lookalike_definitions",
+        "prioritization"
+      ]
+    },
+    {
+      "identifier": "audio_dubber",
+      "name": "Audio Dubber",
+      "domain": "video_intelligence",
+      "description": "Takes a transcript, translates it to a target language, and generates TTS audio dub. Returns translated transcript and base64-encoded audio. Supports 30+ Indian languages.",
+      "capabilities": [
+        "Translate transcripts into 30+ Indian languages",
+        "Segment translations for timing alignment",
+        "Preserve tone, emotion, and intent",
+        "Handle code-switching and technical terms",
+        "Generate TTS-ready translations"
+      ],
+      "response_schema": [
+        "original_transcript",
+        "translated_transcript",
+        "segment_map",
+        "pronunciation_notes",
+        "cultural_adaptations",
+        "tts_instructions",
+        "target_language"
+      ]
+    },
+    {
+      "identifier": "auto_publisher",
+      "name": "Auto Publisher",
+      "domain": "automated content publishing, scheduling strategy, cross-platform distribution, posting automation",
+      "description": "",
+      "capabilities": [
+        "Create optimal content publishing schedules",
+        "Adapt content for different platforms automatically",
+        "Recommend best posting times based on audience behavior",
+        "Design automation rules for recurring content series",
+        "Generate cross-platform distribution strategies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "auto_scheduler",
+      "name": "Auto-Scheduler",
+      "domain": "content_scheduling",
+      "description": "Analyzes audience engagement patterns to find optimal posting times. Generates smart publishing schedules that maximize reach and engagement per platform.",
+      "capabilities": [
+        "Find optimal posting times per platform",
+        "Generate weekly publishing schedules",
+        "Balance content types across the week",
+        "Account for timezone and audience behavior",
+        "Adjust for holidays and industry events"
+      ],
+      "response_schema": [
+        "optimal_times",
+        "weekly_schedule",
+        "platform_cadence",
+        "avoid_times",
+        "seasonal_adjustments"
+      ]
+    },
+    {
+      "identifier": "ayurveda_advisor",
+      "name": "Ayurveda & Yoga Advisor",
+      "domain": "health",
+      "description": "Provides traditional Indian wellness guidance: Ayurvedic dosha analysis, herbal remedies, yoga routines, pranayama, and seasonal wellness tips.",
+      "capabilities": [
+        "dosha_analysis",
+        "herbal_remedies",
+        "yoga_routines",
+        "pranayama_guidance",
+        "seasonal_wellness",
+        "daily_routine_planning"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "battery_health",
+      "name": "Battery Health",
+      "domain": "ev_green_energy",
+      "description": "Analyzes EV battery health, predicts degradation, and advises on charging habits for longevity.",
+      "capabilities": [
+        "soh_estimation",
+        "degradation_prediction",
+        "charging_optimization",
+        "warranty_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "brand_advisor",
+      "name": "Brand Advisor",
+      "domain": "brand_strategy",
+      "description": "Your brand's personal AI strategist \u2014 gives brand-specific advice on campaigns, content direction, tone, audience targeting, and competitive positioning using your brand context.",
+      "capabilities": [
+        "strategic_advice",
+        "campaign_planning",
+        "content_direction",
+        "audience_analysis",
+        "competitive_positioning",
+        "brand_health_check",
+        "channel_recommendation",
+        "seasonal_planning"
+      ],
+      "response_schema": [
+        "advice",
+        "action_items",
+        "recommended_agents",
+        "priority",
+        "response"
+      ]
+    },
+    {
+      "identifier": "brand_auditor",
+      "name": "Brand Auditor",
+      "domain": "brand voice consistency, tone of voice auditing, style guide adherence, and content alignment",
+      "description": "",
+      "capabilities": [
+        "Audit existing content against brand style guides",
+        "Ensure tone of voice consistency across different marketing channels",
+        "Provide specific suggestions to improve brand alignment",
+        "Rewrite snippets to better match the \"Midnight Cyber\" or target brand voice",
+        "Detect inconsistent vocabulary or off-brand terminology"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "budget_optimizer",
+      "name": "Budget Optimizer",
+      "domain": "marketing budget optimization, channel allocation, spend efficiency, cost-per-acquisition analysis",
+      "description": "",
+      "capabilities": [
+        "Recommend optimal budget allocation across marketing channels",
+        "Identify channels with highest and lowest ROI",
+        "Suggest budget reallocation to maximize conversions",
+        "Project cost-per-acquisition for different budget scenarios",
+        "Detect overspending and underspending patterns"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "call_sentiment_analyzer",
+      "name": "Call Sentiment Analyzer",
+      "domain": "call_analytics",
+      "description": "Analyzes call recordings and transcriptions to detect customer sentiment, mood shifts, key topics, satisfaction levels, and actionable insights.",
+      "capabilities": [
+        "Analyze sentiment from call transcriptions",
+        "Track mood shifts across conversations",
+        "Extract action items and follow-ups",
+        "Score agent performance",
+        "Detect churn risk and escalation triggers"
+      ],
+      "response_schema": [
+        "sentiment_score",
+        "sentiment_timeline",
+        "topics",
+        "satisfaction_score",
+        "agent_performance",
+        "action_items",
+        "risk_flags"
+      ]
+    },
+    {
+      "identifier": "call_summarizer",
+      "name": "Call Transcription Summarizer",
+      "domain": "call_analytics",
+      "description": "Summarizes long call recordings into concise, actionable bullet points. Extracts key decisions, action items, follow-ups, and customer requests.",
+      "capabilities": [
+        "Summarize call transcriptions into bullet points",
+        "Extract action items with owners",
+        "Identify customer pain points and requests",
+        "Create CRM-ready call notes",
+        "Highlight key decisions and commitments"
+      ],
+      "response_schema": [
+        "executive_summary",
+        "discussion_points",
+        "decisions",
+        "action_items",
+        "customer_requests",
+        "follow_up",
+        "notable_quotes",
+        "metadata"
+      ]
+    },
+    {
+      "identifier": "campaign_strategist",
+      "name": "Campaign Strategist",
+      "domain": "multi-channel campaign strategy, marketing blueprints, funnel design, channel mix optimization",
+      "description": "",
+      "capabilities": [
+        "Design end-to-end marketing campaign strategies",
+        "Create multi-channel content distribution plans",
+        "Build marketing funnels (TOFU, MOFU, BOFU)",
+        "Allocate budgets across channels based on ROI projections",
+        "Define KPIs and success metrics for each campaign phase"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "cap_table_manager",
+      "name": "Cap Table Manager",
+      "domain": "startup",
+      "description": "Manages cap tables: ESOP calculations, dilution modeling, vesting schedules, and shareholder analysis.",
+      "capabilities": [
+        "cap_table",
+        "esop_design",
+        "dilution_modeling",
+        "vesting",
+        "tax_calculation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "caption_generator",
+      "name": "Caption Generator",
+      "domain": "video_intelligence",
+      "description": "Generates captions and subtitles in any Indian language from video transcripts. Outputs SRT/VTT formatted subtitle content ready for download.",
+      "capabilities": [
+        "Translate captions into 30+ Indian languages",
+        "Generate SRT and WebVTT subtitle formats",
+        "Properly time captions to speech",
+        "Handle mixed-language content",
+        "Adapt for readability"
+      ],
+      "response_schema": [
+        "translated_transcript",
+        "srt_content",
+        "vtt_content",
+        "statistics",
+        "translation_notes"
+      ]
+    },
+    {
+      "identifier": "carbon_footprint",
+      "name": "Carbon Footprint",
+      "domain": "sustainability",
+      "description": "Calculates carbon footprint for individuals and businesses, suggests reduction strategies.",
+      "capabilities": [
+        "emission_calculation",
+        "reduction_strategies",
+        "carbon_credits",
+        "offsetting"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "caregiver_guide",
+      "name": "Caregiver Guide",
+      "domain": "elder_care",
+      "description": "Daily care routines, physiotherapy exercises, mental stimulation, and caregiver support.",
+      "capabilities": [
+        "daily_routines",
+        "physiotherapy",
+        "mental_stimulation",
+        "caregiver_support"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "catalog_enricher",
+      "name": "Catalog Enricher",
+      "domain": "ecommerce",
+      "description": "Enriches product catalogs with missing attributes, standardized categories, and enhanced metadata for better discoverability.",
+      "capabilities": [
+        "attribute_filling",
+        "category_mapping",
+        "tag_generation",
+        "data_normalization"
+      ],
+      "response_schema": []
+    }
+  ]
+}

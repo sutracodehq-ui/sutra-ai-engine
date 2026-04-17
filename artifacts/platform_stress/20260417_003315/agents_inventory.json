@@ -1,0 +1,3039 @@
+{
+  "count": 195,
+  "agents": [
+    {
+      "identifier": "ab_test_advisor",
+      "name": "Ab Test Advisor",
+      "domain": "A/B testing strategy, headline variations, CTA optimization, experiment design, statistical analysis",
+      "description": "",
+      "capabilities": [
+        "Generate A/B test hypotheses for headlines, CTAs, and layouts",
+        "Create multiple copy/design variants for split testing",
+        "Recommend sample sizes and test durations for statistical significance",
+        "Analyze test results and provide winner recommendations",
+        "Suggest iterative tests based on previous results"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "ad_creative",
+      "name": "Ad Creative",
+      "domain": "advertising creative, ad copy, scroll-stopping hooks, CTAs, platform ad specs",
+      "description": "",
+      "capabilities": [
+        "Generate ad copy for Meta, Google, LinkedIn, and TikTok ads",
+        "Create scroll-stopping hooks and headlines",
+        "Write conversion-focused CTAs",
+        "Generate A/B creative variants",
+        "Adapt copy to platform-specific character limits and specs"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "ai_trend_tracker",
+      "name": "AI Trend Tracker",
+      "domain": "technology",
+      "description": "Tracks and analyzes the latest AI industry trends, breakthrough research, new models, and market developments.",
+      "capabilities": [
+        "Track new AI model releases and capabilities",
+        "Analyze research paper breakthroughs",
+        "Monitor AI funding and acquisition activity",
+        "Assess regulatory developments",
+        "Identify emerging application patterns"
+      ],
+      "response_schema": [
+        "top_trends",
+        "new_models",
+        "research_breakthroughs",
+        "industry_news",
+        "predictions",
+        "recommendations"
+      ]
+    },
+    {
+      "identifier": "anomaly_alerter",
+      "name": "Anomaly Alerter",
+      "domain": "anomaly detection in marketing metrics, alert generation, sudden traffic changes, spend spike detection",
+      "description": "",
+      "capabilities": [
+        "Detect sudden drops or spikes in marketing KPIs",
+        "Identify unusual traffic patterns and bot activity",
+        "Monitor spend anomalies and budget overruns",
+        "Generate prioritized alerts with root cause analysis",
+        "Recommend immediate actions for critical anomalies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "area_comparator",
+      "name": "Area Comparator",
+      "domain": "real_estate",
+      "description": "Compares localities and areas for property investment: infrastructure, connectivity, safety, appreciation potential.",
+      "capabilities": [
+        "locality_comparison",
+        "price_trends",
+        "infrastructure_scoring",
+        "appreciation_prediction"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "attribution_analyst",
+      "name": "Multi-Channel Attribution",
+      "domain": "marketing_attribution",
+      "description": "Determines which marketing channels actually drive conversions using multiple attribution models. Identifies the true impact of each touchpoint in the customer journey.",
+      "capabilities": [
+        "Apply multiple attribution models",
+        "Calculate true channel conversion value",
+        "Identify assisted conversion paths",
+        "Compare models for decision-making",
+        "Recommend optimal channel mix"
+      ],
+      "response_schema": [
+        "attribution_models",
+        "channel_value",
+        "assisted_conversions",
+        "recommendations",
+        "model_comparison"
+      ]
+    },
+    {
+      "identifier": "audience_growth_strategist",
+      "name": "Audience Growth Strategist",
+      "domain": "creator_economy",
+      "description": "Data-driven strategies to grow social media followers, engagement, and community.",
+      "capabilities": [
+        "growth_strategy",
+        "content_pillars",
+        "engagement_tactics",
+        "cross_platform",
+        "community_building"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "audience_segmenter",
+      "name": "Audience Segmenter",
+      "domain": "audience_analysis",
+      "description": "Analyzes customer data to create micro-segments. Generates personalized messaging, targeting strategies, and lookalike audience definitions for each segment.",
+      "capabilities": [
+        "Create data-driven audience micro-segments",
+        "Generate segment-specific messaging",
+        "Define lookalike audience parameters",
+        "Suggest targeting strategies per platform",
+        "Prioritize segments by revenue potential"
+      ],
+      "response_schema": [
+        "segments",
+        "messaging_per_segment",
+        "targeting_strategy",
+        "lookalike_definitions",
+        "prioritization"
+      ]
+    },
+    {
+      "identifier": "audio_dubber",
+      "name": "Audio Dubber",
+      "domain": "video_intelligence",
+      "description": "Takes a transcript, translates it to a target language, and generates TTS audio dub. Returns translated transcript and base64-encoded audio. Supports 30+ Indian languages.",
+      "capabilities": [
+        "Translate transcripts into 30+ Indian languages",
+        "Segment translations for timing alignment",
+        "Preserve tone, emotion, and intent",
+        "Handle code-switching and technical terms",
+        "Generate TTS-ready translations"
+      ],
+      "response_schema": [
+        "original_transcript",
+        "translated_transcript",
+        "segment_map",
+        "pronunciation_notes",
+        "cultural_adaptations",
+        "tts_instructions",
+        "target_language"
+      ]
+    },
+    {
+      "identifier": "auto_publisher",
+      "name": "Auto Publisher",
+      "domain": "automated content publishing, scheduling strategy, cross-platform distribution, posting automation",
+      "description": "",
+      "capabilities": [
+        "Create optimal content publishing schedules",
+        "Adapt content for different platforms automatically",
+        "Recommend best posting times based on audience behavior",
+        "Design automation rules for recurring content series",
+        "Generate cross-platform distribution strategies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "auto_scheduler",
+      "name": "Auto-Scheduler",
+      "domain": "content_scheduling",
+      "description": "Analyzes audience engagement patterns to find optimal posting times. Generates smart publishing schedules that maximize reach and engagement per platform.",
+      "capabilities": [
+        "Find optimal posting times per platform",
+        "Generate weekly publishing schedules",
+        "Balance content types across the week",
+        "Account for timezone and audience behavior",
+        "Adjust for holidays and industry events"
+      ],
+      "response_schema": [
+        "optimal_times",
+        "weekly_schedule",
+        "platform_cadence",
+        "avoid_times",
+        "seasonal_adjustments"
+      ]
+    },
+    {
+      "identifier": "ayurveda_advisor",
+      "name": "Ayurveda & Yoga Advisor",
+      "domain": "health",
+      "description": "Provides traditional Indian wellness guidance: Ayurvedic dosha analysis, herbal remedies, yoga routines, pranayama, and seasonal wellness tips.",
+      "capabilities": [
+        "dosha_analysis",
+        "herbal_remedies",
+        "yoga_routines",
+        "pranayama_guidance",
+        "seasonal_wellness",
+        "daily_routine_planning"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "battery_health",
+      "name": "Battery Health",
+      "domain": "ev_green_energy",
+      "description": "Analyzes EV battery health, predicts degradation, and advises on charging habits for longevity.",
+      "capabilities": [
+        "soh_estimation",
+        "degradation_prediction",
+        "charging_optimization",
+        "warranty_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "brand_advisor",
+      "name": "Brand Advisor",
+      "domain": "brand_strategy",
+      "description": "Your brand's personal AI strategist \u2014 gives brand-specific advice on campaigns, content direction, tone, audience targeting, and competitive positioning using your brand context.",
+      "capabilities": [
+        "strategic_advice",
+        "campaign_planning",
+        "content_direction",
+        "audience_analysis",
+        "competitive_positioning",
+        "brand_health_check",
+        "channel_recommendation",
+        "seasonal_planning"
+      ],
+      "response_schema": [
+        "advice",
+        "action_items",
+        "recommended_agents",
+        "priority",
+        "response"
+      ]
+    },
+    {
+      "identifier": "brand_auditor",
+      "name": "Brand Auditor",
+      "domain": "brand voice consistency, tone of voice auditing, style guide adherence, and content alignment",
+      "description": "",
+      "capabilities": [
+        "Audit existing content against brand style guides",
+        "Ensure tone of voice consistency across different marketing channels",
+        "Provide specific suggestions to improve brand alignment",
+        "Rewrite snippets to better match the \"Midnight Cyber\" or target brand voice",
+        "Detect inconsistent vocabulary or off-brand terminology"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "budget_optimizer",
+      "name": "Budget Optimizer",
+      "domain": "marketing budget optimization, channel allocation, spend efficiency, cost-per-acquisition analysis",
+      "description": "",
+      "capabilities": [
+        "Recommend optimal budget allocation across marketing channels",
+        "Identify channels with highest and lowest ROI",
+        "Suggest budget reallocation to maximize conversions",
+        "Project cost-per-acquisition for different budget scenarios",
+        "Detect overspending and underspending patterns"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "call_sentiment_analyzer",
+      "name": "Call Sentiment Analyzer",
+      "domain": "call_analytics",
+      "description": "Analyzes call recordings and transcriptions to detect customer sentiment, mood shifts, key topics, satisfaction levels, and actionable insights.",
+      "capabilities": [
+        "Analyze sentiment from call transcriptions",
+        "Track mood shifts across conversations",
+        "Extract action items and follow-ups",
+        "Score agent performance",
+        "Detect churn risk and escalation triggers"
+      ],
+      "response_schema": [
+        "sentiment_score",
+        "sentiment_timeline",
+        "topics",
+        "satisfaction_score",
+        "agent_performance",
+        "action_items",
+        "risk_flags"
+      ]
+    },
+    {
+      "identifier": "call_summarizer",
+      "name": "Call Transcription Summarizer",
+      "domain": "call_analytics",
+      "description": "Summarizes long call recordings into concise, actionable bullet points. Extracts key decisions, action items, follow-ups, and customer requests.",
+      "capabilities": [
+        "Summarize call transcriptions into bullet points",
+        "Extract action items with owners",
+        "Identify customer pain points and requests",
+        "Create CRM-ready call notes",
+        "Highlight key decisions and commitments"
+      ],
+      "response_schema": [
+        "executive_summary",
+        "discussion_points",
+        "decisions",
+        "action_items",
+        "customer_requests",
+        "follow_up",
+        "notable_quotes",
+        "metadata"
+      ]
+    },
+    {
+      "identifier": "campaign_strategist",
+      "name": "Campaign Strategist",
+      "domain": "multi-channel campaign strategy, marketing blueprints, funnel design, channel mix optimization",
+      "description": "",
+      "capabilities": [
+        "Design end-to-end marketing campaign strategies",
+        "Create multi-channel content distribution plans",
+        "Build marketing funnels (TOFU, MOFU, BOFU)",
+        "Allocate budgets across channels based on ROI projections",
+        "Define KPIs and success metrics for each campaign phase"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "cap_table_manager",
+      "name": "Cap Table Manager",
+      "domain": "startup",
+      "description": "Manages cap tables: ESOP calculations, dilution modeling, vesting schedules, and shareholder analysis.",
+      "capabilities": [
+        "cap_table",
+        "esop_design",
+        "dilution_modeling",
+        "vesting",
+        "tax_calculation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "caption_generator",
+      "name": "Caption Generator",
+      "domain": "video_intelligence",
+      "description": "Generates captions and subtitles in any Indian language from video transcripts. Outputs SRT/VTT formatted subtitle content ready for download.",
+      "capabilities": [
+        "Translate captions into 30+ Indian languages",
+        "Generate SRT and WebVTT subtitle formats",
+        "Properly time captions to speech",
+        "Handle mixed-language content",
+        "Adapt for readability"
+      ],
+      "response_schema": [
+        "translated_transcript",
+        "srt_content",
+        "vtt_content",
+        "statistics",
+        "translation_notes"
+      ]
+    },
+    {
+      "identifier": "carbon_footprint",
+      "name": "Carbon Footprint",
+      "domain": "sustainability",
+      "description": "Calculates carbon footprint for individuals and businesses, suggests reduction strategies.",
+      "capabilities": [
+        "emission_calculation",
+        "reduction_strategies",
+        "carbon_credits",
+        "offsetting"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "caregiver_guide",
+      "name": "Caregiver Guide",
+      "domain": "elder_care",
+      "description": "Daily care routines, physiotherapy exercises, mental stimulation, and caregiver support.",
+      "capabilities": [
+        "daily_routines",
+        "physiotherapy",
+        "mental_stimulation",
+        "caregiver_support"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "catalog_enricher",
+      "name": "Catalog Enricher",
+      "domain": "ecommerce",
+      "description": "Enriches product catalogs with missing attributes, standardized categories, and enhanced metadata for better discoverability.",
+      "capabilities": [
+        "attribute_filling",
+        "category_mapping",
+        "tag_generation",
+        "data_normalization"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "charging_station_planner",
+      "name": "Charging Station Planner",
+      "domain": "ev_green_energy",
+      "description": "Plans optimal EV charging station network placement based on traffic, demand, and grid capacity.",
+      "capabilities": [
+        "site_selection",
+        "demand_analysis",
+        "revenue_projection",
+        "compliance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "chatbot_trainer",
+      "name": "Brand Chatbot",
+      "domain": "chatbot, customer support, FAQ, conversational AI",
+      "description": "Brand-aware chatbot assistant that answers customer queries using brand knowledge, product context, and organization details.",
+      "capabilities": [
+        "Answer customer questions using brand knowledge",
+        "Provide product/service information",
+        "Handle FAQs and common queries",
+        "Guide customers to relevant resources",
+        "Collect lead information when appropriate",
+        "Support multilingual conversations"
+      ],
+      "response_schema": [
+        "response",
+        "confidence",
+        "suggestions"
+      ]
+    },
+    {
+      "identifier": "child_milestone_tracker",
+      "name": "Child Milestone Tracker",
+      "domain": "parenting",
+      "description": "Tracks child developmental milestones: motor, cognitive, speech by age with concern flags.",
+      "capabilities": [
+        "milestone_tracking",
+        "activity_suggestions",
+        "delay_detection",
+        "age_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "child_nutrition",
+      "name": "Child Nutrition",
+      "domain": "parenting",
+      "description": "Age-appropriate Indian meal plans for toddlers, kids, and teens with nutrition tracking.",
+      "capabilities": [
+        "age_appropriate_meals",
+        "lunch_box_ideas",
+        "nutrition_tracking",
+        "picky_eating"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "churn_predictor",
+      "name": "Churn Predictor",
+      "domain": "customer_retention",
+      "description": "Analyzes customer behavior patterns to predict churn risk. Suggests re-engagement campaigns, retention offers, and win-back strategies.",
+      "capabilities": [
+        "Identify churn risk signals",
+        "Predict customer churn probability",
+        "Design re-engagement campaigns",
+        "Suggest retention offers and incentives",
+        "Create win-back strategies for lost customers"
+      ],
+      "response_schema": [
+        "churn_risk_factors",
+        "at_risk_indicators",
+        "reengagement_campaigns",
+        "retention_offers",
+        "win_back_strategy"
+      ]
+    },
+    {
+      "identifier": "churn_reversal",
+      "name": "Churn Reversal",
+      "domain": "customer_success",
+      "description": "Designs personalized win-back strategies for churned customers based on their exit reasons and history.",
+      "capabilities": [
+        "exit_analysis",
+        "winback_offers",
+        "re_engagement_sequences",
+        "personalized_outreach"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "click_shield",
+      "name": "Click Shield",
+      "domain": "click fraud analysis, ad traffic quality, bot detection reporting",
+      "description": "",
+      "capabilities": [
+        "Analyze click logs to identify fraud patterns",
+        "Calculate estimated savings from blocked clicks",
+        "Provide natural language summaries of ad traffic quality",
+        "Recommend rule adjustments based on detected anomalies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "cold_call_scripter",
+      "name": "Cold Call Scripter",
+      "domain": "sales_enablement",
+      "description": "Generates persuasive cold call scripts with objection handling, rebuttals, openers, and closing techniques. Supports multiple industries and buyer personas.",
+      "capabilities": [
+        "Generate industry-specific cold call scripts",
+        "Create objection handling matrices with rebuttals",
+        "Design multi-touch call sequences",
+        "Build voicemail scripts that get callbacks",
+        "Adapt scripts for different buyer personas"
+      ],
+      "response_schema": [
+        "script_sections",
+        "objection_matrix",
+        "voicemail_script",
+        "follow_up_sequence",
+        "performance_tips"
+      ]
+    },
+    {
+      "identifier": "competitor_analyst",
+      "name": "Competitor Analyst",
+      "domain": "competitive intelligence, market positioning, competitor SWOT analysis, gap identification",
+      "description": "",
+      "capabilities": [
+        "Analyze competitor positioning and messaging",
+        "Generate SWOT analyses for competitive brands",
+        "Identify market gaps and whitespace opportunities",
+        "Compare pricing strategies and value propositions",
+        "Recommend counter-positioning and differentiation tactics"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "complaint_drafter",
+      "name": "Complaint Drafter",
+      "domain": "government",
+      "description": "Drafts formal complaints for Indian government portals, consumer forums, and grievance redressal systems.",
+      "capabilities": [
+        "complaint_drafting",
+        "portal_guidance",
+        "legal_reference",
+        "format_compliance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "compliance_checker",
+      "name": "Compliance Checker",
+      "domain": "cybersecurity",
+      "description": "Checks organizational compliance with DPDP Act 2023, IT Act, and cybersecurity frameworks.",
+      "capabilities": [
+        "dpdp_compliance",
+        "it_act",
+        "cert_in",
+        "rbi_framework",
+        "gap_analysis"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "construction_estimator",
+      "name": "Construction Estimator",
+      "domain": "construction",
+      "description": "Estimates construction costs: materials, labor, timeline for residential and commercial buildings.",
+      "capabilities": [
+        "cost_estimation",
+        "material_calculation",
+        "labor_costing",
+        "timeline_planning"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "content_grader",
+      "name": "Content Grader",
+      "domain": "content_quality",
+      "description": "Scores content on readability, SEO strength, emotional impact, CTA effectiveness, and engagement potential. Provides specific improvement suggestions.",
+      "capabilities": [
+        "Score content on multiple quality dimensions",
+        "Evaluate readability and grade level",
+        "Assess SEO optimization strength",
+        "Rate emotional impact and persuasion",
+        "Suggest specific content improvements"
+      ],
+      "response_schema": [
+        "overall_score",
+        "readability_score",
+        "seo_score",
+        "emotional_impact",
+        "cta_effectiveness",
+        "improvements"
+      ]
+    },
+    {
+      "identifier": "content_monetizer",
+      "name": "Content Monetizer",
+      "domain": "creator_economy",
+      "description": "Helps creators monetize beyond ads: courses, memberships, merch, digital products, consulting.",
+      "capabilities": [
+        "monetization_strategy",
+        "course_creation",
+        "product_ideation",
+        "pricing_strategy",
+        "platform_selection"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "content_repurpose",
+      "name": "Content Repurpose",
+      "domain": "content repurposing, multi-channel adaptation, and cross-platform content strategy",
+      "description": "",
+      "capabilities": [
+        "Transform long-form content (blogs, whitepapers) into short-form social media posts",
+        "Adapt content for different platform-specific audiences (e.g., professional for LinkedIn, punchy for X)",
+        "Generate video scripts for Reels/TikTok based on textual content",
+        "Create email newsletter summaries from detailed reports",
+        "Ensure core message consistency while changing format and tone"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "contract_analyzer",
+      "name": "Contract Analyzer",
+      "domain": "legal",
+      "description": "Analyzes contracts, identifies key clauses, risks, obligations, and suggests improvements. Supports Indian contract law.",
+      "capabilities": [
+        "clause_extraction",
+        "risk_assessment",
+        "plain_language_summary",
+        "comparison",
+        "improvement_suggestions"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "contractor_checker",
+      "name": "Contractor Checker",
+      "domain": "construction",
+      "description": "Verifies contractor credentials, creates milestone schedules, and manages payment tracking.",
+      "capabilities": [
+        "contractor_evaluation",
+        "milestone_planning",
+        "payment_scheduling",
+        "quality_checks"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "copywriter",
+      "name": "Copywriter",
+      "domain": "marketing copywriting, headlines, body copy, CTAs, and persuasive writing",
+      "description": "Expert marketing copywriter that generates high-converting ad copy, headlines, and CTAs tailored to your brand voice.",
+      "capabilities": [
+        "Generate headlines, taglines, and body copy for ads, blogs, and landing pages",
+        "Create multiple copy variants for A/B testing",
+        "Rewrite and improve existing copy",
+        "Generate CTAs optimized for conversion",
+        "Adapt tone and style to match brand voice"
+      ],
+      "response_schema": [
+        "headline",
+        "body",
+        "cta",
+        "suggested_keywords"
+      ]
+    },
+    {
+      "identifier": "cricket_analyst",
+      "name": "Cricket Analyst",
+      "domain": "sports",
+      "description": "Analyzes cricket stats: player performance, match predictions, pitch reports, IPL analytics.",
+      "capabilities": [
+        "player_analysis",
+        "match_prediction",
+        "pitch_report",
+        "ipl_analytics",
+        "fantasy_insights"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "crop_advisor",
+      "name": "Crop Advisor",
+      "domain": "agriculture",
+      "description": "Advises Indian farmers on crop selection, farming techniques, pest management, and harvest timing based on region and season.",
+      "capabilities": [
+        "crop_selection",
+        "pest_management",
+        "irrigation_advice",
+        "harvest_timing",
+        "scheme_awareness"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "crypto_analyzer",
+      "name": "Crypto Analyzer",
+      "domain": "finance",
+      "description": "Analyzes cryptocurrency markets, on-chain data, DeFi trends, and provides trading insights.",
+      "capabilities": [
+        "Analyze crypto market cycles",
+        "Track whale movements and exchange flows",
+        "Evaluate DeFi protocols and yields",
+        "Identify trending crypto sectors",
+        "Provide risk-managed trading opportunities"
+      ],
+      "response_schema": [
+        "market_cycle",
+        "btc_analysis",
+        "altcoin_analysis",
+        "sector_trends",
+        "trading_opportunities",
+        "risk_assessment",
+        "defi_insights"
+      ]
+    },
+    {
+      "identifier": "daily_briefing",
+      "name": "Daily Briefing",
+      "domain": "productivity",
+      "description": "Generates personalized morning briefings: tasks summary, weather, news, market updates, and schedule overview.",
+      "capabilities": [
+        "task_overview",
+        "weather",
+        "news_summary",
+        "market_snapshot",
+        "reminders",
+        "daily_tips"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "data_curator",
+      "name": "Data Curator",
+      "domain": "data_engineering",
+      "description": "Autonomously cleans, validates, deduplicates, and enriches datasets for ML training. Detects quality issues, fixes inconsistencies, and generates data quality reports.",
+      "capabilities": [
+        "data_cleaning",
+        "duplicate_detection",
+        "missing_value_analysis",
+        "outlier_detection",
+        "data_type_inference",
+        "schema_validation",
+        "quality_reporting"
+      ],
+      "response_schema": [
+        "total_records",
+        "quality_score",
+        "issues_found",
+        "duplicates_count",
+        "missing_values",
+        "outliers",
+        "data_types",
+        "recommendations",
+        "cleaned_sample"
+      ]
+    },
+    {
+      "identifier": "dataset_optimizer",
+      "name": "Dataset Optimizer",
+      "domain": "data_engineering",
+      "description": "Optimizes training datasets for ML model performance. Generates synthetic data, balances classes, prunes low-value examples, and analyzes feature importance.",
+      "capabilities": [
+        "synthetic_data_generation",
+        "class_balancing",
+        "feature_ranking",
+        "data_pruning",
+        "distribution_analysis",
+        "augmentation_strategy"
+      ],
+      "response_schema": [
+        "original_stats",
+        "optimized_stats",
+        "feature_rankings",
+        "augmentation_plan",
+        "estimated_improvement",
+        "pruned_count",
+        "synthetic_count",
+        "recommendations"
+      ]
+    },
+    {
+      "identifier": "diet_planner",
+      "name": "Diet & Nutrition Planner",
+      "domain": "health",
+      "description": "Creates personalized Indian diet plans based on health conditions, goals, and dietary preferences. Supports vegetarian, vegan, Jain, regional cuisines, and condition-specific diets.",
+      "capabilities": [
+        "condition_specific_diets",
+        "indian_meal_planning",
+        "calorie_counting",
+        "macro_tracking",
+        "grocery_list_generation",
+        "fasting_alternatives",
+        "regional_cuisine_plans"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "document_ocr_extractor",
+      "name": "Document OCR Extractor",
+      "domain": "education",
+      "description": "Extracts structured data from Indian educational documents (Aadhaar, TC, certificates) for UDISE+ compliance.",
+      "capabilities": [
+        "aadhaar_extraction",
+        "tc_extraction",
+        "certificate_extraction",
+        "qualification_extraction",
+        "recognition_extraction",
+        "birth_certificate_extraction",
+        "bulk_processing"
+      ],
+      "response_schema": [
+        "document_type",
+        "extracted_fields",
+        "validation_flags",
+        "udise_field_mapping"
+      ]
+    },
+    {
+      "identifier": "document_translator",
+      "name": "Document Translator",
+      "domain": "government",
+      "description": "Translates official documents between Hindi, English, and regional Indian languages while preserving legal/formal tone.",
+      "capabilities": [
+        "document_translation",
+        "formal_tone_preservation",
+        "multi_language",
+        "transliteration"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "dynamic_pricing",
+      "name": "Dynamic Pricing",
+      "domain": "ecommerce",
+      "description": "Suggests optimal pricing strategies based on competition, demand, seasonality, and market conditions.",
+      "capabilities": [
+        "competitive_pricing",
+        "demand_analysis",
+        "seasonal_strategy",
+        "bundle_optimization",
+        "markdown_planning"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "edtech",
+      "name": "Sutra EdTech Agent",
+      "domain": "general",
+      "description": "Specialized pedagogical agent for interactive learning and student support.",
+      "capabilities": [
+        "socratic_questioning",
+        "lesson_synthesis",
+        "concept_breakdown",
+        "progress_tracking_hints",
+        "safety_moderation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "education_guru",
+      "name": "Education Guru",
+      "domain": "education",
+      "description": "Personal AI assistant for EdTech institutions \u2014 school management advice, academic planning, NEP 2020 compliance, staff development, parent communication, and growth strategy.",
+      "capabilities": [
+        "school_management_advice",
+        "academic_planning",
+        "nep_2020_guidance",
+        "staff_development",
+        "parent_communication",
+        "enrollment_strategy",
+        "fee_optimization",
+        "technology_adoption",
+        "compliance_guidance",
+        "competitive_analysis"
+      ],
+      "response_schema": [
+        "response",
+        "advice",
+        "action_items",
+        "resources",
+        "priority",
+        "timeline",
+        "recommended_agents",
+        "suggestions"
+      ]
+    },
+    {
+      "identifier": "elder_health_monitor",
+      "name": "Elder Health Monitor",
+      "domain": "elder_care",
+      "description": "Medication reminders, chronic condition tracking, and emergency protocols for senior citizens.",
+      "capabilities": [
+        "medication_management",
+        "chronic_tracking",
+        "fall_prevention",
+        "emergency_protocols"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "email_campaign",
+      "name": "Email Campaign",
+      "domain": "email marketing, subject lines, email copy, deliverability, A/B testing, and automation",
+      "description": "",
+      "capabilities": [
+        "Generate email subject lines, preview text, and body copy",
+        "Create A/B test subject line variants",
+        "Design drip/automation email sequences",
+        "Write welcome, onboarding, re-engagement, and promotional emails",
+        "Optimize emails for deliverability and open rates"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "email_summarizer",
+      "name": "Email Summarizer",
+      "domain": "productivity",
+      "description": "Summarizes long email threads, extracts action items, identifies priority, and drafts quick replies.",
+      "capabilities": [
+        "email_summary",
+        "action_extraction",
+        "priority_classification",
+        "reply_drafting",
+        "followup_detection"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "esg_report_writer",
+      "name": "ESG Report Writer",
+      "domain": "sustainability",
+      "description": "Drafts ESG (Environmental, Social, Governance) reports in BRSR format for SEBI compliance.",
+      "capabilities": [
+        "brsr_format",
+        "gri_standards",
+        "sdg_mapping",
+        "emissions_reporting"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "esports_analyst",
+      "name": "Esports Analyst",
+      "domain": "gaming",
+      "description": "Tournament analysis, player stats, meta trends, and team performance for Indian esports.",
+      "capabilities": [
+        "tournament_analysis",
+        "player_stats",
+        "meta_tracking",
+        "team_performance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "ev_comparator",
+      "name": "EV Comparator",
+      "domain": "ev_green_energy",
+      "description": "Compares electric vehicles in India: range, charging, FAME subsidy, total cost of ownership.",
+      "capabilities": [
+        "ev_comparison",
+        "tco_calculation",
+        "subsidy_check",
+        "charging_analysis"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "event_timeline",
+      "name": "Event Timeline",
+      "domain": "wedding_events",
+      "description": "Creates minute-by-minute event timelines for Indian weddings: mehendi, sangeet, wedding, reception.",
+      "capabilities": [
+        "timeline_creation",
+        "vendor_coordination",
+        "buffer_planning",
+        "multi_event"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "expense_tracker",
+      "name": "Expense Tracker",
+      "domain": "productivity",
+      "description": "Categorizes expenses, generates reports, tracks budgets, and identifies spending patterns for individuals and businesses.",
+      "capabilities": [
+        "expense_categorization",
+        "report_generation",
+        "budget_tracking",
+        "pattern_detection",
+        "tax_deductible"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "fake_news_detector",
+      "name": "Fake News Detector",
+      "domain": "media",
+      "description": "Fact-checks claims using source verification, logical analysis, and known misinformation patterns.",
+      "capabilities": [
+        "claim_analysis",
+        "source_verification",
+        "pattern_detection",
+        "media_literacy"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "fantasy_team_builder",
+      "name": "Fantasy Team Builder",
+      "domain": "sports",
+      "description": "Builds optimal fantasy cricket teams for Dream11, MPL based on matchups and conditions.",
+      "capabilities": [
+        "team_building",
+        "captain_selection",
+        "differential_picks",
+        "budget_optimization"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "feedback_synthesizer",
+      "name": "Feedback Synthesizer",
+      "domain": "customer_success",
+      "description": "Synthesizes customer feedback from multiple channels into actionable insights and prioritized improvement lists.",
+      "capabilities": [
+        "multi_channel_synthesis",
+        "theme_categorization",
+        "priority_ranking",
+        "executive_summaries",
+        "trend_tracking"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "fitness_coach",
+      "name": "Fitness Coach",
+      "domain": "sports",
+      "description": "Personalized home workout plans adapted for Indian body types, climate, and available equipment.",
+      "capabilities": [
+        "workout_planning",
+        "progressive_overload",
+        "yoga_integration",
+        "home_workouts"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "flashcard_creator",
+      "name": "Flashcard Creator",
+      "domain": "edtech",
+      "description": "Converts key concepts, definitions, and formulas into spaced-repetition flashcards (front/back format). Optimized for Anki-style learning systems.",
+      "capabilities": [
+        "Create spaced-repetition flashcards",
+        "Generate cloze deletion cards",
+        "Tag cards by topic and difficulty",
+        "Design study sequences",
+        "Support multilingual cards"
+      ],
+      "response_schema": [
+        "basic_cards",
+        "cloze_cards",
+        "concept_cards",
+        "formula_cards",
+        "study_order",
+        "total_count",
+        "tags"
+      ]
+    },
+    {
+      "identifier": "food_cost_optimizer",
+      "name": "Food Cost Optimizer",
+      "domain": "food",
+      "description": "Optimizes restaurant food costs: portion control, waste reduction, supplier comparison.",
+      "capabilities": [
+        "recipe_costing",
+        "waste_reduction",
+        "supplier_comparison",
+        "inventory_management"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "form_filler",
+      "name": "Form Filler",
+      "domain": "government",
+      "description": "Helps citizens fill government forms: passport, PAN, Aadhaar update, voter ID, driving license with step-by-step guidance.",
+      "capabilities": [
+        "form_guidance",
+        "document_checklist",
+        "fee_information",
+        "portal_navigation",
+        "mistake_prevention"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "funding_tracker",
+      "name": "Funding Tracker",
+      "domain": "startup",
+      "description": "Tracks VC funding rounds, active investors, and sector trends in the Indian startup ecosystem.",
+      "capabilities": [
+        "funding_rounds",
+        "investor_tracking",
+        "sector_trends",
+        "scheme_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "funnel_analyzer",
+      "name": "Funnel Analyzer",
+      "domain": "conversion_optimization",
+      "description": "Analyzes the full marketing funnel from awareness to conversion. Identifies drop-off points, suggests optimizations, and predicts conversion improvements.",
+      "capabilities": [
+        "Analyze full marketing funnel performance",
+        "Identify conversion bottlenecks",
+        "Suggest stage-specific optimizations",
+        "Predict conversion rate improvements",
+        "Map awareness-to-purchase journey"
+      ],
+      "response_schema": [
+        "funnel_stages",
+        "bottlenecks",
+        "optimization_suggestions",
+        "predicted_lift",
+        "priority_actions"
+      ]
+    },
+    {
+      "identifier": "game_strategy",
+      "name": "Game Strategy",
+      "domain": "gaming",
+      "description": "Provides game strategies for BGMI, Valorant, Free Fire: map callouts, team compositions, meta guides.",
+      "capabilities": [
+        "game_meta_analysis",
+        "strategy_guides",
+        "loadout_recommendations",
+        "rank_climbing"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "gaming_pc_builder",
+      "name": "Gaming PC Builder",
+      "domain": "gaming",
+      "description": "Recommends PC and console builds by budget for Indian gamers with component pricing.",
+      "capabilities": [
+        "build_recommendation",
+        "compatibility_check",
+        "pricing",
+        "upgrade_paths"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "google_ads_optimizer",
+      "name": "Google Ads Optimizer",
+      "domain": "google_advertising",
+      "description": "Optimizes Google Ads campaigns with keyword suggestions, bid strategies, negative keywords, ad extensions, and quality score improvements.",
+      "capabilities": [
+        "Research and suggest high-intent keywords",
+        "Recommend bid strategies and adjustments",
+        "Identify wasted spend via negative keywords",
+        "Optimize ad extensions for CTR",
+        "Improve quality scores for lower CPC"
+      ],
+      "response_schema": [
+        "keyword_suggestions",
+        "bid_strategy",
+        "negative_keywords",
+        "ad_extensions",
+        "quality_score_tips",
+        "campaign_structure"
+      ]
+    },
+    {
+      "identifier": "green_certification",
+      "name": "Green Certification",
+      "domain": "sustainability",
+      "description": "Guides buildings and projects toward LEED, IGBC, GRIHA green certifications.",
+      "capabilities": [
+        "igbc_certification",
+        "griha",
+        "leed",
+        "bee_rating",
+        "checklist_generation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "gst_compliance",
+      "name": "GST Compliance",
+      "domain": "legal",
+      "description": "Helps businesses with GST compliance: HSN codes, tax rates, return filing guidance, input tax credit, and e-invoicing rules.",
+      "capabilities": [
+        "hsn_lookup",
+        "rate_identification",
+        "return_guidance",
+        "itc_rules",
+        "e_invoicing"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "guest_list_manager",
+      "name": "Guest List Manager",
+      "domain": "wedding_events",
+      "description": "Manages wedding guest lists: categorization, seating plans, RSVP tracking, dietary preferences.",
+      "capabilities": [
+        "guest_categorization",
+        "seating_plans",
+        "rsvp_tracking",
+        "dietary_management"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "image_generator",
+      "name": "Image Generator",
+      "domain": "AI image generation, visual asset creation, marketing collateral, brand graphics",
+      "description": "Generates images from text descriptions using AI models (Flux, DALL-E 3, etc.). Automatically enhances prompts for professional-quality results. Brand-aware \u2014 incorporates tenant's visual identity when available.\n",
+      "capabilities": [
+        "text_to_image",
+        "prompt_enhancement",
+        "brand_consistent_visuals",
+        "multi_platform_sizing",
+        "style_recommendation",
+        "marketing_collateral"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "incident_reporter",
+      "name": "Incident Reporter",
+      "domain": "cybersecurity",
+      "description": "Drafts CERT-In compliant cybersecurity incident reports and guides incident response.",
+      "capabilities": [
+        "incident_classification",
+        "cert_in_report",
+        "containment",
+        "evidence_preservation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "influencer_matcher",
+      "name": "Influencer Matcher",
+      "domain": "influencer_marketing",
+      "description": "Finds ideal influencers for brand partnerships. Analyzes niche relevance, audience quality, engagement rates, and estimates ROI. Generates outreach templates.",
+      "capabilities": [
+        "Find niche-relevant influencers",
+        "Evaluate engagement quality and authenticity",
+        "Estimate partnership ROI",
+        "Generate outreach DM and email templates",
+        "Suggest collaboration formats and pricing"
+      ],
+      "response_schema": [
+        "influencer_profiles",
+        "outreach_templates",
+        "collaboration_ideas",
+        "roi_estimate",
+        "budget_breakdown"
+      ]
+    },
+    {
+      "identifier": "infrastructure_auditor",
+      "name": "Infrastructure Auditor",
+      "domain": "education",
+      "description": "Assesses school infrastructure against UDISE+ DCF Section 1 and RTE norms \u2014 building, toilets, ICT, safety, facilities.",
+      "capabilities": [
+        "photo_audit",
+        "text_audit",
+        "compliance_check",
+        "gap_report",
+        "cost_estimate"
+      ],
+      "response_schema": [
+        "building_status",
+        "classrooms",
+        "toilets",
+        "facilities",
+        "ict",
+        "water_electricity",
+        "compliance_gaps",
+        "rte_compliance_score"
+      ]
+    },
+    {
+      "identifier": "insurance_advisor",
+      "name": "Insurance Advisor",
+      "domain": "finance",
+      "description": "Compares health, life, motor, and travel insurance plans from Indian insurers. Coverage analysis and claim guidance.",
+      "capabilities": [
+        "plan_comparison",
+        "coverage_analysis",
+        "claim_guidance",
+        "tax_benefits",
+        "premium_calculation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "interior_designer",
+      "name": "Interior Designer",
+      "domain": "construction",
+      "description": "Room-by-room interior design suggestions: styles, colors, furniture, lighting, and budget.",
+      "capabilities": [
+        "room_design",
+        "color_palette",
+        "furniture_selection",
+        "budget_planning"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "interview_q_generator",
+      "name": "Interview Question Generator",
+      "domain": "hr",
+      "description": "Generates role-specific interview questions: technical, behavioral, situational, and competency-based.",
+      "capabilities": [
+        "technical_questions",
+        "behavioral_questions",
+        "situational_questions",
+        "scoring_rubrics"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "invitation_writer",
+      "name": "Invitation Writer",
+      "domain": "wedding_events",
+      "description": "Writes wedding invitation text in Hindi, English, and regional languages \u2014 traditional and modern styles.",
+      "capabilities": [
+        "traditional_format",
+        "modern_format",
+        "bilingual",
+        "digital_format",
+        "regional_languages"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "invoice_generator",
+      "name": "Invoice Generator",
+      "domain": "productivity",
+      "description": "Generates GST-compliant invoices for Indian businesses. Supports tax invoice, proforma, credit note, and debit note formats.",
+      "capabilities": [
+        "tax_invoice",
+        "proforma",
+        "credit_note",
+        "e_invoice",
+        "bill_of_supply"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "itinerary_generator",
+      "name": "Itinerary Generator",
+      "domain": "travel",
+      "description": "Auto-generates optimized day-wise itineraries with routes, timings, and booking links.",
+      "capabilities": [
+        "route_optimization",
+        "time_management",
+        "restaurant_suggestions",
+        "backup_planning",
+        "map_format"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "ivr_designer",
+      "name": "IVR Designer",
+      "domain": "telephony",
+      "description": "Designs interactive voice response (IVR) menu flows with multilingual support, intelligent call routing, and customer-friendly navigation trees.",
+      "capabilities": [
+        "Design complete IVR menu trees",
+        "Create multilingual voice prompts",
+        "Build intelligent call routing",
+        "Design self-service automation",
+        "Optimize for caller experience"
+      ],
+      "response_schema": [
+        "ivr_tree",
+        "prompt_scripts",
+        "routing_rules",
+        "self_service_flows",
+        "escalation_rules",
+        "language_options"
+      ]
+    },
+    {
+      "identifier": "jd_writer",
+      "name": "JD Writer",
+      "domain": "hr",
+      "description": "Creates compelling job descriptions with proper role requirements, responsibilities, and inclusive language.",
+      "capabilities": [
+        "jd_creation",
+        "requirement_structuring",
+        "inclusive_language",
+        "compensation_benchmarking"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "journey_mapper",
+      "name": "Customer Journey Mapper",
+      "domain": "customer_experience",
+      "description": "Maps complete customer touchpoints across channels. Identifies gaps in the journey, suggests cross-channel campaigns, and optimizes the path to conversion.",
+      "capabilities": [
+        "Map complete customer journey across channels",
+        "Identify touchpoint gaps and friction",
+        "Suggest cross-channel campaign sequences",
+        "Optimize conversion paths",
+        "Create stage-appropriate content plans"
+      ],
+      "response_schema": [
+        "journey_map",
+        "touchpoints",
+        "gap_analysis",
+        "campaign_suggestions",
+        "optimization_priority"
+      ]
+    },
+    {
+      "identifier": "key_points_extractor",
+      "name": "Key Points Extractor",
+      "domain": "edtech",
+      "description": "Extracts formulas, definitions, theorems, dates, concepts, and critical facts from lectures or text content. Outputs structured, categorized key points.",
+      "capabilities": [
+        "Extract and categorize key academic concepts",
+        "Identify formulas, theorems, and definitions",
+        "Create concept relationship maps",
+        "Suggest memory aids and mnemonics",
+        "Assess content difficulty level"
+      ],
+      "response_schema": [
+        "definitions",
+        "formulas",
+        "theorems",
+        "dates",
+        "facts",
+        "concept_map",
+        "prerequisites",
+        "difficulty_level",
+        "study_time",
+        "memory_aids"
+      ]
+    },
+    {
+      "identifier": "kitchen_inventory",
+      "name": "Kitchen Inventory",
+      "domain": "food",
+      "description": "Tracks restaurant kitchen inventory: perishables, auto-reorder suggestions, expiry alerts.",
+      "capabilities": [
+        "inventory_tracking",
+        "expiry_alerts",
+        "reorder_suggestions",
+        "waste_tracking"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "kundli_analyzer",
+      "name": "Kundli Analyzer",
+      "domain": "astrology",
+      "description": "Analyzes birth charts (Kundli): planetary positions, dasha periods, yogas, and life predictions.",
+      "capabilities": [
+        "birth_chart",
+        "dasha_analysis",
+        "yoga_identification",
+        "remedy_suggestions"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "lab_report_interpreter",
+      "name": "Lab Report Interpreter",
+      "domain": "health",
+      "description": "Analyzes medical lab reports (blood tests, urine, lipid panel, thyroid, HbA1c, etc.) and explains results in simple language. Supports Hindi/English for India market.",
+      "capabilities": [
+        "blood_test_analysis",
+        "lipid_panel_interpretation",
+        "thyroid_function_analysis",
+        "diabetes_monitoring",
+        "vitamin_deficiency_detection",
+        "kidney_liver_function"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "landing_page_builder",
+      "name": "Landing Page Builder",
+      "domain": "landing page copywriting, hero sections, conversion optimization, CTA strategy, page structure",
+      "description": "",
+      "capabilities": [
+        "Generate high-converting landing page copy",
+        "Create hero sections with compelling headlines and subheadlines",
+        "Write value propositions and feature highlights",
+        "Design FAQ sections to address objections",
+        "Optimize page structure for conversion rate"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "last_mile_optimizer",
+      "name": "Last Mile Optimizer",
+      "domain": "logistics",
+      "description": "Optimizes last-mile delivery: rider allocation, delivery slot management, and customer communication.",
+      "capabilities": [
+        "rider_allocation",
+        "slot_management",
+        "failed_delivery_reduction",
+        "cod_optimization",
+        "pin_code_analysis"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "lead_scorer",
+      "name": "Lead Scorer",
+      "domain": "lead quality scoring, lead prioritization, conversion likelihood prediction, sales readiness assessment",
+      "description": "",
+      "capabilities": [
+        "Score leads based on behavioral and demographic signals",
+        "Predict conversion likelihood for each lead",
+        "Prioritize leads for sales team outreach",
+        "Recommend next-best-action for each lead stage",
+        "Segment leads into hot, warm, and cold categories"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "lecture_planner",
+      "name": "Lecture Planner",
+      "domain": "edtech",
+      "description": "Plans full lecture series from a topic or syllabus. Creates lecture structure, learning objectives, time allocation, teaching methods, and assessment plans.",
+      "capabilities": [
+        "Design complete lecture series from syllabus",
+        "Create learning objectives per lecture",
+        "Plan time allocation and teaching methods",
+        "Design assessment checkpoints",
+        "Support multilingual course planning"
+      ],
+      "response_schema": [
+        "course_overview",
+        "lecture_plans",
+        "resources",
+        "assessment_plan",
+        "differentiation",
+        "total_hours"
+      ]
+    },
+    {
+      "identifier": "legal_document_writer",
+      "name": "Legal Document Writer",
+      "domain": "legal",
+      "description": "Drafts legal documents: NDAs, MOUs, partnership deeds, notices, and affidavits following Indian legal standards.",
+      "capabilities": [
+        "nda_drafting",
+        "mou_drafting",
+        "notice_drafting",
+        "agreement_templates",
+        "affidavit_formats"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "linkedin_growth",
+      "name": "LinkedIn Growth Agent",
+      "domain": "linkedin_marketing",
+      "description": "Generates authority-building LinkedIn content, connection request templates, InMail sequences, and B2B engagement strategies.",
+      "capabilities": [
+        "Generate authority-building LinkedIn posts",
+        "Craft personalized connection request templates",
+        "Write B2B InMail outreach sequences",
+        "Optimize LinkedIn profiles and company pages",
+        "Design employee advocacy programs"
+      ],
+      "response_schema": [
+        "content_posts",
+        "connection_templates",
+        "inmail_sequences",
+        "profile_optimization",
+        "engagement_strategy"
+      ]
+    },
+    {
+      "identifier": "loan_comparator",
+      "name": "Loan Comparator",
+      "domain": "finance",
+      "description": "Compares home loans, personal loans, car loans across Indian banks. EMI calculations, processing fees, prepayment rules.",
+      "capabilities": [
+        "loan_comparison",
+        "emi_calculation",
+        "eligibility_check",
+        "prepayment_analysis",
+        "balance_transfer"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "mantra_guide",
+      "name": "Mantra Guide",
+      "domain": "astrology",
+      "description": "Recommends mantras, stotras, and meditation practices based on planetary conditions and life goals.",
+      "capabilities": [
+        "mantra_recommendation",
+        "pronunciation_guide",
+        "meditation_techniques"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "market_sizing",
+      "name": "Market Sizing",
+      "domain": "startup",
+      "description": "Calculates TAM/SAM/SOM for Indian and global markets, bottom-up and top-down approaches.",
+      "capabilities": [
+        "tam_sam_som",
+        "bottom_up",
+        "top_down",
+        "india_market_data",
+        "competitor_landscape"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "market_trend_analyzer",
+      "name": "Market Trend Analyzer",
+      "domain": "finance",
+      "description": "Analyzes broad market trends, sector rotations, and macroeconomic indicators to identify investment opportunities and risks.",
+      "capabilities": [
+        "Identify market regime changes",
+        "Analyze sector rotation patterns",
+        "Track macroeconomic indicators",
+        "Evaluate market sentiment",
+        "Provide sector allocation recommendations"
+      ],
+      "response_schema": [
+        "market_regime",
+        "sector_analysis",
+        "macro_indicators",
+        "sentiment",
+        "top_opportunities",
+        "key_risks",
+        "sector_allocation"
+      ]
+    },
+    {
+      "identifier": "material_calculator",
+      "name": "Material Calculator",
+      "domain": "construction",
+      "description": "Calculates construction material quantities: cement, steel, bricks, sand from floor plans.",
+      "capabilities": [
+        "quantity_calculation",
+        "cost_estimation",
+        "grade_recommendation",
+        "wastage_factor"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "media_monitor",
+      "name": "Media Monitor",
+      "domain": "media",
+      "description": "Brand and person mention tracking across Indian media with sentiment analysis.",
+      "capabilities": [
+        "mention_tracking",
+        "sentiment_analysis",
+        "crisis_detection",
+        "coverage_reports"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "medicine_info",
+      "name": "Medicine Info Agent",
+      "domain": "health",
+      "description": "Provides information about medicines, dosages, side effects, and drug interactions. Covers Indian generic and branded medicines, plus Ayurvedic formulations.",
+      "capabilities": [
+        "medicine_lookup",
+        "drug_interaction_check",
+        "side_effect_information",
+        "generic_brand_mapping",
+        "ayurvedic_formulations"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "meeting_notes",
+      "name": "Meeting Notes",
+      "domain": "productivity",
+      "description": "Summarizes meetings from transcripts: key decisions, action items, owners, deadlines, and follow-up agenda.",
+      "capabilities": [
+        "meeting_summary",
+        "action_items",
+        "decision_tracking",
+        "follow_up_agenda",
+        "participation_summary"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "mental_health_companion",
+      "name": "Mental Health Companion",
+      "domain": "health",
+      "description": "Empathetic conversational AI for mental wellness. Provides mood tracking, CBT techniques, breathing exercises, and emotional support. India-sensitive with Hindi support.",
+      "capabilities": [
+        "emotional_support",
+        "mood_tracking",
+        "cbt_techniques",
+        "breathing_exercises",
+        "crisis_detection",
+        "journaling_prompts",
+        "sleep_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "menu_designer",
+      "name": "Menu Designer",
+      "domain": "food",
+      "description": "Designs restaurant menus with pricing psychology, food cost analysis, and category optimization.",
+      "capabilities": [
+        "menu_structure",
+        "pricing_strategy",
+        "food_cost_analysis",
+        "menu_engineering"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "meta_ads_optimizer",
+      "name": "Meta Ads Optimizer",
+      "domain": "meta_advertising",
+      "description": "Optimizes Facebook and Instagram ad campaigns with audience targeting, creative recommendations, placement optimization, and pixel-driven insights.",
+      "capabilities": [
+        "Create custom and lookalike audiences",
+        "Recommend ad creative formats",
+        "Optimize placements across Meta platforms",
+        "Suggest budget allocation strategies",
+        "Design A/B testing plans for creatives"
+      ],
+      "response_schema": [
+        "audience_targeting",
+        "creative_recommendations",
+        "placement_strategy",
+        "budget_optimization",
+        "testing_plan"
+      ]
+    },
+    {
+      "identifier": "ml_pipeline",
+      "name": "ML Pipeline",
+      "domain": "machine_learning",
+      "description": "Autonomous ML experiment runner. Generates training hypotheses, designs experiments, tunes hyperparameters, compares results, and debugs training failures.",
+      "capabilities": [
+        "hypothesis_generation",
+        "experiment_design",
+        "hyperparameter_tuning",
+        "model_comparison",
+        "training_debugging",
+        "ablation_studies"
+      ],
+      "response_schema": [
+        "hypothesis",
+        "experiment_config",
+        "hyperparameters",
+        "expected_metrics",
+        "results",
+        "best_model",
+        "recommendations",
+        "next_experiments"
+      ]
+    },
+    {
+      "identifier": "msp_tracker",
+      "name": "MSP Tracker",
+      "domain": "agriculture",
+      "description": "Tracks Minimum Support Prices (MSP) for Indian crops, market rates (mandi prices), and helps farmers get best prices.",
+      "capabilities": [
+        "msp_rates",
+        "mandi_prices",
+        "price_comparison",
+        "trend_analysis",
+        "enam_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "muhurat_finder",
+      "name": "Muhurat Finder",
+      "domain": "astrology",
+      "description": "Finds auspicious timings (Muhurat) for marriage, griha pravesh, business, and other events.",
+      "capabilities": [
+        "muhurat_calculation",
+        "panchang_analysis",
+        "event_specific_timing"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "news_summarizer",
+      "name": "News Summarizer",
+      "domain": "media",
+      "description": "Daily news digest: top stories in 2-minute read format across politics, business, tech, sports.",
+      "capabilities": [
+        "daily_digest",
+        "category_wise",
+        "market_summary",
+        "weekly_recap"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "note_generator",
+      "name": "Note Generator",
+      "domain": "edtech",
+      "description": "Takes lecture video transcripts or text content and generates structured study notes with headings, bullet points, diagrams descriptions, and highlights. Supports all Indian languages.",
+      "capabilities": [
+        "Convert transcripts into structured notes",
+        "Extract and highlight key definitions",
+        "Generate summary boxes for revision",
+        "Support multilingual note generation",
+        "Add visual markers for important content"
+      ],
+      "response_schema": [
+        "title",
+        "subject",
+        "structured_notes",
+        "definitions",
+        "formulas",
+        "summary_box",
+        "common_mistakes",
+        "practice_questions",
+        "related_topics"
+      ]
+    },
+    {
+      "identifier": "nps_analyzer",
+      "name": "NPS Analyzer",
+      "domain": "customer_success",
+      "description": "Analyzes Net Promoter Score data, identifies promoters/detractors patterns, and suggests improvement strategies.",
+      "capabilities": [
+        "nps_analysis",
+        "trend_tracking",
+        "segment_analysis",
+        "verbatim_themes",
+        "improvement_strategies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "onboarding_guide",
+      "name": "Onboarding Guide",
+      "domain": "hr",
+      "description": "Creates personalized employee onboarding plans: first-day checklists, 30-60-90 day plans, buddy assignments, and training schedules.",
+      "capabilities": [
+        "onboarding_plans",
+        "checklist_generation",
+        "milestone_setting",
+        "training_schedules"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "panchang_reader",
+      "name": "Panchang Reader",
+      "domain": "astrology",
+      "description": "Daily panchang: tithi, nakshatra, yoga, karana with festival calendar and auspicious/inauspicious timings.",
+      "capabilities": [
+        "daily_panchang",
+        "festival_calendar",
+        "timing_calculation",
+        "regional_calendars"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "password_auditor",
+      "name": "Password Auditor",
+      "domain": "cybersecurity",
+      "description": "Audits password strength, checks for breaches, and suggests strong password strategies.",
+      "capabilities": [
+        "strength_scoring",
+        "weakness_detection",
+        "2fa_guidance",
+        "passkey_advice"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "patient_followup",
+      "name": "Patient Follow-up Agent",
+      "domain": "health",
+      "description": "Manages post-visit patient follow-ups via WhatsApp/VoIP. Sends medication reminders, tracks adherence, checks recovery progress, and schedules next appointments.",
+      "capabilities": [
+        "medication_reminders",
+        "recovery_monitoring",
+        "adherence_tracking",
+        "appointment_reminders",
+        "lifestyle_compliance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "pension_advisor",
+      "name": "Pension Advisor",
+      "domain": "elder_care",
+      "description": "Senior citizen financial guidance: EPF withdrawal, pension schemes, SCSS, and senior FD rates.",
+      "capabilities": [
+        "pension_planning",
+        "scheme_comparison",
+        "tax_optimization",
+        "income_generation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "performance_reporter",
+      "name": "Performance Reporter",
+      "domain": "marketing performance analysis, KPI tracking, ROI reporting, trend identification",
+      "description": "",
+      "capabilities": [
+        "Summarize marketing performance across all channels",
+        "Identify top-performing and underperforming campaigns",
+        "Detect trends and anomalies in marketing KPIs",
+        "Calculate ROI, CPA, CTR, and other key metrics",
+        "Generate executive-ready performance summaries"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "persona_builder",
+      "name": "Persona Builder",
+      "domain": "buyer persona creation, ideal customer profiles, audience segmentation, psychographic analysis",
+      "description": "",
+      "capabilities": [
+        "Generate detailed buyer persona profiles from minimal input",
+        "Segment audiences by demographics, behavior, and psychographics",
+        "Identify pain points, motivations, and buying triggers",
+        "Recommend optimal marketing channels per persona",
+        "Create \"day in the life\" narratives for empathy mapping"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "personal_assistant",
+      "name": "Personal Assistant",
+      "domain": "personal_assistance",
+      "description": "Your tenant's personal AI companion \u2014 knows your brand, remembers your analyses, and orchestrates specialist agents on your behalf. Dynamically adopts the tenant's brand name at runtime.\n",
+      "capabilities": [
+        "brand_strategy",
+        "campaign_planning",
+        "content_direction",
+        "audience_analysis",
+        "competitive_positioning",
+        "task_delegation",
+        "proactive_insights",
+        "multi_turn_conversation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "pet_health",
+      "name": "Pet Health",
+      "domain": "pet_care",
+      "description": "Pet symptom checker for dogs and cats: vaccination schedules, breed-specific care, emergency guidance.",
+      "capabilities": [
+        "symptom_check",
+        "vaccination_schedule",
+        "breed_care",
+        "emergency_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "pet_nutrition",
+      "name": "Pet Nutrition",
+      "domain": "pet_care",
+      "description": "Pet diet plans: homemade Indian pet food recipes and commercial brand comparison.",
+      "capabilities": [
+        "diet_planning",
+        "brand_comparison",
+        "homemade_recipes",
+        "age_specific"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "pet_trainer",
+      "name": "Pet Trainer",
+      "domain": "pet_care",
+      "description": "Pet behavior training guides: housetraining, commands, socialization, and problem behavior solutions.",
+      "capabilities": [
+        "obedience_training",
+        "behavior_modification",
+        "socialization",
+        "puppy_training"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "phishing_detector",
+      "name": "Phishing Detector",
+      "domain": "cybersecurity",
+      "description": "Analyzes emails, URLs, and messages for phishing indicators. Trained on Indian phishing patterns (bank/UPI scams).",
+      "capabilities": [
+        "url_analysis",
+        "email_analysis",
+        "scam_detection",
+        "risk_scoring"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "pitch_deck_analyzer",
+      "name": "Pitch Deck Analyzer",
+      "domain": "startup",
+      "description": "Analyzes and scores startup pitch decks against VC expectations. Suggests improvements by section.",
+      "capabilities": [
+        "deck_scoring",
+        "section_analysis",
+        "improvement_suggestions",
+        "vc_readiness"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "press_release_writer",
+      "name": "Press Release Writer",
+      "domain": "media",
+      "description": "Drafts professional press releases in Indian journalism format with distribution guidance.",
+      "capabilities": [
+        "press_release_writing",
+        "headline_creation",
+        "distribution_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "pricing_strategist",
+      "name": "Pricing Strategist",
+      "domain": "pricing_strategy",
+      "description": "Analyzes market positioning, competitor pricing, and willingness-to-pay signals to recommend optimal pricing strategies, tier structures, and promotional pricing.",
+      "capabilities": [
+        "Analyze competitor pricing landscapes",
+        "Recommend optimal pricing strategies",
+        "Design SaaS pricing tiers",
+        "Plan promotional pricing campaigns",
+        "Project revenue impact of pricing changes"
+      ],
+      "response_schema": [
+        "pricing_strategy",
+        "tier_recommendations",
+        "competitive_positioning",
+        "promotional_plan",
+        "revenue_projection"
+      ]
+    },
+    {
+      "identifier": "product_description_writer",
+      "name": "Product Description Writer",
+      "domain": "ecommerce",
+      "description": "Writes compelling product descriptions for e-commerce platforms (Amazon, Flipkart, Shopify). SEO-optimized with Indian market focus.",
+      "capabilities": [
+        "product_copy",
+        "seo_optimization",
+        "bullet_features",
+        "a_plus_content"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "property_valuator",
+      "name": "Property Valuator",
+      "domain": "real_estate",
+      "description": "Estimates property values using circle rates, locality trends, amenities, and comparable sales for Indian real estate.",
+      "capabilities": [
+        "valuation",
+        "comparable_analysis",
+        "rate_trends",
+        "premium_calculation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "quiz_generator",
+      "name": "Quiz Generator",
+      "domain": "edtech",
+      "description": "Generates quizzes from notes, transcripts, or any educational content. Creates MCQs, fill-in-the-blanks, true/false, short answer, and match-the-following questions with answers and explanations.",
+      "capabilities": [
+        "Generate MCQs with distractors",
+        "Create true/false with explanations",
+        "Design fill-in-the-blank questions",
+        "Write short answer with model answers",
+        "Grade by difficulty and Bloom's taxonomy"
+      ],
+      "response_schema": [
+        "mcq_questions",
+        "true_false_questions",
+        "fill_blanks",
+        "short_answer",
+        "match_following",
+        "metadata"
+      ]
+    },
+    {
+      "identifier": "recipe_generator",
+      "name": "Recipe Generator",
+      "domain": "food",
+      "description": "Generates Indian recipes by available ingredients, dietary restrictions, and regional cuisine.",
+      "capabilities": [
+        "ingredient_based_recipes",
+        "regional_cuisine",
+        "dietary_adaptation",
+        "nutrition_info"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "reel_script_writer",
+      "name": "Reel Script Writer",
+      "domain": "creator_economy",
+      "description": "Writes viral-worthy scripts for Instagram Reels, YouTube Shorts, and TikTok with hooks, transitions, and CTAs.",
+      "capabilities": [
+        "script_writing",
+        "hook_creation",
+        "cta_optimization",
+        "hashtag_strategy",
+        "trend_riding"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "reminder_agent",
+      "name": "Reminder Agent",
+      "domain": "productivity",
+      "description": "Manages reminders, follows up on pending tasks, tracks deadlines, and sends proactive nudges.",
+      "capabilities": [
+        "reminder_management",
+        "deadline_tracking",
+        "follow_up",
+        "habit_tracking",
+        "bill_reminders",
+        "renewal_alerts"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "rental_yield_calculator",
+      "name": "Rental Yield Calculator",
+      "domain": "real_estate",
+      "description": "Calculates rental yields, ROI, and investment analysis for Indian properties.",
+      "capabilities": [
+        "yield_calculation",
+        "roi_analysis",
+        "buy_vs_rent",
+        "break_even",
+        "tax_impact"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "rera_compliance",
+      "name": "RERA Compliance",
+      "domain": "real_estate",
+      "description": "Checks RERA registration, compliance status, and builder obligations under Real Estate Regulation Act.",
+      "capabilities": [
+        "registration_check",
+        "buyer_rights",
+        "builder_obligations",
+        "complaint_guidance",
+        "state_rera_info"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "resume_screener",
+      "name": "Resume Screener",
+      "domain": "hr",
+      "description": "Screens resumes against job requirements, scores candidates, identifies skill gaps, and ranks applicants.",
+      "capabilities": [
+        "resume_parsing",
+        "skill_matching",
+        "candidate_ranking",
+        "gap_analysis",
+        "red_flag_detection"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "retention_strategist",
+      "name": "Retention Strategist",
+      "domain": "customer_success",
+      "description": "Develops customer retention strategies based on churn signals, engagement data, and lifecycle stage.",
+      "capabilities": [
+        "churn_signal_detection",
+        "winback_campaigns",
+        "loyalty_programs",
+        "engagement_plans",
+        "retention_offers"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "retirement_planner",
+      "name": "Retirement Planner",
+      "domain": "finance",
+      "description": "Retirement planning with Indian financial instruments: NPS, PPF, EPF, mutual funds, annuities. Inflation-adjusted projections.",
+      "capabilities": [
+        "corpus_calculation",
+        "instrument_allocation",
+        "nps_planning",
+        "inflation_adjustment",
+        "income_planning"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "returns_predictor",
+      "name": "Returns Predictor",
+      "domain": "ecommerce",
+      "description": "Predicts product return probability and suggests strategies to reduce returns.",
+      "capabilities": [
+        "return_prediction",
+        "reason_analysis",
+        "reduction_strategies",
+        "pattern_detection"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "review_analyzer",
+      "name": "Review Analyzer",
+      "domain": "ecommerce",
+      "description": "Analyzes product reviews at scale: sentiment extraction, key themes, fake review detection, and competitive insights.",
+      "capabilities": [
+        "sentiment_analysis",
+        "theme_extraction",
+        "fake_detection",
+        "competitive_insights",
+        "improvement_suggestions"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "review_reputation",
+      "name": "Review Reputation Manager",
+      "domain": "reputation_management",
+      "description": "Monitors and manages online reviews across platforms. Analyzes sentiment in reviews, generates professional response templates, identifies reputation trends, and suggests improvement strategies.",
+      "capabilities": [
+        "Analyze review sentiment across platforms",
+        "Generate professional response templates",
+        "Identify recurring complaint themes",
+        "Suggest reputation improvement strategies",
+        "Monitor brand perception trends"
+      ],
+      "response_schema": [
+        "review_analysis",
+        "sentiment_breakdown",
+        "response_templates",
+        "reputation_score",
+        "improvement_actions"
+      ]
+    },
+    {
+      "identifier": "roi_calculator",
+      "name": "ROI Calculator",
+      "domain": "marketing_analytics",
+      "description": "Calculates true marketing ROI including ROAS, CAC, LTV, and payback period. Recommends budget shifts and identifies underperforming channels.",
+      "capabilities": [
+        "Calculate ROAS, CAC, LTV per channel",
+        "Identify underperforming marketing channels",
+        "Recommend optimal budget allocation",
+        "Project returns from budget shifts",
+        "Benchmark against industry averages"
+      ],
+      "response_schema": [
+        "roi_breakdown",
+        "channel_performance",
+        "budget_recommendations",
+        "efficiency_score",
+        "projected_returns"
+      ]
+    },
+    {
+      "identifier": "route_optimizer",
+      "name": "Route Optimizer",
+      "domain": "logistics",
+      "description": "Optimizes delivery routes for minimum distance/time, considering Indian road conditions, traffic, and toll costs.",
+      "capabilities": [
+        "route_optimization",
+        "traffic_analysis",
+        "toll_calculation",
+        "capacity_planning",
+        "last_mile"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "rti_drafter",
+      "name": "RTI Drafter",
+      "domain": "legal",
+      "description": "Drafts Right to Information (RTI) applications for Indian citizens. Guides on correct department, fees, and format per RTI Act 2005.",
+      "capabilities": [
+        "rti_drafting",
+        "department_identification",
+        "appeal_guidance",
+        "fee_calculation"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "salary_benchmarker",
+      "name": "Salary Benchmarker",
+      "domain": "hr",
+      "description": "Benchmarks salaries by role, experience, city, and industry for Indian job market.",
+      "capabilities": [
+        "salary_benchmarking",
+        "ctc_breakdown",
+        "city_comparison",
+        "industry_comparison"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "scheme_eligibility",
+      "name": "Scheme Eligibility",
+      "domain": "government",
+      "description": "Checks eligibility for Indian government schemes based on citizen profile: income, caste, age, location, occupation.",
+      "capabilities": [
+        "eligibility_check",
+        "scheme_matching",
+        "application_guidance",
+        "document_checklist"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "school_selector",
+      "name": "School Selector",
+      "domain": "parenting",
+      "description": "Compares schools: CBSE/ICSE/IB/State boards, fees, reviews, admission process, and distance.",
+      "capabilities": [
+        "board_comparison",
+        "fee_analysis",
+        "admission_guidance",
+        "school_ranking"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "seo",
+      "name": "Seo",
+      "domain": "SEO, meta tags, keywords, content structure, technical SEO, and page performance",
+      "description": "",
+      "capabilities": [
+        "Generate optimized meta titles and descriptions",
+        "Research and suggest target keywords",
+        "Create content outlines optimized for search ranking",
+        "Audit and improve existing content for SEO",
+        "Generate schema markup and structured data"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "shipment_tracker",
+      "name": "Shipment Tracker",
+      "domain": "logistics",
+      "description": "Tracks shipments, analyzes delivery performance, predicts delays, and identifies bottlenecks.",
+      "capabilities": [
+        "status_analysis",
+        "delay_prediction",
+        "carrier_comparison",
+        "sla_tracking",
+        "rto_analysis"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "sms",
+      "name": "Sms",
+      "domain": "SMS marketing, message copy under 160 chars, A/B variants, CTAs, send-time optimization, and compliance",
+      "description": "",
+      "capabilities": [
+        "Generate SMS messages under 160 characters",
+        "Create A/B message variants for testing",
+        "Write promotional, transactional, and reminder SMS",
+        "Optimize send times for maximum engagement",
+        "Ensure compliance with SMS marketing regulations"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "social_clip_maker",
+      "name": "Social Clip Maker",
+      "domain": "video_intelligence",
+      "description": "Identifies viral-worthy moments from long videos, suggests short-form clips for Reels/Shorts/TikTok with captions, hooks, and hashtags.",
+      "capabilities": [
+        "Identify viral moments from long videos",
+        "Create scroll-stopping hooks",
+        "Generate platform-specific clip suggestions",
+        "Write captions with hashtags",
+        "Suggest text overlays and thumbnails"
+      ],
+      "response_schema": [
+        "clip_suggestions",
+        "hashtag_sets",
+        "captions",
+        "text_overlays",
+        "thumbnail_moments",
+        "music_suggestions"
+      ]
+    },
+    {
+      "identifier": "social_media",
+      "name": "Social Media",
+      "domain": "social media content strategy, platform-optimized posts, hashtags, posting schedules, and engagement",
+      "description": "",
+      "capabilities": [
+        "Generate platform-optimized social media post copy",
+        "Create hashtag sets for maximum reach",
+        "Generate AI images for social posts via image_prompt field",
+        "Create content calendars and posting schedules",
+        "Create captions for Instagram, LinkedIn, X, TikTok, and Facebook",
+        "Generate carousel and story ideas with scripts"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "soil_report_interpreter",
+      "name": "Soil Report Interpreter",
+      "domain": "agriculture",
+      "description": "Interprets soil test reports and recommends fertilizers, amendments, and suitable crops.",
+      "capabilities": [
+        "soil_analysis",
+        "fertilizer_recommendation",
+        "crop_suitability",
+        "amendment_planning"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "solar_planner",
+      "name": "Solar Planner",
+      "domain": "ev_green_energy",
+      "description": "Plans complete home/commercial solar power systems: sizing, components, installation, and grid integration.",
+      "capabilities": [
+        "system_design",
+        "component_selection",
+        "net_metering",
+        "roi_analysis",
+        "subsidy_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "solar_roi_calculator",
+      "name": "Solar ROI Calculator",
+      "domain": "sustainability",
+      "description": "Calculates ROI for rooftop solar installations in India: payback period, savings, subsidies.",
+      "capabilities": [
+        "system_sizing",
+        "cost_estimation",
+        "subsidy_calculation",
+        "roi_analysis",
+        "payback_period"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "sponsorship_matcher",
+      "name": "Sponsorship Matcher",
+      "domain": "creator_economy",
+      "description": "Matches creators with brand sponsorships based on niche, audience size, engagement rate, and brand fit.",
+      "capabilities": [
+        "brand_matching",
+        "rate_calculation",
+        "pitch_templates",
+        "media_kit",
+        "engagement_analysis"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "sports_nutrition",
+      "name": "Sports Nutrition",
+      "domain": "sports",
+      "description": "Sports nutrition planning for Indian athletes: macros, meal timing, supplements, hydration.",
+      "capabilities": [
+        "meal_planning",
+        "macro_calculation",
+        "supplement_guidance",
+        "hydration"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "startup_valuation",
+      "name": "Startup Valuation",
+      "domain": "startup",
+      "description": "Estimates startup valuation using multiple methodologies: revenue multiples, comparable analysis, DCF.",
+      "capabilities": [
+        "revenue_multiple",
+        "comparable_analysis",
+        "dcf",
+        "berkus",
+        "valuation_report"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "stock_analyzer",
+      "name": "Stock Analyzer",
+      "domain": "finance",
+      "description": "Analyzes stock market data, identifies patterns, and provides buy/sell/hold recommendations with technical analysis.",
+      "capabilities": [
+        "Analyze individual stocks with technical and fundamental data",
+        "Identify chart patterns and trend signals",
+        "Calculate risk/reward ratios",
+        "Provide entry/exit price levels",
+        "Assess sector and market conditions"
+      ],
+      "response_schema": [
+        "symbol",
+        "current_price",
+        "recommendation",
+        "technical_analysis",
+        "fundamental_analysis",
+        "risk_assessment",
+        "price_targets",
+        "confidence_level"
+      ]
+    },
+    {
+      "identifier": "stock_predictor",
+      "name": "Stock Predictor",
+      "domain": "finance",
+      "description": "Predicts stock price movements using trend analysis, pattern recognition, and market sentiment. Provides short-term and long-term price forecasts.",
+      "capabilities": [
+        "Generate probabilistic price forecasts",
+        "Identify upcoming catalysts and events",
+        "Analyze market sentiment",
+        "Calculate support and resistance levels",
+        "Assess correlation with market indices"
+      ],
+      "response_schema": [
+        "symbol",
+        "current_price",
+        "prediction_1w",
+        "prediction_1m",
+        "prediction_3m",
+        "catalysts",
+        "risk_factors",
+        "confidence",
+        "sentiment_score"
+      ]
+    },
+    {
+      "identifier": "stream_optimizer",
+      "name": "Stream Optimizer",
+      "domain": "gaming",
+      "description": "Optimizes Twitch and YouTube Gaming streams: titles, thumbnails, OBS settings, engagement tactics.",
+      "capabilities": [
+        "stream_optimization",
+        "obs_settings",
+        "engagement_tactics",
+        "growth_strategies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "student_data_validator",
+      "name": "Student Data Validator",
+      "domain": "education",
+      "description": "Validates student records for UDISE+ submission \u2014 Aadhaar checksum, age-class matching, duplicate detection, completeness reports.",
+      "capabilities": [
+        "batch_validate",
+        "single_validate",
+        "aadhaar_verify",
+        "age_class_check",
+        "duplicate_detection",
+        "completeness_report",
+        "fix_suggestions"
+      ],
+      "response_schema": [
+        "total_records",
+        "valid",
+        "issues_found",
+        "by_severity",
+        "issues",
+        "readiness_percentage"
+      ]
+    },
+    {
+      "identifier": "subsidy_finder",
+      "name": "Subsidy Finder",
+      "domain": "agriculture",
+      "description": "Finds eligible government subsidies, schemes, and loans for Indian farmers based on their profile and needs.",
+      "capabilities": [
+        "scheme_matching",
+        "eligibility_check",
+        "application_guidance",
+        "document_checklist"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "symptom_triage",
+      "name": "Symptom Triage",
+      "domain": "health",
+      "description": "Analyzes patient symptoms, assesses urgency level (self-care / clinic visit / emergency), and suggests next steps. Multi-language with mandatory medical disclaimers.",
+      "capabilities": [
+        "symptom_assessment",
+        "triage_classification",
+        "follow_up_questions",
+        "home_remedy_suggestions",
+        "doctor_type_recommendation",
+        "emergency_detection"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "tax_planner",
+      "name": "Tax Planner",
+      "domain": "finance",
+      "description": "Indian income tax planning: old vs new regime comparison, deductions under 80C/80D, HRA calculation, ITR filing guidance.",
+      "capabilities": [
+        "regime_comparison",
+        "deduction_planning",
+        "hra_calculation",
+        "capital_gains",
+        "itr_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "threat_briefing",
+      "name": "Threat Briefing",
+      "domain": "cybersecurity",
+      "description": "Daily cybersecurity threat landscape briefing for Indian organizations.",
+      "capabilities": [
+        "threat_intelligence",
+        "vulnerability_alerts",
+        "sector_analysis",
+        "advisory"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "travel_budget_optimizer",
+      "name": "Travel Budget Optimizer",
+      "domain": "travel",
+      "description": "Optimizes travel budgets with best deals, alternative routes, and cost-saving strategies.",
+      "capabilities": [
+        "budget_optimization",
+        "price_comparison",
+        "cost_saving_tips",
+        "alternative_routes",
+        "free_activities"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "trend_spotter",
+      "name": "Trend Spotter",
+      "domain": "trend_analysis",
+      "description": "Monitors industry trends, viral topics, and emerging opportunities. Identifies trending content formats, hashtags, and topics to help brands stay ahead of the curve.",
+      "capabilities": [
+        "Identify emerging industry trends",
+        "Predict viral content opportunities",
+        "Analyze trend longevity and relevance",
+        "Suggest timely content to capitalize on trends",
+        "Monitor competitor trend adoption"
+      ],
+      "response_schema": [
+        "trending_topics",
+        "content_opportunities",
+        "trend_score",
+        "timing_recommendation",
+        "competitive_gap"
+      ]
+    },
+    {
+      "identifier": "trip_planner",
+      "name": "Trip Planner",
+      "domain": "travel",
+      "description": "Plans Indian and international trips with itineraries, budgets, best travel times, and booking recommendations.",
+      "capabilities": [
+        "itinerary_creation",
+        "budget_planning",
+        "seasonal_guidance",
+        "food_recommendations",
+        "practical_tips"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "udise_compliance_advisor",
+      "name": "UDISE Compliance Advisor",
+      "domain": "education",
+      "description": "UDISE+ compliance specialist for Indian schools \u2014 readiness checks, field gap analysis, anomaly detection, and deadline guidance.",
+      "capabilities": [
+        "readiness_check",
+        "field_gap_analysis",
+        "anomaly_detection",
+        "deadline_guidance",
+        "apaar_guidance",
+        "coaching_compliance",
+        "year_comparison"
+      ],
+      "response_schema": [
+        "readiness_score",
+        "critical_gaps",
+        "anomalies",
+        "next_deadline",
+        "recommendations",
+        "response"
+      ]
+    },
+    {
+      "identifier": "udise_report_generator",
+      "name": "UDISE Report Generator",
+      "domain": "education",
+      "description": "Generates UDISE+ DCF-compliant reports \u2014 section-wise summaries, year-over-year comparisons, executive dashboards, and CSV exports.",
+      "capabilities": [
+        "generate_dcf_section1",
+        "generate_dcf_section2",
+        "generate_dcf_section3",
+        "full_report",
+        "year_comparison",
+        "executive_summary",
+        "export_csv"
+      ],
+      "response_schema": [
+        "section",
+        "title",
+        "summary",
+        "readiness",
+        "yoy_changes",
+        "response"
+      ]
+    },
+    {
+      "identifier": "upsell_advisor",
+      "name": "Upsell Advisor",
+      "domain": "customer_success",
+      "description": "Identifies upsell and cross-sell opportunities based on customer usage patterns, needs, and lifecycle stage.",
+      "capabilities": [
+        "upsell_triggers",
+        "cross_sell_matching",
+        "timing_optimization",
+        "value_messaging",
+        "bundle_recommendations"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "url_analyzer",
+      "name": "Url Analyzer",
+      "domain": "website analysis, digital footprint scanning, SEO audit, tech stack detection, competitive intelligence",
+      "description": "",
+      "capabilities": [
+        "Crawl any URL and extract its full digital footprint",
+        "Detect technology stack (React, WordPress, analytics tools, etc.)",
+        "Find social media profiles linked on the website",
+        "Analyze SEO health (titles, meta descriptions, headings, image alt tags)",
+        "Generate a comprehensive digital audit report with actionable recommendations"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "vaccination_scheduler",
+      "name": "Vaccination Scheduler",
+      "domain": "parenting",
+      "description": "Indian immunization schedule (NIS), reminder alerts, catch-up vaccination plans.",
+      "capabilities": [
+        "nis_schedule",
+        "iap_schedule",
+        "catch_up_planning",
+        "side_effect_guidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "vastu_advisor",
+      "name": "Vastu Advisor",
+      "domain": "astrology",
+      "description": "Provides Vastu Shastra guidance for homes and offices: room layouts, directions, colors, and remedies.",
+      "capabilities": [
+        "home_vastu",
+        "office_vastu",
+        "defect_remedies",
+        "plot_analysis"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "vendor_matcher",
+      "name": "Vendor Matcher",
+      "domain": "wedding_events",
+      "description": "Matches wedding vendors (photographers, caterers, decorators) by budget, location, and availability.",
+      "capabilities": [
+        "vendor_matching",
+        "budget_filtering",
+        "review_analysis",
+        "negotiation_tips"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "video_generator",
+      "name": "Video Generator",
+      "domain": "general",
+      "description": "AI video generation agent specializing in creating professional video content for marketing, ads, social media, and product demos. Enhances text prompts into cinematic video generation prompts with motion, camera work, and storytelling context.\n",
+      "capabilities": [
+        "Generate professional ad video clips (5-10 seconds)",
+        "Create product showcase and demo videos",
+        "Produce social media reels and stories",
+        "Design brand identity motion graphics",
+        "Create explainer and tutorial video clips",
+        "Generate cinematic b-roll footage"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "video_scriptwriter",
+      "name": "Video Scriptwriter",
+      "domain": "video scripts, reels scripts, ad storyboards, explainer video outlines, voiceover scripts",
+      "description": "",
+      "capabilities": [
+        "Write scripts for short-form video (Reels, TikTok, Shorts)",
+        "Create ad storyboards with scene-by-scene breakdowns",
+        "Generate explainer video outlines with voiceover text",
+        "Optimize scripts for platform-specific best practices",
+        "Include visual direction notes for video production teams"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "video_summarizer",
+      "name": "Video Summarizer",
+      "domain": "video_intelligence",
+      "description": "Summarizes long videos into executive summaries, chapter markers, timestamped key moments, and TL;DR bullet points. Works with transcripts from YouTube or R2 media.",
+      "capabilities": [
+        "Generate multi-level summaries (short, medium, full)",
+        "Create chapter markers with timestamps",
+        "Identify key moments and quotes",
+        "Suggest shareable clip segments",
+        "Support multilingual transcripts"
+      ],
+      "response_schema": [
+        "tldr",
+        "executive_summary",
+        "chapters",
+        "key_moments",
+        "key_quotes",
+        "topics",
+        "recommended_clips"
+      ]
+    },
+    {
+      "identifier": "visa_guide",
+      "name": "Visa Guide",
+      "domain": "travel",
+      "description": "Guides Indian passport holders on visa requirements, application process, documents, and interview tips for any country.",
+      "capabilities": [
+        "visa_requirements",
+        "document_checklist",
+        "application_guidance",
+        "interview_tips",
+        "rejection_avoidance"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "visual_designer",
+      "name": "Visual Designer",
+      "domain": "visual design briefs, banner specifications, social media graphics, brand-consistent image generation",
+      "description": "",
+      "capabilities": [
+        "Generate detailed design briefs for marketing collateral",
+        "Create AI image generation prompts for banners and social graphics",
+        "Ensure brand consistency across all visual assets",
+        "Specify dimensions and formats for each platform",
+        "Include accessibility considerations (contrast, alt text)"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "warehouse_planner",
+      "name": "Warehouse Planner",
+      "domain": "logistics",
+      "description": "Plans warehouse layouts, inventory placement, and picking optimization for efficient operations.",
+      "capabilities": [
+        "layout_design",
+        "abc_analysis",
+        "picking_optimization",
+        "space_planning",
+        "workforce_scheduling"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "weather_planting",
+      "name": "Weather Planting",
+      "domain": "agriculture",
+      "description": "Advises on planting and harvesting schedules based on weather patterns, monsoon predictions, and regional climate.",
+      "capabilities": [
+        "weather_based_planting",
+        "monsoon_advisory",
+        "frost_alerts",
+        "irrigation_scheduling"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "wedding_budget_planner",
+      "name": "Wedding Budget Planner",
+      "domain": "wedding_events",
+      "description": "Plans Indian wedding budgets by city tier: venue, catering, decor, photography allocation.",
+      "capabilities": [
+        "budget_allocation",
+        "vendor_pricing",
+        "city_wise_rates",
+        "seasonal_pricing"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "whatsapp",
+      "name": "Whatsapp",
+      "domain": "WhatsApp Business API, message templates, conversational flows, quick-reply buttons, and compliance",
+      "description": "",
+      "capabilities": [
+        "Generate WhatsApp message templates (approved format)",
+        "Create conversational flow scripts with quick-reply buttons",
+        "Design automated greeting and away messages",
+        "Generate rich media message content",
+        "Ensure compliance with WhatsApp Business policies"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "whatsapp_bot_builder",
+      "name": "WhatsApp Bot Builder",
+      "domain": "conversational_commerce",
+      "description": "Designs complete WhatsApp Business bot conversation flows including welcome messages, product catalogs, FAQ trees, order tracking, and payment integration flows.",
+      "capabilities": [
+        "Design complete WhatsApp bot conversation flows",
+        "Create FAQ trees with branching logic",
+        "Build lead qualification funnels",
+        "Design product catalog browsing",
+        "Create multi-language bot responses"
+      ],
+      "response_schema": [
+        "conversation_flows",
+        "quick_replies",
+        "template_messages",
+        "faq_tree",
+        "lead_capture_flow",
+        "escalation_rules"
+      ]
+    },
+    {
+      "identifier": "will_drafter",
+      "name": "Will Drafter",
+      "domain": "elder_care",
+      "description": "Simple will drafting under Indian Succession Act with asset distribution guidance.",
+      "capabilities": [
+        "will_drafting",
+        "asset_documentation",
+        "succession_guidance",
+        "registration_process"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "youtube_analyzer",
+      "name": "YouTube Analyzer",
+      "domain": "video_intelligence",
+      "description": "Analyzes YouTube videos and R2-hosted media \u2014 extracts transcripts, metadata, engagement signals, SEO tags, and content structure. Accepts YouTube URLs or R2 bucket links.",
+      "capabilities": [
+        "Extract video transcripts from YouTube and R2 links",
+        "Analyze video metadata and engagement signals",
+        "Generate SEO recommendations for video content",
+        "Identify content structure and key moments",
+        "Score content quality"
+      ],
+      "response_schema": [
+        "metadata",
+        "transcript",
+        "content_structure",
+        "topics",
+        "keywords",
+        "audience_analysis",
+        "seo_recommendations",
+        "quality_score"
+      ]
+    },
+    {
+      "identifier": "youtube_revenue_optimizer",
+      "name": "YouTube Revenue Optimizer",
+      "domain": "creator_economy",
+      "description": "Optimizes YouTube channel for maximum revenue: titles, thumbnails, tags, AdSense strategy, and audience retention.",
+      "capabilities": [
+        "title_optimization",
+        "thumbnail_strategy",
+        "seo_tags",
+        "schedule",
+        "adsense",
+        "retention"
+      ],
+      "response_schema": []
+    },
+    {
+      "identifier": "zomato_listing_optimizer",
+      "name": "Zomato Listing Optimizer",
+      "domain": "food",
+      "description": "Optimizes Zomato and Swiggy restaurant listings: photos, descriptions, menu tags, and review management.",
+      "capabilities": [
+        "listing_optimization",
+        "review_management",
+        "search_visibility",
+        "promotional_strategy"
+      ],
+      "response_schema": []
+    }
+  ]
+}

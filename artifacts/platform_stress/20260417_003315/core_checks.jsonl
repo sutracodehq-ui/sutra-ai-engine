@@ -1,0 +1,4 @@
+{"phase": "phase0_preflight", "ts": "2026-04-16T19:03:15.594217+00:00", "endpoint": "/health", "ok": true, "status": 200, "latency_ms": 76.85, "status_field": "ok", "error": null}
+{"phase": "phase0_preflight", "ts": "2026-04-16T19:03:15.858896+00:00", "endpoint": "/ready", "ok": true, "status": 200, "latency_ms": 264.26, "status_field": "ok", "error": null}
+{"phase": "phase0_preflight", "ts": "2026-04-16T19:03:18.314968+00:00", "endpoint": "/health/full", "ok": true, "status": 200, "latency_ms": 2455.77, "status_field": "ok", "error": null}
+{"phase": "phase0_preflight", "ts": "2026-04-16T19:03:20.771679+00:00", "endpoint": "/metrics", "ok": true, "status": 200, "latency_ms": 2454.45, "status_field": "ok", "error": null}

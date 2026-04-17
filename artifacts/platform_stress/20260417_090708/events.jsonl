@@ -1,0 +1,5 @@
+{"ts": "2026-04-17T03:39:50.025280+00:00", "phase": "phase2_agent_matrix", "batch_start": 0, "batch_size": 16, "unexpected_error_rate": 1.0, "pause_triggered": true}
+{"ts": "2026-04-17T03:41:10.051041+00:00", "phase": "phase2_agent_matrix", "batch_start": 16, "batch_size": 16, "unexpected_error_rate": 1.0, "pause_triggered": true}
+{"ts": "2026-04-17T03:42:30.072502+00:00", "phase": "phase2_agent_matrix", "batch_start": 32, "batch_size": 16, "unexpected_error_rate": 1.0, "pause_triggered": true}
+{"ts": "2026-04-17T03:43:50.088321+00:00", "phase": "phase2_agent_matrix", "batch_start": 48, "batch_size": 16, "unexpected_error_rate": 1.0, "pause_triggered": true}
+{"ts": "2026-04-17T03:44:40.096226+00:00", "phase": "phase2_agent_matrix", "batch_start": 64, "batch_size": 8, "unexpected_error_rate": 1.0, "pause_triggered": true}

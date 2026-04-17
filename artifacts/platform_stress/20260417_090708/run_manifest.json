@@ -1,0 +1,26 @@
+{
+  "run_id": "20260417_090708",
+  "started_at": "2026-04-17T03:50:26.897316+00:00",
+  "config": {
+    "base_url": "http://localhost:8090",
+    "batch_size": 16,
+    "agent_concurrency": 4,
+    "request_timeout_s": 15,
+    "poll_active_s": 15,
+    "poll_idle_s": 60,
+    "pause_error_rate": 0.35,
+    "pause_seconds": 20,
+    "include_expensive": false,
+    "stress_levels": [
+      1
+    ],
+    "stress_rounds": 1,
+    "stress_agent_count": 8,
+    "profile": "nightly",
+    "max_agents": 0
+  },
+  "config_hash": {
+    "intelligence_config_sha256": "0ce2a5be8b301f459f67dc69466299085ef537051e88d4d2c36dfa303d895c8f",
+    "agent_config_dir_sha256": ""
+  }
+}

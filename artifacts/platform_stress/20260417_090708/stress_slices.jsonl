@@ -1,0 +1,1 @@
+{"phase": "phase4_stress_slices", "ts": "2026-04-17T03:49:25.361529+00:00", "concurrency": 1, "requests": 8, "success": 0, "failure": 8, "success_rate_pct": 0.0, "p50_ms": null, "p95_ms": null, "avg_ms": null}
