@@ -81,7 +81,7 @@ providers:
   ollama:
     base_url: "http://sutra-ai-ollama:11434"
     timeout_connect_s: 10
-    timeout_read_s: 300
+    timeout_read_s: 60
     fallback_model: "qwen3:1.7b"       # Legacy single fallback (merged into fallback_models)
     fallback_models:
       - qwen3:1.7b
@@ -100,6 +100,13 @@ providers:
         temperature: 0.5
         top_k: 45
         top_p: 0.95
+      compact:                    # NEW — for ≤8 GB machines
+        num_predict: 512
+        num_ctx: 2048             # 2K context vs default 4K — halves RAM
+        temperature: 0.3
+        top_k: 20
+        top_p: 0.85
+        num_thread: 4             # Leave 2 cores for OS + containers
   gemini:
     timeout_connect_s: 10
     timeout_read_s: 120
@@ -502,6 +509,11 @@ vps_admission:
       max_queue_wait_s: 0.1
       prefer_chain: [groq, gemini, openai]
       trigger_active_streams: 3
+    compact_8gb:                # NEW — for Apple Silicon 8 GB
+      max_local_streams: 1
+      max_queue_wait_s: 0.2
+      prefer_chain: [groq, gemini, nvidia, ollama]
+      trigger_active_streams: 1
 
 # ─── Software Factory Rollout Gates ─────────────────────────
 factory_rollout_gates:
@@ -1155,7 +1167,7 @@ smart_router:
       complex: llama-3.1-8b-instant
     ollama:
       simple: qwen3:1.7b
-      moderate: qwen3:4b
+      moderate: qwen3:1.7b
       complex: qwen3:4b
       temperature: 0.1           # Minimal temp for high precision JSON
     bitnet:

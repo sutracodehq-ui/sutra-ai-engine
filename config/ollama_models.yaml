@@ -7,20 +7,24 @@
 #   - .env → OLLAMA_MODEL (also merged at init if set; see docker-compose)
 #
 # Software Factory: add a model here → ollama-init pulls it before the API starts.
+#
+# ⚡ Optimized for 8 GB Apple Silicon — only models that fit comfortably in memory.
+# Heavy models (8B+) removed to prevent memory thrashing on low-RAM hosts.
 
 # ─── Core inference (must match engine routing / fallbacks) ───
 core:
-  - gemma4:e4b
-  - qwen3:4b
-  - qwen3:1.7b
-  - smollm2:1.7b
-  - smollm2:360m
-  - qwen2.5:3b
-  - qwen2.5:1.5b
-  - phi4-mini
-  # Common 8B Llama tags (set OLLAMA_MODEL to one of these in .env)
-  - llama3:8b
-  - llama3.1:8b
+  - qwen3:1.7b            # Primary: router + simple/moderate tasks (1.2 GB)
+  - qwen3:4b              # Complex tasks only — loaded on demand (2.8 GB)
+  - smollm2:360m           # Ultra-light emergency fallback (250 MB)
+  - qwen2.5:1.5b           # Backup small model (1.0 GB)
+
+# REMOVED for 8 GB hosts (uncomment on 16 GB+ machines):
+#  - gemma4:e4b
+#  - qwen2.5:3b
+#  - phi4-mini
+#  - smollm2:1.7b
+#  - llama3:8b
+#  - llama3.1:8b
 
 # ─── Domain / tuning bases (uncomment if you run local LoRA / clusters) ───
 domain:
