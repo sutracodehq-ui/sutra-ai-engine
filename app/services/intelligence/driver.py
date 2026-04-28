@@ -944,12 +944,12 @@ class DriverRegistry:
                      model_override: str | None = None, fallback_chain: list[str] | None = None,
                      **opts) -> AsyncGenerator[str, None]:
         """
-        Stream with local-first model degradation.
+        Stream with cloud-first, local-fallback model degradation.
 
         Flow (all config-driven):
-        1. Primary driver + model (e.g. ollama/gemma4:e4b) with first-token timeout
-        2. If timeout → same driver + lighter fallback_model (e.g. ollama/qwen3:1.7b)
-        3. If that fails too → circuit breaker OPEN → fall to chain (bitnet → groq → ...)
+        1. Primary driver + model (e.g. groq/llama-3.3-70b) with first-token timeout
+        2. If timeout → same driver + lighter fallback_model
+        3. If that fails too → circuit breaker OPEN → fall to chain (groq → nvidia → ... → ollama)
         """
         from app.services.intelligence.guardian import get_guardian
         from app.services.intelligence.config_loader import get_intelligence_config
@@ -1029,7 +1029,7 @@ class DriverRegistry:
                     f"Driver: {driver_override} exhausted primary + tiny models — falling to chain"
                 )
 
-        # ── Stage 3: Fall back through chain (bitnet → groq → gemini → ...) ──
+        # ── Stage 3: Fall back through chain (groq → nvidia → gemini → ... → ollama) ──
         chain = fallback_chain or self.driver_chain()
         if driver_override:
             chain = [d for d in chain if d != driver_override]

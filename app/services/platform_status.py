@@ -411,7 +411,7 @@ async def build_full_status(db: AsyncSession, redis) -> dict[str, Any]:
     chain = [n for n in get_global_driver_chain() if n]
     if not chain:
         logger.warning("resilience.global_driver_chain empty — probing default LLM set for /health/full")
-        chain = ["ollama", "groq", "nvidia", "together", "fireworks", "openai", "sarvam", "bitnet", "fast_local", "gemini", "anthropic"]
+        chain = ["groq", "nvidia", "gemini", "together", "fireworks", "openai", "anthropic", "sarvam", "ollama", "bitnet", "fast_local"]
 
     remote_tasks = await asyncio.gather(
         probe_qdrant(),
