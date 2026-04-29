@@ -1328,8 +1328,8 @@ resilience:
     default_rpm: 60
     default_rpd: 10000
   timeouts:
-    # Ollama on CPU often needs >10s before first token when loading / under load.
-    first_token_timeout_s: 120.0
+    # Cloud APIs respond in <2s; 15s covers cold-starts without blocking UX.
+    first_token_timeout_s: 15.0
     stream_inactivity_timeout_s: 8.0
 
 # ─── Quality Configuration ─────────────────────────────────
@@ -1671,8 +1671,8 @@ timeouts:
   web_search_s: 10
   web_fetch_s: 3
   queue_acquire_s: 2
-  first_token_timeout_s: 120    # Must match cold Ollama; DriverRegistry reads this first
-  stream_inactivity_s: 120       # Max silence between tokens during streaming
+  first_token_timeout_s: 15     # Cloud APIs respond in <2s; 15s is generous for cold-starts
+  stream_inactivity_s: 30        # Max silence between tokens during streaming
   stream_inactivity_timeout_s: 8 # Stall guard for provider stream generators (auto-hop on silence)
 
 # ─── Sentiment Analysis ───────────────────────────────────

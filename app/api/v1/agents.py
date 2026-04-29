@@ -97,7 +97,7 @@ async def _execute_agent(agent_type: str, body: AgentRunRequest, tenant, db):
         options=body.options,
     )
     db.add(task)
-    await db.flush()
+    await db.commit()
 
     # Prevent keyword argument conflict for 'context' if it exists in options
     options = (body.options or {}).copy()
@@ -161,7 +161,7 @@ async def _stream_agent(agent_type: str, body: AgentRunRequest, tenant, db, requ
         options=body.options,
     )
     db.add(task)
-    await db.flush()
+    await db.commit()
     task_id = task.id
 
     # Prevent keyword argument conflict for 'context'
@@ -309,6 +309,10 @@ async def batch_run(body: BatchRunRequest, tenant: CurrentTenant, db: DbSession)
     options.setdefault("skip_intent_routing", True)
     # Prevent unbounded fan-out from saturating local Ollama during benchmark/factory runs.
     options.setdefault("max_parallel_agents", 2)
+
+    # Commit the transaction before the long-running network call
+    # This releases the row lock on api_keys.last_used_at
+    await db.commit()
 
     results = await hub.batch(body.prompt, body.agent_types, db=db, context=context, **options)
 

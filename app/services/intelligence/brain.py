@@ -272,14 +272,10 @@ class Brain:
         if not stream or not chain:
             return list(chain)
         reordered = list(chain)
-        short_prompt = (len(prompt or "") <= 220) and (len((prompt or "").split()) <= 40)
-        has_fast_local = "fast_local" in reordered
-        fast_local_configured = bool((get_provider_config("fast_local") or {}).get("base_url"))
-        if short_prompt and fast_local_configured:
-            if not has_fast_local:
-                reordered.insert(0, "fast_local")
-            else:
-                reordered = ["fast_local"] + [d for d in reordered if d != "fast_local"]
+        # NOTE: Do NOT move fast_local before cloud drivers for streaming.
+        # Cloud drivers (groq ~100ms) are faster than local cold-starts.
+        # Putting local first causes 120s timeouts when local isn't available.
+        # fast_local should stay in its natural chain position.
         if strict_json:
             reordered = order_chain_by_global_reference(reordered)
         return reordered
@@ -369,8 +365,9 @@ class Brain:
         if avg_lat is not None and avg_lat > 0:
             l_score = min(1.0, target_ms / avg_lat)
         else:
-            local_ids = get_local_driver_ids()
-            l_score = 0.6 if driver in local_ids else 0.5
+            # No historical data — use 0.5 for all drivers.
+            # The YAML chain order serves as the tiebreaker.
+            l_score = 0.5
 
         # Cost: from YAML lookup (lower cost → higher score)
         cost_map = mor_cfg.get("cost_penalty_per_1k_tokens", {})
