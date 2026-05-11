@@ -239,8 +239,16 @@ class Brain:
         chain = self._get_chain(complexity, language)
         from app.services.intelligence.guardian import get_guardian
         guardian = get_guardian()
-        route_hint = await guardian.get_route_hint(agent_type)
-        chain = self._order_chain_for_route_hint(chain, route_hint)
+        # BUG 2 fix: Only apply route hint reordering when hybrid routing is enabled.
+        # When AI_HYBRID_ROUTING=false, the chain order from YAML/matrix must be respected.
+        # Previously, get_route_hint() could return "fast_local" (from Redis quality history),
+        # which reordered the chain to put [ollama, bitnet] BEFORE [groq, nvidia, ...],
+        # completely defeating the cloud-first configuration.
+        if s.ai_hybrid_routing:
+            route_hint = await guardian.get_route_hint(agent_type)
+            chain = self._order_chain_for_route_hint(chain, route_hint)
+        else:
+            route_hint = "standard"
         chain = self._prioritize_stream_chain(chain, prompt, stream=stream, strict_json=strict_json)
 
         chain = await self._mor_rank_chain(chain, complexity, agent_type, guardian)
@@ -389,15 +397,18 @@ class Brain:
         from app.services.llm_service import get_llm_service
         tiers = cfg.get("complexity_tiers", {"simple": [1, 3], "moderate": [4, 6], "complex": [7, 10]})
         try:
+            # BUG 1+4 fix: Scout must use a cloud driver, not ollama.
+            # Previously used get_hybrid_local_driver() which returns "ollama" —
+            # causing every request to burn 5-30s trying all Ollama fallback models
+            # before timing out. Model default removed so each driver uses its own.
             resp = await asyncio.wait_for(
                 get_llm_service().complete(
                     prompt=prompt[: cfg.get("max_prompt_chars", 300)],
                     system_prompt=cfg.get("system_prompt", "Classify task complexity 1-10 as JSON."),
                     driver=cfg.get("driver")
-                    or get_hybrid_local_driver()
                     or first_non_local_driver_from_chain()
                     or get_settings().ai_driver,
-                    model=cfg.get("model", "qwen3:1.7b"),
+                    model=cfg.get("model"),
                     max_tokens=100,
                     temperature=0.0,
                 ),
