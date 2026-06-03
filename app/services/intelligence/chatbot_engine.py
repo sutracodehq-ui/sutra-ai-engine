@@ -149,13 +149,40 @@ class ChatbotEngine:
 
     # ─── Session Management ─────────────────────────────────
 
-    def get_or_create_session(
+    async def get_or_create_session(
         self, session_id: str, brand_id: str, channel: str = "text",
+        db=None,
     ) -> ChatSession:
-        """Get existing session or create new one."""
+        """
+        Get existing session or create new one.
+        On first connect, hydrates history from Postgres so returning
+        visitors get full conversation context.
+        """
         if session_id not in self._sessions:
-            self._sessions[session_id] = ChatSession(session_id, brand_id, channel)
+            session = ChatSession(session_id, brand_id, channel)
+            self._sessions[session_id] = session
             logger.info(f"Chatbot: new session {session_id} for brand {brand_id}")
+
+            # Hydrate from Postgres (returning visitor)
+            if db:
+                try:
+                    from app.services.intelligence.chat_persistence import get_chat_persistence
+                    persistence = get_chat_persistence()
+                    history = await persistence.get_session_history(db, session_id, limit=50)
+                    if history:
+                        for msg in history:
+                            session.history.append({
+                                "role": msg["role"],
+                                "content": msg["content"],
+                                "timestamp": msg["created_at"],
+                            })
+                        logger.info(
+                            f"Chatbot: hydrated {len(history)} messages from Postgres "
+                            f"for session {session_id}"
+                        )
+                except Exception as e:
+                    logger.warning(f"Chatbot: failed to hydrate session {session_id}: {e}")
+
         return self._sessions[session_id]
 
     # ─── Brand Config Resolution ────────────────────────────
@@ -251,7 +278,7 @@ class ChatbotEngine:
         - session_id: for tracking
         """
         config = _load_chatbot_config()
-        session = self.get_or_create_session(session_id, brand_id, channel)
+        session = await self.get_or_create_session(session_id, brand_id, channel, db=db)
         session.visitor_id = visitor_id
         if language:
             session.language = language
@@ -414,8 +441,30 @@ class ChatbotEngine:
             "actions": actions,
         }
 
-        # 4. Log for analytics
-        self._log_chat(session, message, response_text, confidence, escalated)
+        # 4. Persist to Postgres (replaces file-based _log_chat)
+        if db:
+            try:
+                from app.services.intelligence.chat_persistence import get_chat_persistence
+                persistence = get_chat_persistence()
+                tenant_id = self._resolve_tenant_id(brand_id, db)
+
+                # Save user message
+                await persistence.save_message(
+                    db, session_id, tenant_id, "user", message,
+                    channel=channel, language=session.language,
+                )
+                # Save AI response
+                await persistence.save_message(
+                    db, session_id, tenant_id, "assistant", response_text,
+                    actions=actions, confidence=round(confidence, 2),
+                    channel=channel, language=session.language,
+                )
+                await db.commit()
+            except Exception as e:
+                logger.warning(f"Chatbot: persistence failed: {e}")
+        else:
+            # Fallback: file-based logging if no DB
+            self._log_chat(session, message, response_text, confidence, escalated)
 
         return result
 
@@ -496,6 +545,33 @@ class ChatbotEngine:
             "question": question[:100],
             "answer": answer[:200],
         }
+
+    # ─── Tenant ID Resolution (for persistence) ─────────────
+
+    _tenant_id_cache: dict[str, int] = {}
+
+    def _resolve_tenant_id(self, brand_id: str, db) -> int:
+        """
+        Resolve brand_id (slug or numeric string) to tenant PK.
+        Cached per-process for efficiency.
+        """
+        if brand_id in self._tenant_id_cache:
+            return self._tenant_id_cache[brand_id]
+
+        # Default tenant ID = 1 if brand_id can't be resolved
+        # (the actual resolution happened in _get_brand_config already)
+        tenant_id = int(brand_id) if brand_id.isdigit() else 1
+
+        # Try to get actual ID from sessions cache
+        session = self._sessions.get(next(
+            (sid for sid, s in self._sessions.items() if s.brand_id == brand_id),
+            ""
+        ))
+        if session:
+            # Store for future lookups
+            self._tenant_id_cache[brand_id] = tenant_id
+
+        return tenant_id
 
     # ─── Logging ────────────────────────────────────────────
 

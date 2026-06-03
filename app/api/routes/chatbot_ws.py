@@ -119,6 +119,12 @@ async def chatbot_websocket(
             elif msg_type == "ping":
                 await manager.send(session_id, {"type": "pong"})
 
+            elif msg_type == "load_history":
+                await _handle_load_history(session_id, brand_id)
+
+            elif msg_type == "clear_chat":
+                await _handle_clear_chat(session_id, brand_id)
+
             else:
                 await manager.send(session_id, {
                     "type": "error",
@@ -277,3 +283,67 @@ async def push_escalation_resolved(session_id: str, answer: str):
         "answer": answer,
         "message": "The team has provided an answer to your question!",
     })
+
+
+# ─── Chat History & Clear Handlers ─────────────────────────
+
+async def _handle_load_history(session_id: str, brand_id: str):
+    """Load previous chat messages from Postgres and send to client."""
+    from app.services.intelligence.chat_persistence import get_chat_persistence
+    persistence = get_chat_persistence()
+
+    async with async_session_factory() as db:
+        try:
+            messages = await persistence.get_session_history(db, session_id, limit=50)
+            await manager.send(session_id, {
+                "type": "history",
+                "messages": messages,
+                "session_id": session_id,
+            })
+        except Exception as e:
+            logger.error(f"WS: load_history failed for {session_id}: {e}")
+            await manager.send(session_id, {
+                "type": "history",
+                "messages": [],
+                "session_id": session_id,
+            })
+
+
+async def _handle_clear_chat(session_id: str, brand_id: str):
+    """Delete chat session and messages from Postgres."""
+    from app.services.intelligence.chat_persistence import get_chat_persistence
+    persistence = get_chat_persistence()
+
+    async with async_session_factory() as db:
+        try:
+            # Resolve tenant_id
+            from sqlalchemy import select
+            from app.models.tenant import Tenant
+
+            if brand_id.isdigit():
+                result = await db.execute(select(Tenant).where(Tenant.id == int(brand_id)))
+            else:
+                result = await db.execute(select(Tenant).where(Tenant.slug == brand_id))
+            tenant = result.scalar_one_or_none()
+            tenant_id = tenant.id if tenant else 1
+
+            deleted = await persistence.delete_session(db, session_id, tenant_id)
+            await db.commit()
+
+            # Also clear in-memory session
+            from app.services.intelligence.chatbot_engine import get_chatbot_engine
+            engine = get_chatbot_engine()
+            engine._sessions.pop(session_id, None)
+
+            await manager.send(session_id, {
+                "type": "chat_cleared",
+                "session_id": session_id,
+                "success": deleted,
+            })
+            logger.info(f"WS: cleared chat for session {session_id}")
+        except Exception as e:
+            logger.error(f"WS: clear_chat failed for {session_id}: {e}")
+            await manager.send(session_id, {
+                "type": "error",
+                "message": "Failed to clear chat",
+            })
