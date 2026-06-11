@@ -623,18 +623,15 @@ class BaseAgent:
         """Execute within a conversation, sending full history."""
         messages, opt_id = await self.build_messages(prompt, history, db, context)
 
-        # Extract system prompt
-        system_msg = next((m for m in messages if m["role"] == "system"), None)
-        system_prompt = system_msg["content"] if system_msg else None
-        other_messages = [m for m in messages if m["role"] != "system"]
-
         # Use DriverRegistry with circuit breaker + fallback (not raw LlmService)
+        # NOTE: pass the full messages array (including system prompt) directly.
+        # registry.chat() expects messages with role=system inside the list,
+        # NOT as a separate system_prompt kwarg.
         from app.services.intelligence.driver import get_driver_registry
         registry = get_driver_registry()
 
         response = await registry.chat(
-            messages=other_messages,
-            system_prompt=system_prompt,
+            messages=messages,
             **options
         )
 
